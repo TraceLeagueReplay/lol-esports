@@ -935,13 +935,13 @@ function syncTL(tl){
       var arr = p.cols[r[0]] = p.cols[r[0]] || [], have = {};
       arr.forEach(function(e){ splitNames(e.n).forEach(function(n){ have[nkey(n)] = 1; }); });
       Object.keys(rs.sets[r[0]]).forEach(function(k){ if (!have[k]) { arr.push({n:rs.sets[r[0]][k], t:"q"}); added++; } });
-      /* a player removed from the rosters disappears too, unless someone already gave them a tier (then shown faded) */
-      p.cols[r[0]] = arr.filter(function(e){ var drop = unranked(e) && !e.team && goneFromRosters(tl, r[0], e, rs); if (drop) added++; return !drop; });
+      /* a player removed from the rosters disappears too (except players placed by hand on another team / logo) */
+      p.cols[r[0]] = arr.filter(function(e){ var drop = !e.team && goneFromRosters(tl, r[0], e, rs); if (drop) added++; return !drop; });
     });
     var ta = p.cols.teams = p.cols.teams || [], th = {};
     ta.forEach(function(e){ th[nkey(e.team || e.n)] = 1; });
     rs.league.teams.forEach(function(t){ if (!th[nkey(t.id)]) { ta.push({n:t.id, team:t.id, t:"q"}); added++; } });
-    p.cols.teams = ta.filter(function(e){ var drop = unranked(e) && goneFromRosters(tl, "teams", e, rs); if (drop) added++; return !drop; });
+    p.cols.teams = ta.filter(function(e){ var drop = goneFromRosters(tl, "teams", e, rs); if (drop) added++; return !drop; });
   });
   return added;
 }
