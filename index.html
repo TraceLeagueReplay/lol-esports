@@ -1141,7 +1141,8 @@ function editTCell(pid, col, i){
 }
 function rosterCols(tl){
   var cols = {}, l = leagueByName(tl.league);
-  ROLES.forEach(function(r){ cols[r[0]] = rosterNames({league:tl.league, people:[]}, r[0]).map(function(n){ return {n:n, t:"q"}; }); });
+  /* a new participant starts with the players of each role in alphabetical order */
+  ROLES.forEach(function(r){ cols[r[0]] = rosterNames({league:tl.league, people:[]}, r[0]).slice().sort(function(a, b){ return a.localeCompare(b, "fr", {sensitivity:"base"}); }).map(function(n){ return {n:n, t:"q"}; }); });
   cols.teams = l ? l.teams.map(function(t){ return {n:t.id, team:t.id, t:"q"}; }) : [];
   return cols;
 }
