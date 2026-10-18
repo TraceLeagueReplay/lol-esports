@@ -429,7 +429,7 @@ function tileHTML(src, alt){ return '<img src="'+esc(src)+'" alt="'+esc(alt||"")
 /* A team with a dark-theme logo shows the light file in light theme and the dark file in dark theme. */
 function duoHTML(L, D){ return '<span class="duo"><img class="lm" src="'+esc(L)+'" alt=""><img class="dm" src="'+esc(D)+'" alt=""></span>'; }
 /* Per-logo size tweak for very wide logos that look small in a square box (asked for Fnatic). */
-var LOGO_SCALE = {"LEC/FNC": 1.15};
+var LOGO_SCALE = {"LEC/FNC": 1.15, "LCK/HLE": 1.2};
 function logoHTML(t, cls){
   var L = logoSrc(t), D = darkSrc(t), sc = t && LOGO_SCALE[t.logo];
   var h;
