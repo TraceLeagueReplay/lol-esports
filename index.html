@@ -935,13 +935,17 @@ function syncTL(tl){
       var arr = p.cols[r[0]] = p.cols[r[0]] || [], have = {};
       arr.forEach(function(e){ splitNames(e.n).forEach(function(n){ have[nkey(n)] = 1; }); });
       Object.keys(rs.sets[r[0]]).forEach(function(k){ if (!have[k]) { arr.push({n:rs.sets[r[0]][k], t:"q"}); added++; } });
+      /* a player removed from the rosters disappears too, unless someone already gave them a tier (then shown faded) */
+      p.cols[r[0]] = arr.filter(function(e){ var drop = unranked(e) && !e.team && goneFromRosters(tl, r[0], e, rs); if (drop) added++; return !drop; });
     });
     var ta = p.cols.teams = p.cols.teams || [], th = {};
     ta.forEach(function(e){ th[nkey(e.team || e.n)] = 1; });
     rs.league.teams.forEach(function(t){ if (!th[nkey(t.id)]) { ta.push({n:t.id, team:t.id, t:"q"}); added++; } });
+    p.cols.teams = ta.filter(function(e){ var drop = unranked(e) && goneFromRosters(tl, "teams", e, rs); if (drop) added++; return !drop; });
   });
   return added;
 }
+function unranked(e){ return (!e.t || e.t === "q") && !e.note && !e.logo; }
 function syncAllTL(){ var n = 0; state.tierlists.forEach(function(tl){ n += syncTL(tl); }); return n; }
 function goneFromRosters(tl, col, e, rs){
   if (!tl.sync || !rs.league) return false;
@@ -1311,7 +1315,7 @@ function tlApplyRemote(){
   });
   state.tierlists = out;
   var parts = tlParts(); tlApplied = {}; for (var k in parts) tlApplied[k] = tlStr(parts[k]);
-  if (tlFirst) {
+  if (tlFirst && fbBase != null) {
     tlFirst = false;
     /* rosters may have changed while nobody had the tier lists open */
     if (syncAllTL()) tlFlush();
@@ -1481,6 +1485,9 @@ function fbApplyRemote(){
     setCore(coreStr(state) === fbBase ? JSON.parse(d.json) : merge3(fbBase, state, d.json));
   }
   fbBase = d.json;
+  /* tier lists that follow the rosters catch up with them (players added / removed elsewhere) */
+  if (tlDb && tlDbReady && !tlFirst && syncAllTL()) tlFlush();
+  else if (tlFirst && tlDbReady && Object.keys(tlRemote.tl).length) { tlFirst = false; if (syncAllTL()) tlFlush(); }
   if (coreStr(state) !== fbBase) { dirty = dirty || 1; stashPending(); scheduleAutosave(); }
   else { dirty = 0; ss("lolfb.pending", null); }
   render();
