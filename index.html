@@ -70,6 +70,11 @@ button{cursor:pointer}
 .search input{border:0;background:none;padding:8px 0;width:100%;outline:none}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);padding-block:4px 10px}
 .legend span{display:inline-flex;align-items:center;gap:6px}
+.legend .legend-edit{font-size:12px;padding:0 4px;margin-left:2px;color:var(--faint)}
+.legend .legend-edit:hover{color:var(--fg)}
+.lbgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;align-items:end}
+.lbgrid .field{margin:0 0 8px}
+@media (max-width:520px){.lbgrid{grid-template-columns:1fr}}
 .dot{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
 
 /* League section */
@@ -355,6 +360,7 @@ function flatten(s){
     Object.keys(p.roles || {}).forEach(function(r){ m["PR|"+p.id+"|"+r] = J(p.roles[r]); });
   });
   m.intl = J(s.intl || null);
+  m.labels = J(s.labels || null);
   var tls = s.tierlists || [];
   m.tierlists = J(tls.map(function(x){ return x.id; }));
   tls.forEach(function(x){
@@ -378,6 +384,7 @@ function unflatten(m){
     s.prodle.push({id:id, league:P("P|"+id), roles:roles});
   });
   var intl = P("intl", null); if (intl) s.intl = intl;
+  var labels = P("labels", null); if (labels) s.labels = labels;
   s.tierlists = [];
   P("tierlists", []).forEach(function(id){
     if (!("TL|"+id in m)) return;
@@ -535,9 +542,34 @@ function render(){
   var q = $("#q"); if (q && document.activeElement !== q) q.value = ui.q;
   renderSave();
 }
+/* legend texts can be renamed (stored in state.labels); the defaults are the original wording */
+var LABEL_DEF = {off:"Officiel", leak:"Leakers / 99 %", maybe:"Peut-être", rumor:"Rumeur / plusieurs joueurs",
+  newTag:"Nouvelle", newDesc:"équipe potentielle", repTag:"Remplacé", repDesc:"équipe / logo remplacé"};
+function lbl(k){ var v = state.labels && state.labels[k]; return v != null && String(v).trim() ? v : LABEL_DEF[k]; }
+function sName(k){ return LABEL_DEF[k] != null ? lbl(k) : (SNAME[k] || ""); }
+function statusList(){ return STATUSES.map(function(x){ return [x[0], x[0] ? lbl(x[0]) : x[1]]; }); }
+function markList(){ return [["", "Aucune"], ["new", lbl("newTag") + " · " + lbl("newDesc")], ["replaced", lbl("repTag") + " · " + lbl("repDesc")]]; }
 function legendHTML(){
-  return '<div class="legend" aria-label="Légende">' + STATUSES.slice(0,4).map(function(s){ return '<span><i class="dot" style="background:var(--s-'+s[0]+')"></i>'+esc(s[1])+'</span>'; }).join("") +
-    '<span><b class="badge new">Nouvelle</b>équipe potentielle</span><span><b class="badge replaced">Remplacé</b>équipe / logo remplacé</span></div>';
+  return '<div class="legend" aria-label="Légende">' + STATUSES.slice(0,4).map(function(s){ return '<span><i class="dot" style="background:var(--s-'+s[0]+')"></i>'+esc(lbl(s[0]))+'</span>'; }).join("") +
+    '<span><b class="badge new">'+esc(lbl("newTag"))+'</b>'+esc(lbl("newDesc"))+'</span><span><b class="badge replaced">'+esc(lbl("repTag"))+'</b>'+esc(lbl("repDesc"))+'</span>' +
+    (readOnly ? "" : '<button type="button" class="ghost legend-edit" data-act="labels" title="Renommer les éléments de la légende">Modifier</button>') + '</div>';
+}
+function editLabels(){
+  if (guard()) return;
+  function f(k, label){ return '<div class="field"><label for="f-lb-'+k+'">'+esc(label)+'</label><input id="f-lb-'+k+'" value="'+esc(lbl(k))+'" placeholder="'+esc(LABEL_DEF[k])+'" maxlength="40"></div>'; }
+  openDlg("Légende",
+    '<p class="note-ro" style="margin:0 0 12px">Laisse un champ vide pour revenir au texte d\'origine.</p>' +
+    '<div class="lbgrid">' + f("off", "Statut vert") + f("leak", "Statut bleu") + f("maybe", "Statut jaune") + f("rumor", "Statut rouge") +
+    f("newTag", "Badge jaune") + f("newDesc", "Texte du badge jaune") + f("repTag", "Badge rouge") + f("repDesc", "Texte du badge rouge") + '</div>',
+    footer("Valider"),
+    function(form){
+      form.onsubmit = function(e){
+        e.preventDefault(); var out = {}, any = false;
+        Object.keys(LABEL_DEF).forEach(function(k){ var v = $("#f-lb-"+k).value.trim(); if (v && v !== LABEL_DEF[k]) { out[k] = v; any = true; } });
+        if (any) state.labels = out; else delete state.labels;
+        dlg.close(); changed();
+      };
+    });
 }
 function renderRosters(){
   var q = ui.q.trim().toLowerCase();
@@ -554,11 +586,11 @@ function renderRosters(){
       var cells = ROLES.map(function(r){
         var p = t.roster[r[0]] || {n:"",s:""};
         var hit = q && p.n && p.n.toLowerCase().indexOf(q) > -1; if (hit) hits++;
-        return '<button class="pl s-'+esc(p.n ? p.s : "")+(p.n ? "" : " empty")+(hit?" hit":"")+'" data-act="player" data-l="'+esc(l.id)+'" data-t="'+esc(t.id)+'" data-r="'+r[0]+'" title="'+esc(r[1]+(p.n ? " · "+(SNAME[p.s]||"") : ""))+'"><span class="rl">'+r[2]+'</span>'+(p.n ? playerCellHTML(p, t.name) : '<span class="n">à définir</span>')+'</button>';
+        return '<button class="pl s-'+esc(p.n ? p.s : "")+(p.n ? "" : " empty")+(hit?" hit":"")+'" data-act="player" data-l="'+esc(l.id)+'" data-t="'+esc(t.id)+'" data-r="'+r[0]+'" title="'+esc(r[1]+(p.n ? " · "+sName(p.s) : ""))+'"><span class="rl">'+r[2]+'</span>'+(p.n ? playerCellHTML(p, t.name) : '<span class="n">à définir</span>')+'</button>';
       }).join("");
       if (thit) hits++;
       var any = !q || thit || cells.indexOf(" hit\"") > -1;
-      var badge = (t.mark === "new" ? '<b class="badge new">Nouvelle</b>' : t.mark === "replaced" ? '<b class="badge replaced">Remplacé</b>' : "") + (t.intl ? '<b class="badge intl">Inter</b>' : "");
+      var badge = (t.mark === "new" ? '<b class="badge new">'+esc(lbl("newTag"))+'</b>' : t.mark === "replaced" ? '<b class="badge replaced">'+esc(lbl("repTag"))+'</b>' : "") + (t.intl ? '<b class="badge intl">Inter</b>' : "");
       rows += '<div class="row'+(any?"":" dim")+(t.intl ? " qual" : "")+'"><button class="teamcell" data-act="team" data-l="'+esc(l.id)+'" data-t="'+esc(t.id)+'" title="Modifier l\'équipe"><span class="logo">'+logoHTML(t)+'</span><span class="tinfo"><span class="tname">'+esc(t.name)+'</span><span class="tmeta">'+esc(t.id)+badge+'</span></span></button>'+cells+'</div>';
     });
     if (q && !hits) return;
@@ -689,7 +721,7 @@ function editPlayer(lid, tid, role){
   var rn = ROLES.filter(function(r){ return r[0]===role; })[0][1];
   openDlg(t.name + " · " + rn,
     '<div class="field"><label for="f-n">Joueur</label><input id="f-n" value="'+esc(p.n)+'" placeholder="Pseudo (ou Joueur1/Joueur2)"></div>' +
-    '<div class="field"><span class="lbl">Statut</span>'+segHTML("s", STATUSES, p.n ? p.s : "off", true)+'</div>' +
+    '<div class="field"><span class="lbl">Statut</span>'+segHTML("s", statusList(), p.n ? p.s : "off", true)+'</div>' +
     '<div id="f-nats"></div>',
     footer("Valider", '<button type="button" class="btn danger" id="f-clear">Vider le poste</button>'),
     function(f){
@@ -762,7 +794,7 @@ function editTeam(lid, tid){
   openDlg(isNew ? "Nouvelle équipe · " + l.name : t.name,
     '<div class="two"><div class="field"><label for="f-name">Nom</label><input id="f-name" value="'+esc(t.name)+'" placeholder="Team Liquid" required></div><div class="field"><label for="f-id">Abréviation</label><input id="f-id" value="'+esc(t.id)+'" placeholder="TL" maxlength="6"></div></div>' +
     '<div class="field"><span class="lbl">Logo</span>'+logoPicker(t.logo)+'</div>' +
-    '<div class="field"><span class="lbl">Marqueur</span>'+segHTML("m", MARKS, t.mark||"")+'</div>' +
+    '<div class="field"><span class="lbl">Marqueur</span>'+segHTML("m", markList(), t.mark||"")+'</div>' +
     '<div class="field"><span class="lbl">International</span>'+segHTML("q", [["1","Qualifiée à l'international"],["","Non qualifiée"]], t.intl ? "1" : "")+'</div>' +
     (isNew ? "" : '<div class="two"><div class="field"><label for="f-lg">Ligue</label><select id="f-lg">'+state.leagues.map(function(x){ return '<option value="'+esc(x.id)+'"'+(x.id===lid?" selected":"")+'>'+esc(x.name)+'</option>'; }).join("")+'</select></div><div class="field"><span class="lbl">Position</span><div class="seg"><button type="button" id="f-up1"'+(idx<=0?" disabled":"")+'>↑ Monter</button><button type="button" id="f-dn1"'+(idx>=l.teams.length-1?" disabled":"")+'>↓ Descendre</button></div></div></div>'),
     footer(isNew ? "Ajouter" : "Valider", isNew ? "" : '<button type="button" class="btn danger" id="f-del">Supprimer</button>'),
@@ -827,7 +859,7 @@ function editProdlePlayer(pid, role, i){
     '<div class="two"><div class="field"><label for="f-n">Joueur</label><input id="f-n" value="'+esc(p.n)+'" required></div><div class="field"><label for="f-t">Équipe</label><select id="f-t">'+teamOptions(pd.league, p.team)+'</select></div></div>' +
     '<div class="two"><div class="field"><label for="f-y">Premier split</label><input id="f-y" type="number" inputmode="numeric" min="2010" max="2035" value="'+esc(p.y)+'"></div><div class="field"><label for="f-b">Naissance</label><input id="f-b" type="number" inputmode="numeric" min="1985" max="2015" value="'+esc(p.b)+'"></div></div>' +
     '<div class="field"><label for="f-nat">Nationalité</label><select id="f-nat">'+NATS.map(function(n){ return '<option value="'+n[0]+'"'+(n[0]===p.nat?" selected":"")+'>'+esc(n[1])+'</option>'; }).join("")+'</select></div>' +
-    '<div class="field"><span class="lbl">Statut</span>'+segHTML("s", STATUSES, p.s||"", true)+'</div>' +
+    '<div class="field"><span class="lbl">Statut</span>'+segHTML("s", statusList(), p.s||"", true)+'</div>' +
     '<div class="field"><label for="f-note">Note</label><input id="f-note" value="'+esc(p.note||"")+'" placeholder="ex. Prodle indique 2016"></div>',
     footer(isNew ? "Ajouter" : "Valider", isNew ? "" : '<button type="button" class="btn danger" id="f-del">Supprimer</button>'),
     function(f){
@@ -1396,6 +1428,7 @@ document.addEventListener("click", function(e){
   else if (a === "team") editTeam(d.l, d.t);
   else if (a === "add-team") editTeam(d.l, null);
   else if (a === "league") editLeague(d.l);
+  else if (a === "labels") editLabels();
   else if (a === "add-league") editLeague(null);
   else if (a === "pplayer") editProdlePlayer(d.p, d.r, +d.i);
   else if (a === "add-pplayer") editProdlePlayer(d.p, d.r, null);
