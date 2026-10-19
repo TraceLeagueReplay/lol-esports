@@ -70,7 +70,7 @@ button{cursor:pointer}
 .search input{border:0;background:none;padding:8px 0;width:100%;outline:none}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);padding-block:4px 10px}
 .legend span{display:inline-flex;align-items:center;gap:6px}
-.legend .legend-edit{font-size:12px;padding:0 4px;margin-left:2px;color:var(--faint)}
+.legend .legend-edit{font-size:12px;padding:2px 9px;margin-left:4px;color:var(--muted);border:1px solid var(--line-2);border-radius:999px}
 .legend .legend-edit:hover{color:var(--fg)}
 .lbgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;align-items:end}
 .lbgrid .field{margin:0 0 8px}
@@ -552,7 +552,7 @@ function markList(){ return [["", "Aucune"], ["new", lbl("newTag") + " · " + lb
 function legendHTML(){
   return '<div class="legend" aria-label="Légende">' + STATUSES.slice(0,4).map(function(s){ return '<span><i class="dot" style="background:var(--s-'+s[0]+')"></i>'+esc(lbl(s[0]))+'</span>'; }).join("") +
     '<span><b class="badge new">'+esc(lbl("newTag"))+'</b>'+esc(lbl("newDesc"))+'</span><span><b class="badge replaced">'+esc(lbl("repTag"))+'</b>'+esc(lbl("repDesc"))+'</span>' +
-    (readOnly ? "" : '<button type="button" class="ghost legend-edit" data-act="labels" title="Renommer les éléments de la légende">Modifier</button>') + '</div>';
+    (readOnly ? "" : '<button type="button" class="ghost legend-edit" data-act="labels" title="Renommer les éléments de la légende">✎ Modifier la légende</button>') + '</div>';
 }
 function editLabels(){
   if (guard()) return;
