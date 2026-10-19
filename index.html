@@ -182,7 +182,7 @@ main{padding-bottom:120px}
 .tl-bar{padding-block:8px 0;justify-content:space-between}
 .chip.add{border-style:dashed;color:var(--muted)}
 .tlegend{display:flex;flex-wrap:wrap;gap:5px}
-.tchip,.seg.tseg button{background:var(--tb);color:#05080d;border:0;font-family:var(--f-tier);font-weight:400;font-size:15px;letter-spacing:.03em;padding:3px 0;border-radius:6px;min-width:40px;text-align:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.tchip,.seg.tseg button{background:var(--tb);color:var(--tbfg,#05080d);border:0;font-family:var(--f-tier);font-weight:400;font-size:15px;letter-spacing:.03em;padding:3px 0;border-radius:6px;min-width:40px;text-align:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .seg.tseg button{padding:7px 0;min-width:46px;font-size:16px;justify-content:center}
 .seg.tseg button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px #141a26,0 0 0 2px var(--panel),0 0 0 4px var(--fg)}
 .tlp{margin-top:22px}
@@ -194,7 +194,7 @@ main{padding-bottom:120px}
 .tc{--tint:color-mix(in srgb,var(--tb) 24%,var(--panel));display:flex;align-items:center;gap:8px;min-width:0;padding:0 10px 0 0;border:1px solid color-mix(in srgb,var(--tb) 45%,var(--line));border-radius:7px;background:var(--tint);color:var(--fg);text-align:left;overflow:hidden}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tc{--tint:color-mix(in srgb,var(--tb) 16%,var(--panel))}}
 :root[data-theme="dark"] .tc{--tint:color-mix(in srgb,var(--tb) 16%,var(--panel))}
-.tc .tb{align-self:stretch;flex:none;width:38px;display:grid;place-items:center;background:var(--tb);color:#05080d;font-family:var(--f-tier);font-weight:400;font-size:17px;line-height:1;letter-spacing:.02em}
+.tc .tb{align-self:stretch;flex:none;width:38px;display:grid;place-items:center;background:var(--tb);color:var(--tbfg,#05080d);font-family:var(--f-tier);font-weight:400;font-size:17px;line-height:1;letter-spacing:.02em}
 /* S+ stands apart from S: deeper orange, stronger tint and a solid border. */
 .tc.t-sp{--tint:color-mix(in srgb,var(--tb) 34%,var(--panel));border-color:var(--tb)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tc.t-sp{--tint:color-mix(in srgb,var(--tb) 30%,var(--panel))}}
@@ -298,6 +298,15 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media (max-width:720px){.tlgrid{grid-template-columns:26px repeat(5,minmax(146px,1fr)) 12px minmax(146px,1fr) 12px minmax(160px,1fr);min-width:0}.tc .tb{width:32px;font-size:16px}}
 
+/* tier editor */
+.trow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.trow .tchip{flex:none;min-width:44px}
+.trow .tr-n{width:90px;flex:none}
+.trow .tr-c{width:44px;height:34px;padding:2px;border:1px solid var(--line-2);border-radius:6px;background:none;flex:none;cursor:pointer}
+.trow .ghost{padding:5px 8px}
+.trow .ghost:disabled{opacity:.3}
+.tlegend .legend-edit{margin-left:6px}
+
 .online{margin-left:auto;align-self:center;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-2);background:var(--panel-2);color:var(--fg);font:600 12.5px var(--f-body);padding:4px 5px 4px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .online:hover{border-color:var(--fg)}
 .online .dot{width:8px;height:8px;border-radius:50%;background:var(--s-off);box-shadow:0 0 0 3px color-mix(in srgb,var(--s-off) 25%,transparent)}
@@ -361,6 +370,7 @@ function flatten(s){
   });
   m.intl = J(s.intl || null);
   m.labels = J(s.labels || null);
+  m.tiers = J(s.tiers || null);
   var tls = s.tierlists || [];
   m.tierlists = J(tls.map(function(x){ return x.id; }));
   tls.forEach(function(x){
@@ -385,6 +395,7 @@ function unflatten(m){
   });
   var intl = P("intl", null); if (intl) s.intl = intl;
   var labels = P("labels", null); if (labels) s.labels = labels;
+  var tiers = P("tiers", null); if (tiers) s.tiers = tiers;
   s.tierlists = [];
   P("tierlists", []).forEach(function(id){
     if (!("TL|"+id in m)) return;
@@ -530,6 +541,7 @@ function curPD(){
   return p;
 }
 function render(){
+  applyTiers();
   /* Prodle tabs now live under one "Prodle" tab with sub-tabs; an old saved tab id opens that Prodle. */
   if (state.prodle.some(function(p){ return p.id === ui.tab; })) { ui.pd = ui.tab; ui.tab = "prodle"; }
   if (ui.tab !== "rosters" && ui.tab !== "tiers" && ui.tab !== "prodle") ui.tab = "rosters";
@@ -900,8 +912,23 @@ function editProdle(pid){
 }
 
 /* ---------- tier lists ---------- */
-var TIERS = [["sp","S+","#ff8a00"],["s","S","#ffff00"],["a","A","#00ff00"],["b","B","#a4c2f4"],["c","C","#4a86e8"],["f","F","#d5a6bd"],["q","?","#b7b7b7"]];
-var TIER = {}; TIERS.forEach(function(t){ TIER[t[0]] = t; });
+/* tiers can be added / renamed / recoloured (state.tiers, shared by every tier list); "?" always stays last */
+var TIERS_DEF = [["sp","S+","#ff8a00"],["s","S","#ffff00"],["a","A","#00ff00"],["b","B","#a4c2f4"],["c","C","#4a86e8"],["f","F","#d5a6bd"]];
+var TIER_Q = ["q","?","#b7b7b7"];
+var TIERS = [], TIER = {}, TSCORE = {};
+function applyTiers(){
+  var list = (state.tiers && state.tiers.length ? state.tiers : TIERS_DEF).filter(function(t){ return t && t[0] && t[0] !== "q"; });
+  TIERS = list.map(function(t){ return [t[0], t[1] || "?", t[2] || "#b7b7b7"]; }).concat([TIER_Q]);
+  TIER = {}; TSCORE = {}; TIERS.forEach(function(t, i){ TIER[t[0]] = t; TSCORE[t[0]] = i; });
+}
+function realTiers(){ return TIERS.slice(0, -1); }
+/* readable letter colour on any tier colour */
+function tierFg(hex){
+  var m = /^#?([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return "#05080d";
+  var n = parseInt(m[1], 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? "#05080d" : "#ffffff";
+}
+applyTiers();
 var TCOLS = ROLES.map(function(r){ return [r[0], r[1]]; }).concat([["teams","Équipes"]]);
 var drag = null, hoverK = "";
 function curTL(){
@@ -997,7 +1024,7 @@ var AVGCOL = 10;
 /* "D'après les joueurs": for one participant, teams ranked by the average rank of their players in the five role
    columns; each team's tier is recomputed from its players' tiers (S+ = 0 … F = 5, "?" ignored), so the real gap shows.
    Hidden behind a button until the viewer asks, so it does not bias their own team ranking. */
-var avgOpen = {}, TSCORE = {sp:0, s:1, a:2, b:3, c:4, f:5, q:6};
+var avgOpen = {};
 function teamKeyOfEntry(e){ return nkey(e.team || (e.logo ? logoLabel(e.logo) : e.n)); }
 function teamsByPlayers(p, tl){
   var acc = {};
@@ -1011,8 +1038,8 @@ function teamsByPlayers(p, tl){
   var entries = {}; (p.cols.teams || []).forEach(function(e){ entries[teamKeyOfEntry(e)] = e; });
   var list = Object.keys(acc).map(function(k){ var a = acc[k]; a.avg = a.ranks / a.n; a.entry = entries[k] || null; return a; })
     .sort(function(x, y){ return x.avg - y.avg; });
-  /* six tiers S+ … F, cut where the gaps between averages are largest (optimal 1-D grouping: smallest spread inside each tier) */
-  var used = ["sp","s","a","b","c","f"];
+  /* the tiers in use, cut where the gaps between averages are largest (optimal 1-D grouping: smallest spread inside each tier) */
+  var used = realTiers().map(function(t){ return t[0]; });
   var groups = breaks(list.map(function(a){ return a.avg; }), Math.min(used.length, list.length));
   list.forEach(function(a, i){ a.t = used[groups[i]] || "q"; });
   return list;
@@ -1041,7 +1068,7 @@ function avgColumnHTML(p, tl, n){
     var t = TIER[a.t] || TIER.q, e = a.entry, label = e ? (e.n || a.team.id) : a.team.id;
     var logo = e ? tierLogo(e, tl) : (logoSrc(a.team) || darkSrc(a.team) ? logoHTML(a.team) : "");
     var tip = label + " · rang moyen de ses " + a.n + " joueur" + (a.n > 1 ? "s" : "") + " : " + fmtAvg(a.avg) + " · tier " + t[1] + " (coupé là où les écarts entre moyennes sont les plus grands)";
-    h += '<div class="tc team avgc t-'+a.t+'" style="grid-column:'+AVGCOL+';grid-row:'+(i+2)+';--tb:'+t[2]+'" title="'+esc(tip)+'"><b class="tb">'+esc(t[1])+'</b><span class="logo">'+logo+'</span><span class="n">'+esc(label)+'</span><span class="avgv">'+fmtAvg(a.avg)+'</span></div>';
+    h += '<div class="tc team avgc t-'+a.t+'" style="grid-column:'+AVGCOL+';grid-row:'+(i+2)+';--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'" title="'+esc(tip)+'"><b class="tb">'+esc(t[1])+'</b><span class="logo">'+logo+'</span><span class="n">'+esc(label)+'</span><span class="avgv">'+fmtAvg(a.avg)+'</span></div>';
   });
   return h;
 }
@@ -1072,7 +1099,7 @@ function globalColumn(tl, col){
     }
   });
   list.forEach(function(a){ a.t = "q"; });
-  blocks.forEach(function(b){ var t = TIERS[Math.min(5, Math.round(b.sum / b.w))][0]; b.idx.forEach(function(i){ list[i].t = t; }); });
+  blocks.forEach(function(b){ var t = TIERS[Math.min(TIERS.length - 2, Math.round(b.sum / b.w))][0]; b.idx.forEach(function(i){ list[i].t = t; }); });
   return list;
 }
 function globalHTML(tl){
@@ -1089,11 +1116,60 @@ function globalHTML(tl){
       var label = e.n || (tm ? tm.id : "");
       var logo = isT ? tierLogo(e, tl) : (pt && (logoSrc(pt) || darkSrc(pt)) ? logoHTML(pt) : "");
       var tip = label + " · place moyenne " + fmtAvg(a.avg) + " sur " + a.n + " classement" + (a.n > 1 ? "s" : "") + (a.tn ? " · tier moyen " + t[1] : "");
-      g += '<div class="tc gl t-'+a.t+(isT?" team":"")+'" data-k="'+esc(c[0]+":"+nkey(isT ? (e.team||e.n) : e.n))+'" style="grid-column:'+gcol(c, ci)+';grid-row:'+(i+2)+';--tb:'+t[2]+'" title="'+esc(tip)+'"><b class="tb">'+esc(t[1])+'</b><span class="logo">'+logo+'</span><span class="n">'+esc(label)+'</span><span class="avgv">'+fmtAvg(a.avg)+'</span></div>';
+      g += '<div class="tc gl t-'+a.t+(isT?" team":"")+'" data-k="'+esc(c[0]+":"+nkey(isT ? (e.team||e.n) : e.n))+'" style="grid-column:'+gcol(c, ci)+';grid-row:'+(i+2)+';--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'" title="'+esc(tip)+'"><b class="tb">'+esc(t[1])+'</b><span class="logo">'+logo+'</span><span class="n">'+esc(label)+'</span><span class="avgv">'+fmtAvg(a.avg)+'</span></div>';
     });
   });
   return '<section class="league tlp tlglobal"><div class="league-head"><h2>Classement global</h2><span class="count">moyenne de '+tl.people.length+' classements : '+esc(tl.people.map(function(p){ return p.name; }).join(", "))+'</span></div>' +
     '<div class="tlscroll"><div class="tlgrid" style="grid-template-rows:auto repeat('+n+',44px)">'+g+'</div></div></section>';
+}
+function editTiers(){
+  if (guard()) return;
+  var rows = realTiers().map(function(t){ return [t[0], t[1], t[2]]; });
+  function rowHTML(t, i){
+    return '<div class="trow" data-i="'+i+'"><span class="tchip" style="--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'">'+esc(t[1] || "?")+'</span>' +
+      '<input class="tr-n" value="'+esc(t[1])+'" maxlength="6" aria-label="Nom du tier">' +
+      '<input class="tr-c" type="color" value="'+esc(t[2])+'" aria-label="Couleur">' +
+      '<button type="button" class="ghost tr-up" title="Monter"'+(i ? "" : " disabled")+'>↑</button>' +
+      '<button type="button" class="ghost tr-dn" title="Descendre"'+(i < rows.length - 1 ? "" : " disabled")+'>↓</button>' +
+      '<button type="button" class="ghost tr-x" title="Supprimer"'+(rows.length > 1 ? "" : " disabled")+'>✕</button></div>';
+  }
+  openDlg("Tiers",
+    '<p class="note-ro" style="margin:0 0 12px">Du meilleur au moins bon. Valable pour toutes les tier lists. Le « ? » reste toujours en dernier.</p><div id="f-tiers"></div>' +
+    '<button type="button" class="btn" id="f-tadd" style="margin-top:10px">+ Ajouter un tier</button>' +
+    '<p class="note-ro" id="f-twarn" style="margin:10px 0 0" hidden></p>',
+    footer("Valider", '<button type="button" class="btn quiet" id="f-treset">Tiers d\'origine</button>'),
+    function(form){
+      var box = $("#f-tiers");
+      function used(key){ var n = 0; state.tierlists.forEach(function(tl){ tl.people.forEach(function(p){ TCOLS.forEach(function(c){ (p.cols[c[0]] || []).forEach(function(e){ if (e.t === key) n++; }); }); }); }); return n; }
+      function draw(){
+        box.innerHTML = rows.map(rowHTML).join("");
+        box.querySelectorAll(".trow").forEach(function(r){
+          var i = +r.getAttribute("data-i");
+          r.querySelector(".tr-n").oninput = function(){ rows[i][1] = this.value; r.querySelector(".tchip").textContent = this.value || "?"; };
+          r.querySelector(".tr-c").oninput = function(){ rows[i][2] = this.value; var ch = r.querySelector(".tchip"); ch.style.setProperty("--tb", this.value); ch.style.setProperty("--tbfg", tierFg(this.value)); };
+          r.querySelector(".tr-up").onclick = function(){ var x = rows.splice(i, 1)[0]; rows.splice(i - 1, 0, x); draw(); };
+          r.querySelector(".tr-dn").onclick = function(){ var x = rows.splice(i, 1)[0]; rows.splice(i + 1, 0, x); draw(); };
+          r.querySelector(".tr-x").onclick = function(){
+            var n = used(rows[i][0]), w = $("#f-twarn");
+            if (n) { w.hidden = false; w.textContent = "Le tier « " + rows[i][1] + " » était utilisé " + n + " fois : ces cases passent en « ? »."; }
+            rows.splice(i, 1); draw();
+          };
+        });
+        $("#f-tadd").disabled = rows.length >= 12;
+      }
+      draw();
+      $("#f-tadd").onclick = function(){ rows.push([uid("t"), "", "#9aa5b1"]); draw(); var ins = box.querySelectorAll(".tr-n"); ins[ins.length - 1].focus(); };
+      $("#f-treset").onclick = function(){ rows = TIERS_DEF.map(function(t){ return t.slice(); }); draw(); };
+      form.onsubmit = function(e){
+        e.preventDefault();
+        var out = rows.map(function(t){ return [t[0], (t[1] || "").trim() || "?", t[2]]; });
+        var keep = {}; out.forEach(function(t){ keep[t[0]] = 1; });
+        /* cells on a deleted tier go back to "?" */
+        state.tierlists.forEach(function(tl){ tl.people.forEach(function(p){ TCOLS.forEach(function(c){ (p.cols[c[0]] || []).forEach(function(x){ if (x.t && x.t !== "q" && !keep[x.t]) x.t = "q"; }); }); }); });
+        if (JSON.stringify(out) === JSON.stringify(TIERS_DEF)) delete state.tiers; else state.tiers = out;
+        dlg.close(); changed();
+      };
+    });
 }
 function renderTiers(){
   var tl = curTL();
@@ -1104,7 +1180,8 @@ function renderTiers(){
   h += '<div class="toolbar tl-bar">' + (state.tierlists.length > 1 || !readOnly ? '<div class="chips" role="group" aria-label="Tier lists">' +
     state.tierlists.map(function(x){ return '<button class="chip" data-act="tl-pick" data-id="'+esc(x.id)+'" aria-pressed="'+(tl && x.id===tl.id)+'">'+esc(x.title)+'</button>'; }).join("") +
     (readOnly ? "" : '<button class="chip add" data-act="tl-new">+ Nouvelle tier list</button>') + '</div>' : "") +
-    '<div class="tlegend" aria-label="Tiers">' + TIERS.map(function(t){ return '<span class="tchip" style="--tb:'+t[2]+'">'+esc(t[1])+'</span>'; }).join("") + '</div></div>';
+    '<div class="tlegend" aria-label="Tiers">' + TIERS.map(function(t){ return '<span class="tchip" style="--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'">'+esc(t[1])+'</span>'; }).join("") +
+    (readOnly ? "" : '<button type="button" class="ghost legend-edit" data-act="tiers-edit" title="Ajouter, renommer ou recolorer les tiers">✎ Modifier les tiers</button>') + '</div></div>';
   if (!tl) return h + '<p class="note-ro">Aucune tier list pour l\'instant.</p>';
   if (!tl.people.length) h += '<p class="note-ro">Ajoute un participant pour commencer le classement.</p>';
   var rsx = rosterSets(tl);
@@ -1122,7 +1199,7 @@ function renderTiers(){
         var t = TIER[e.t] || TIER.q, tm = c[0] === "teams" ? tierTeam(e, tl) : null, pt = c[0] === "teams" ? null : playerTeam(e, c[0], tl);
         var label = e.n || (tm ? tm.id : "");
         var gone = goneFromRosters(tl, c[0], e, rsx);
-        g += '<button class="tc t-'+(TIER[e.t] ? e.t : "q")+(c[0]==="teams"?" team":"")+(label?"":" empty")+(gone?" gone":"")+'" draggable="'+(!readOnly)+'" data-act="tcell" data-p="'+esc(p.id)+'" data-c="'+c[0]+'" data-i="'+i+'" data-k="'+esc(c[0]+":"+nkey(c[0]==="teams" ? (e.team||e.n) : e.n))+'" style="grid-column:'+gcol(c, ci)+';grid-row:'+(i+2)+';--tb:'+t[2]+'" title="'+esc((tm ? tm.name : (label || "à définir") + (pt ? " ("+pt.name+")" : ""))+" · "+t[1])+'">' +
+        g += '<button class="tc t-'+(TIER[e.t] ? e.t : "q")+(c[0]==="teams"?" team":"")+(label?"":" empty")+(gone?" gone":"")+'" draggable="'+(!readOnly)+'" data-act="tcell" data-p="'+esc(p.id)+'" data-c="'+c[0]+'" data-i="'+i+'" data-k="'+esc(c[0]+":"+nkey(c[0]==="teams" ? (e.team||e.n) : e.n))+'" style="grid-column:'+gcol(c, ci)+';grid-row:'+(i+2)+';--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'" title="'+esc((tm ? tm.name : (label || "à définir") + (pt ? " ("+pt.name+")" : ""))+" · "+t[1])+'">' +
           '<b class="tb">'+esc(t[1])+'</b>' + (c[0]==="teams" ? '<span class="logo">'+tierLogo(e, tl)+'</span>' : '<span class="logo">'+(pt && (logoSrc(pt) || darkSrc(pt)) ? logoHTML(pt) : "")+'</span>') + '<span class="n">'+esc(label || "à définir")+'</span></button>';
       });
       if (!readOnly) g += '<button class="tadd'+(c[0]==="teams"?" tcol":"")+'" data-act="tadd" data-p="'+esc(p.id)+'" data-c="'+c[0]+'" style="grid-column:'+gcol(c, ci)+';grid-row:'+(n+2)+'" title="Ajouter une ligne en '+esc(c[1])+'">+</button>';
@@ -1136,7 +1213,7 @@ function renderTiers(){
   return h;
 }
 function tierSeg(val){
-  return '<div class="seg tseg" role="radiogroup" data-seg="t">' + TIERS.map(function(t){ return '<button type="button" data-v="'+t[0]+'" aria-pressed="'+(t[0]===val)+'" style="--tb:'+t[2]+'">'+esc(t[1])+'</button>'; }).join("") + '</div>';
+  return '<div class="seg tseg" role="radiogroup" data-seg="t">' + TIERS.map(function(t){ return '<button type="button" data-v="'+t[0]+'" aria-pressed="'+(t[0]===val)+'" style="--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'">'+esc(t[1])+'</button>'; }).join("") + '</div>';
 }
 function rosterNames(tl, role){
   var out = [], seen = {}, l = leagueByName(tl.league);
@@ -1439,6 +1516,7 @@ document.addEventListener("click", function(e){
   else if (a === "tl-pick") { ui.tl = d.id; render(); }
   else if (a === "tl-new") editTL(true);
   else if (a === "tl-edit") editTL(false);
+  else if (a === "tiers-edit") editTiers();
   else if (a === "tl-addp") editTPerson(null);
   else if (a === "tl-person") editTPerson(d.p);
   else if (a === "tcell") editTCell(d.p, d.c, +d.i);
