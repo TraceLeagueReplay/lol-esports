@@ -182,8 +182,8 @@ main{padding-bottom:120px}
 .tl-bar{padding-block:8px 0;justify-content:space-between}
 .chip.add{border-style:dashed;color:var(--muted)}
 .tlegend{display:flex;flex-wrap:wrap;gap:5px}
-.tchip,.seg.tseg button{background:var(--tb);color:var(--tbfg,#05080d);border:0;font-family:var(--f-tier);font-weight:400;font-size:15px;letter-spacing:.03em;padding:3px 0;border-radius:6px;min-width:40px;text-align:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
-.seg.tseg button{padding:7px 0;min-width:46px;font-size:16px;justify-content:center}
+.tchip,.seg.tseg button{background:var(--tb);color:var(--tbfg,#05080d);border:0;font-family:var(--f-tier);font-weight:400;font-size:15px;letter-spacing:.03em;display:inline-flex;align-items:center;justify-content:center;line-height:1;height:26px;padding:0 6px 0 calc(6px + .03em);border-radius:6px;min-width:40px;text-align:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.seg.tseg button{height:34px;padding:0 6px 0 calc(6px + .03em);min-width:46px;font-size:16px;justify-content:center}
 .seg.tseg button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px #141a26,0 0 0 2px var(--panel),0 0 0 4px var(--fg)}
 .tlp{margin-top:22px}
 .tlscroll{overflow-x:auto;padding-bottom:4px}
@@ -194,7 +194,7 @@ main{padding-bottom:120px}
 .tc{--tint:color-mix(in srgb,var(--tb) 24%,var(--panel));display:flex;align-items:center;gap:8px;min-width:0;padding:0 10px 0 0;border:1px solid color-mix(in srgb,var(--tb) 45%,var(--line));border-radius:7px;background:var(--tint);color:var(--fg);text-align:left;overflow:hidden}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tc{--tint:color-mix(in srgb,var(--tb) 16%,var(--panel))}}
 :root[data-theme="dark"] .tc{--tint:color-mix(in srgb,var(--tb) 16%,var(--panel))}
-.tc .tb{align-self:stretch;flex:none;width:38px;display:grid;place-items:center;background:var(--tb);color:var(--tbfg,#05080d);font-family:var(--f-tier);font-weight:400;font-size:17px;line-height:1;letter-spacing:.02em}
+.tc .tb{align-self:stretch;flex:none;width:38px;display:grid;place-items:center;padding-left:.02em;background:var(--tb);color:var(--tbfg,#05080d);font-family:var(--f-tier);font-weight:400;font-size:17px;line-height:1;letter-spacing:.02em}
 /* S+ stands apart from S: deeper orange, stronger tint and a solid border. */
 .tc.t-sp{--tint:color-mix(in srgb,var(--tb) 34%,var(--panel));border-color:var(--tb)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tc.t-sp{--tint:color-mix(in srgb,var(--tb) 30%,var(--panel))}}
@@ -306,6 +306,10 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .trow .ghost{padding:5px 8px}
 .trow .ghost:disabled{opacity:.3}
 .tlegend .legend-edit{margin-left:6px}
+.trow .tr-r{font-size:15px}
+.tactions{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:10px}
+.tactions .ghost{font-size:12.5px;padding:5px 7px}
+.tactions .sp{flex:1}
 
 .online{margin-left:auto;align-self:center;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-2);background:var(--panel-2);color:var(--fg);font:600 12.5px var(--f-body);padding:4px 5px 4px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .online:hover{border-color:var(--fg)}
@@ -926,7 +930,7 @@ function realTiers(){ return TIERS.slice(0, -1); }
 function tierFg(hex){
   var m = /^#?([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return "#05080d";
   var n = parseInt(m[1], 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
-  return (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? "#05080d" : "#ffffff";
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 100 ? "#05080d" : "#ffffff";
 }
 applyTiers();
 var TCOLS = ROLES.map(function(r){ return [r[0], r[1]]; }).concat([["teams","Équipes"]]);
@@ -1125,19 +1129,23 @@ function globalHTML(tl){
 function editTiers(){
   if (guard()) return;
   var rows = realTiers().map(function(t){ return [t[0], t[1], t[2]]; });
+  function defColor(k){ var d = TIERS_DEF.filter(function(x){ return x[0] === k; })[0]; return d ? d[2] : ""; }
   function rowHTML(t, i){
     return '<div class="trow" data-i="'+i+'"><span class="tchip" style="--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'">'+esc(t[1] || "?")+'</span>' +
       '<input class="tr-n" value="'+esc(t[1])+'" maxlength="6" aria-label="Nom du tier">' +
       '<input class="tr-c" type="color" value="'+esc(t[2])+'" aria-label="Couleur">' +
+      (defColor(t[0]) && defColor(t[0]).toLowerCase() !== String(t[2]).toLowerCase() ? '<button type="button" class="ghost tr-r" title="Remettre la couleur d\'origine">↺</button>' : '<button type="button" class="ghost tr-r" disabled aria-hidden="true" style="visibility:hidden">↺</button>') +
       '<button type="button" class="ghost tr-up" title="Monter"'+(i ? "" : " disabled")+'>↑</button>' +
       '<button type="button" class="ghost tr-dn" title="Descendre"'+(i < rows.length - 1 ? "" : " disabled")+'>↓</button>' +
       '<button type="button" class="ghost tr-x" title="Supprimer"'+(rows.length > 1 ? "" : " disabled")+'>✕</button></div>';
   }
   openDlg("Tiers",
     '<p class="note-ro" style="margin:0 0 12px">Du meilleur au moins bon. Valable pour toutes les tier lists. Le « ? » reste toujours en dernier.</p><div id="f-tiers"></div>' +
-    '<button type="button" class="btn" id="f-tadd" style="margin-top:10px">+ Ajouter un tier</button>' +
+    '<div class="tactions"><button type="button" class="btn" id="f-tadd">+ Ajouter un tier</button><span class="sp"></span>' +
+    '<button type="button" class="ghost" id="f-tcolors" title="Remet les couleurs d\'origine de S+ S A B C F, sans toucher aux tiers ajoutés ni aux noms">↺ Couleurs d\'origine</button>' +
+    '<button type="button" class="ghost" id="f-treset" title="Remet S+ S A B C F comme au début">↺ Tiers d\'origine</button></div>' +
     '<p class="note-ro" id="f-twarn" style="margin:10px 0 0" hidden></p>',
-    footer("Valider", '<button type="button" class="btn quiet" id="f-treset">Tiers d\'origine</button>'),
+    footer("Valider"),
     function(form){
       var box = $("#f-tiers");
       function used(key){ var n = 0; state.tierlists.forEach(function(tl){ tl.people.forEach(function(p){ TCOLS.forEach(function(c){ (p.cols[c[0]] || []).forEach(function(e){ if (e.t === key) n++; }); }); }); }); return n; }
@@ -1147,6 +1155,8 @@ function editTiers(){
           var i = +r.getAttribute("data-i");
           r.querySelector(".tr-n").oninput = function(){ rows[i][1] = this.value; r.querySelector(".tchip").textContent = this.value || "?"; };
           r.querySelector(".tr-c").oninput = function(){ rows[i][2] = this.value; var ch = r.querySelector(".tchip"); ch.style.setProperty("--tb", this.value); ch.style.setProperty("--tbfg", tierFg(this.value)); };
+          r.querySelector(".tr-c").onchange = function(){ draw(); };
+          r.querySelector(".tr-r").onclick = function(){ if (defColor(rows[i][0])) { rows[i][2] = defColor(rows[i][0]); draw(); } };
           r.querySelector(".tr-up").onclick = function(){ var x = rows.splice(i, 1)[0]; rows.splice(i - 1, 0, x); draw(); };
           r.querySelector(".tr-dn").onclick = function(){ var x = rows.splice(i, 1)[0]; rows.splice(i + 1, 0, x); draw(); };
           r.querySelector(".tr-x").onclick = function(){
@@ -1160,6 +1170,7 @@ function editTiers(){
       draw();
       $("#f-tadd").onclick = function(){ rows.push([uid("t"), "", "#9aa5b1"]); draw(); var ins = box.querySelectorAll(".tr-n"); ins[ins.length - 1].focus(); };
       $("#f-treset").onclick = function(){ rows = TIERS_DEF.map(function(t){ return t.slice(); }); draw(); };
+      $("#f-tcolors").onclick = function(){ rows.forEach(function(t){ if (defColor(t[0])) t[2] = defColor(t[0]); }); draw(); };
       form.onsubmit = function(e){
         e.preventDefault();
         var out = rows.map(function(t){ return [t[0], (t[1] || "").trim() || "?", t[2]]; });
