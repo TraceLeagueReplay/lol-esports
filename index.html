@@ -209,6 +209,8 @@ main{padding-bottom:120px}
 :root[data-theme="dark"] .tc .logo img{filter:none}
 .tc .logo .mono{width:26px;height:26px;font-size:10px;border-radius:5px}
 .tc:hover{border-color:var(--tb)}
+/* S+ already has a full-colour border: on hover it gets a thicker one so the hover still shows */
+.tc.t-sp:hover{box-shadow:0 0 0 1px var(--tb)}
 .tc.hl{box-shadow:0 0 0 2px var(--accent);border-color:var(--accent)}
 .tc.over{box-shadow:0 -3px 0 0 var(--accent)}
 .tc.dragging{opacity:.4}
@@ -942,6 +944,9 @@ function curTL(){
 }
 function tlPerson(tl, pid){ return tl.people.filter(function(p){ return p.id === pid; })[0]; }
 function leagueByName(n){ return state.leagues.filter(function(l){ return l.name === n || l.id === n; })[0]; }
+/* team key shared by a team cell and the cells of its players (hovering a team outlines its players) */
+function teamEntryKey(e){ return e.team && e.team.indexOf("logo:") === 0 ? nkey(logoLabel(e.team.slice(5))) : teamKeyOfEntry(e); }
+function tmAttr(isTeam, e, pt){ var k = isTeam ? teamEntryKey(e) : (pt ? nkey(pt.id) : ""); return k ? ' data-tm="'+esc(k)+'"' : ""; }
 function tierTeam(e, tl){
   if (e.team) { var l = leagueByName(tl.league); return findTeam(e.team, l && l.id); }
   return null;
@@ -1072,7 +1077,7 @@ function avgColumnHTML(p, tl, n){
     var t = TIER[a.t] || TIER.q, e = a.entry, label = e ? (e.n || a.team.id) : a.team.id;
     var logo = e ? tierLogo(e, tl) : (logoSrc(a.team) || darkSrc(a.team) ? logoHTML(a.team) : "");
     var tip = label + " · rang moyen de ses " + a.n + " joueur" + (a.n > 1 ? "s" : "") + " : " + fmtAvg(a.avg) + " · tier " + t[1] + " (coupé là où les écarts entre moyennes sont les plus grands)";
-    h += '<div class="tc team avgc t-'+a.t+'" style="grid-column:'+AVGCOL+';grid-row:'+(i+2)+';--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'" title="'+esc(tip)+'"><b class="tb">'+esc(t[1])+'</b><span class="logo">'+logo+'</span><span class="n">'+esc(label)+'</span><span class="avgv">'+fmtAvg(a.avg)+'</span></div>';
+    h += '<div class="tc team avgc t-'+a.t+'" data-tm="'+esc(a.k)+'" style="grid-column:'+AVGCOL+';grid-row:'+(i+2)+';--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'" title="'+esc(tip)+'"><b class="tb">'+esc(t[1])+'</b><span class="logo">'+logo+'</span><span class="n">'+esc(label)+'</span><span class="avgv">'+fmtAvg(a.avg)+'</span></div>';
   });
   return h;
 }
@@ -1120,7 +1125,7 @@ function globalHTML(tl){
       var label = e.n || (tm ? tm.id : "");
       var logo = isT ? tierLogo(e, tl) : (pt && (logoSrc(pt) || darkSrc(pt)) ? logoHTML(pt) : "");
       var tip = label + " · place moyenne " + fmtAvg(a.avg) + " sur " + a.n + " classement" + (a.n > 1 ? "s" : "") + (a.tn ? " · tier moyen " + t[1] : "");
-      g += '<div class="tc gl t-'+a.t+(isT?" team":"")+'" data-k="'+esc(c[0]+":"+nkey(isT ? (e.team||e.n) : e.n))+'" style="grid-column:'+gcol(c, ci)+';grid-row:'+(i+2)+';--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'" title="'+esc(tip)+'"><b class="tb">'+esc(t[1])+'</b><span class="logo">'+logo+'</span><span class="n">'+esc(label)+'</span><span class="avgv">'+fmtAvg(a.avg)+'</span></div>';
+      g += '<div class="tc gl t-'+a.t+(isT?" team":"")+'" data-k="'+esc(c[0]+":"+nkey(isT ? (e.team||e.n) : e.n))+'"'+tmAttr(isT, e, pt)+' style="grid-column:'+gcol(c, ci)+';grid-row:'+(i+2)+';--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'" title="'+esc(tip)+'"><b class="tb">'+esc(t[1])+'</b><span class="logo">'+logo+'</span><span class="n">'+esc(label)+'</span><span class="avgv">'+fmtAvg(a.avg)+'</span></div>';
     });
   });
   return '<section class="league tlp tlglobal"><div class="league-head"><h2>Classement global</h2><span class="count">moyenne de '+tl.people.length+' classements : '+esc(tl.people.map(function(p){ return p.name; }).join(", "))+'</span></div>' +
@@ -1210,7 +1215,7 @@ function renderTiers(){
         var t = TIER[e.t] || TIER.q, tm = c[0] === "teams" ? tierTeam(e, tl) : null, pt = c[0] === "teams" ? null : playerTeam(e, c[0], tl);
         var label = e.n || (tm ? tm.id : "");
         var gone = goneFromRosters(tl, c[0], e, rsx);
-        g += '<button class="tc t-'+(TIER[e.t] ? e.t : "q")+(c[0]==="teams"?" team":"")+(label?"":" empty")+(gone?" gone":"")+'" draggable="'+(!readOnly)+'" data-act="tcell" data-p="'+esc(p.id)+'" data-c="'+c[0]+'" data-i="'+i+'" data-k="'+esc(c[0]+":"+nkey(c[0]==="teams" ? (e.team||e.n) : e.n))+'" style="grid-column:'+gcol(c, ci)+';grid-row:'+(i+2)+';--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'" title="'+esc((tm ? tm.name : (label || "à définir") + (pt ? " ("+pt.name+")" : ""))+" · "+t[1])+'">' +
+        g += '<button class="tc t-'+(TIER[e.t] ? e.t : "q")+(c[0]==="teams"?" team":"")+(label?"":" empty")+(gone?" gone":"")+'" draggable="'+(!readOnly)+'" data-act="tcell" data-p="'+esc(p.id)+'" data-c="'+c[0]+'" data-i="'+i+'" data-k="'+esc(c[0]+":"+nkey(c[0]==="teams" ? (e.team||e.n) : e.n))+'"'+tmAttr(c[0]==="teams", e, pt)+' style="grid-column:'+gcol(c, ci)+';grid-row:'+(i+2)+';--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'" title="'+esc((tm ? tm.name : (label || "à définir") + (pt ? " ("+pt.name+")" : ""))+" · "+t[1])+'">' +
           '<b class="tb">'+esc(t[1])+'</b>' + (c[0]==="teams" ? '<span class="logo">'+tierLogo(e, tl)+'</span>' : '<span class="logo">'+(pt && (logoSrc(pt) || darkSrc(pt)) ? logoHTML(pt) : "")+'</span>') + '<span class="n">'+esc(label || "à définir")+'</span></button>';
       });
       if (!readOnly) g += '<button class="tadd'+(c[0]==="teams"?" tcol":"")+'" data-act="tadd" data-p="'+esc(p.id)+'" data-c="'+c[0]+'" style="grid-column:'+gcol(c, ci)+';grid-row:'+(n+2)+'" title="Ajouter une ligne en '+esc(c[1])+'">+</button>';
@@ -1358,11 +1363,14 @@ document.addEventListener("drop", function(e){
   changed();
 });
 document.addEventListener("mouseover", function(e){
-  var b = e.target.closest && e.target.closest(".tc"), k = b && b.dataset.k;
+  var b = e.target.closest && e.target.closest(".tc"), k = b && (b.dataset.k || (b.dataset.tm ? "tm:" + b.dataset.tm : ""));
   if ((k||"") === hoverK) return;
   document.querySelectorAll(".tc.hl").forEach(function(x){ x.classList.remove("hl"); });
   hoverK = k || "";
   if (k && !/:$/.test(k)) document.querySelectorAll('.tc[data-k="'+k.replace(/"/g,"")+'"]').forEach(function(x){ if (x !== b) x.classList.add("hl"); });
+  /* a team: outline all of its players too */
+  var tmk = b && b.classList.contains("team") && b.dataset.tm;
+  if (tmk) document.querySelectorAll('.tc[data-tm="'+tmk.replace(/"/g,"")+'"]').forEach(function(x){ if (x !== b) x.classList.add("hl"); });
 });
 
 /* ---------- tier lists live in the shared store (db) ----------
