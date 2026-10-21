@@ -312,6 +312,15 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .tactions{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:10px}
 .tactions .ghost{font-size:12.5px;padding:5px 7px}
 .tactions .sp{flex:1}
+/* International tier list: team picker */
+.intlpick{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;max-height:260px;overflow:auto;padding:2px}
+.intlpick label{display:flex;align-items:center;justify-content:flex-start;gap:8px;font-size:13.5px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--fg);cursor:pointer;padding:3px 0;margin:0;min-width:0;white-space:nowrap}
+.intlpick input{width:auto;height:auto;flex:none;margin:0;padding:0}
+.intlpick .nm{overflow:hidden;text-overflow:ellipsis}
+.intlpick .logo{width:22px;height:22px}
+.intlpick .logo img{max-width:22px;max-height:22px}
+.intlpick small{color:var(--muted);font-size:11.5px}
+@media (max-width:520px){.intlpick{grid-template-columns:1fr}}
 
 .online{margin-left:auto;align-self:center;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-2);background:var(--panel-2);color:var(--fg);font:600 12.5px var(--f-body);padding:4px 5px 4px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .online:hover{border-color:var(--fg)}
@@ -380,7 +389,7 @@ function flatten(s){
   var tls = s.tierlists || [];
   m.tierlists = J(tls.map(function(x){ return x.id; }));
   tls.forEach(function(x){
-    m["TL|"+x.id] = J({title:x.title, league:x.league, sync:!!x.sync, people:x.people.map(function(p){ return p.id; })});
+    m["TL|"+x.id] = J({title:x.title, league:x.league, sync:!!x.sync, intlTeams:x.intlTeams || null, people:x.people.map(function(p){ return p.id; })});
     x.people.forEach(function(p){ m["TLP|"+x.id+"|"+p.id] = J(p); });
   });
   return m;
@@ -406,7 +415,7 @@ function unflatten(m){
   P("tierlists", []).forEach(function(id){
     if (!("TL|"+id in m)) return;
     var h = P("TL|"+id), people = h.people.map(function(pid){ return P("TLP|"+id+"|"+pid, null); }).filter(Boolean);
-    var tlx = {id:id, title:h.title, league:h.league, people:people}; if (h.sync) tlx.sync = true;
+    var tlx = {id:id, title:h.title, league:h.league, people:people}; if (h.sync) tlx.sync = true; if (h.intlTeams) tlx.intlTeams = h.intlTeams;
     s.tierlists.push(tlx);
   });
   return s;
@@ -944,11 +953,20 @@ function curTL(){
 }
 function tlPerson(tl, pid){ return tl.people.filter(function(p){ return p.id === pid; })[0]; }
 function leagueByName(n){ return state.leagues.filter(function(l){ return l.name === n || l.id === n; })[0]; }
+/* "International" tier list: its "league" is the teams picked among those marked qualified for an international event */
+var INTL_TL = "International";
+function intlTeams(){ var out = []; state.leagues.forEach(function(l){ l.teams.forEach(function(t){ if (t.intl) out.push(t); }); }); return out; }
+function teamByUid(u){ var hit = null; state.leagues.forEach(function(l){ l.teams.forEach(function(t){ if (t.uid === u) hit = t; }); }); return hit; }
+function tlLeague(tl){
+  if (!tl || tl.league !== INTL_TL) return leagueByName(tl && tl.league);
+  var teams = tl.intlTeams ? tl.intlTeams.map(teamByUid).filter(Boolean) : intlTeams();
+  return {id:"INTL", name:INTL_TL, teams:teams};
+}
 /* team key shared by a team cell and the cells of its players (hovering a team outlines its players) */
 function teamEntryKey(e){ return e.team && e.team.indexOf("logo:") === 0 ? nkey(logoLabel(e.team.slice(5))) : teamKeyOfEntry(e); }
 function tmAttr(isTeam, e, pt){ var k = isTeam ? teamEntryKey(e) : (pt ? nkey(pt.id) : ""); return k ? ' data-tm="'+esc(k)+'"' : ""; }
 function tierTeam(e, tl){
-  if (e.team) { var l = leagueByName(tl.league); return findTeam(e.team, l && l.id); }
+  if (e.team) { var l = tlLeague(tl); return findTeam(e.team, l && l.id); }
   return null;
 }
 function tierLogo(e, tl){
@@ -974,7 +992,7 @@ function otherLogoOptions(cur, prefix){
 function playerTeam(e, role, tl){
   if (e.team === "-") return null;
   if (e.team && e.team.indexOf("logo:") === 0) { var lk = e.team.slice(5); return LOGOS[lk] ? {logo:lk, id:logoLabel(lk), name:logoLabel(lk)} : null; }
-  var lg = leagueByName(tl.league);
+  var lg = tlLeague(tl);
   if (e.team) return findTeam(e.team, lg && lg.id);
   var k = nkey(e.n); if (!k) return null;
   function has(t, r){ var p = t.roster[r]; return p && p.n && p.n.split("/").some(function(x){ return nkey(x) === k; }); }
@@ -989,7 +1007,7 @@ function playerTeam(e, role, tl){
 /* A tier list that follows the rosters (tl.sync): every player / team of its league's rosters is in each
    participant's columns. Newcomers are added at the bottom as "?"; players who left stay (faded) so no ranking is lost. */
 function rosterSets(tl){
-  var l = leagueByName(tl.league), sets = {teams:{}}; ROLES.forEach(function(r){ sets[r[0]] = {}; });
+  var l = tlLeague(tl), sets = {teams:{}}; ROLES.forEach(function(r){ sets[r[0]] = {}; });
   if (l) l.teams.forEach(function(t){
     sets.teams[nkey(t.id)] = 1;
     ROLES.forEach(function(r){ var p = t.roster[r[0]]; if (p && p.n) splitNames(p.n).forEach(function(n){ sets[r[0]][nkey(n)] = n; }); });
@@ -1201,7 +1219,7 @@ function renderTiers(){
   if (!tl) return h + '<p class="note-ro">Aucune tier list pour l\'instant.</p>';
   if (!tl.people.length) h += '<p class="note-ro">Ajoute un participant pour commencer le classement.</p>';
   var rsx = rosterSets(tl);
-  if (tl.sync) h += '<p class="note-ro tl-sync">Suit les rosters '+esc(tl.league)+' : les nouveaux joueurs arrivent en bas en « ? », ceux qui sont partis restent estompés.</p>';
+  if (tl.sync) h += '<p class="note-ro tl-sync">Suit les rosters '+esc(tl.league)+' : les nouveaux joueurs arrivent parmi les « ? » par ordre alphabétique, ceux qui sont partis sont retirés.</p>';
   tl.people.forEach(function(p){
     var n = 0; TCOLS.forEach(function(c){ n = Math.max(n, (p.cols[c[0]]||[]).length); });
     if (avgOpen[tl.id + "|" + p.id]) n = Math.max(n, teamsByPlayers(p, tl).length);
@@ -1232,7 +1250,7 @@ function tierSeg(val){
   return '<div class="seg tseg" role="radiogroup" data-seg="t">' + TIERS.map(function(t){ return '<button type="button" data-v="'+t[0]+'" aria-pressed="'+(t[0]===val)+'" style="--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'">'+esc(t[1])+'</button>'; }).join("") + '</div>';
 }
 function rosterNames(tl, role){
-  var out = [], seen = {}, l = leagueByName(tl.league);
+  var out = [], seen = {}, l = tlLeague(tl);
   function add(n){ n = (n||"").trim(); var k = nkey(n); if (n && !seen[k]) { seen[k] = 1; out.push(n); } }
   if (l) l.teams.forEach(function(t){ var p = t.roster[role]; if (p && p.n) p.n.split("/").forEach(add); });
   tl.people.forEach(function(p){ (p.cols[role]||[]).forEach(function(e){ add(e.n); }); });
@@ -1272,7 +1290,7 @@ function editTCell(pid, col, i){
     });
 }
 function rosterCols(tl){
-  var cols = {}, l = leagueByName(tl.league);
+  var cols = {}, l = tlLeague(tl);
   /* a new participant starts with the players of each role in alphabetical order */
   ROLES.forEach(function(r){ cols[r[0]] = rosterNames({league:tl.league, people:[]}, r[0]).slice().sort(function(a, b){ return a.localeCompare(b, "fr", {sensitivity:"base"}); }).map(function(n){ return {n:n, t:"q"}; }); });
   cols.teams = l ? l.teams.map(function(t){ return {n:t.id, team:t.id, t:"q"}; }) : [];
@@ -1311,20 +1329,31 @@ function editTPerson(pid){
 function editTL(isNew){
   if (guard()) return;
   var cur = curTL(), tl = isNew ? {id:uid("tl"), title:"", league:(cur && cur.league) || "LEC", people:[]} : cur;
-  var opts = state.leagues.map(function(l){ return '<option'+(l.name===tl.league?" selected":"")+'>'+esc(l.name)+'</option>'; }).join("");
+  var opts = state.leagues.map(function(l){ return '<option'+(l.name===tl.league?" selected":"")+'>'+esc(l.name)+'</option>'; }).join("") +
+    '<option value="'+INTL_TL+'"'+(tl.league===INTL_TL?" selected":"")+'>International (équipes qualifiées)</option>';
+  /* teams offered: those marked "Inter" now, plus any already picked for this list */
+  var picked = tl.intlTeams ? tl.intlTeams.slice() : intlTeams().map(function(t){ return t.uid; });
+  var offer = intlTeams(); picked.forEach(function(u){ var t = teamByUid(u); if (t && offer.indexOf(t) < 0) offer.push(t); });
+  function lgOf(t){ var n = ""; state.leagues.forEach(function(l){ if (l.teams.indexOf(t) >= 0) n = l.name; }); return n; }
+  var intlBox = '<div class="field" id="f-tlintl"'+(tl.league===INTL_TL?"":" hidden")+'><span class="lbl">Équipes de cette tier list</span>' +
+    (offer.length ? '<div class="intlpick">' + offer.map(function(t){ return '<label><input type="checkbox" value="'+esc(t.uid)+'"'+(picked.indexOf(t.uid) >= 0 ? " checked" : "")+'><span class="logo">'+logoHTML(t)+'</span><span class="nm">'+esc(t.name)+'</span><small>'+esc(lgOf(t))+'</small></label>'; }).join("") + '</div>'
+      : '<p class="note-ro" style="margin:0">Aucune équipe n\'est cochée « qualifiée à l\'international » dans les rosters.</p>') + '</div>';
   var names = cur ? cur.people.map(function(p){ return p.name; }).join(", ") : "";
   openDlg(isNew ? "Nouvelle tier list" : tl.title,
     '<div class="field"><label for="f-tlt">Titre</label><input id="f-tlt" value="'+esc(tl.title)+'" placeholder="Ranking LEC Summer Split 2026" required></div>' +
-    '<div class="field"><label for="f-tll">Ligue</label><select id="f-tll">'+opts+'</select></div>' +
+    '<div class="field"><label for="f-tll">Ligue</label><select id="f-tll">'+opts+'</select></div>' + intlBox +
     (isNew ? '<div class="field"><label for="f-tlp">Participants (séparés par des virgules)</label><input id="f-tlp" value="'+esc(names)+'"></div>' +
       '<label class="hint"><input type="checkbox" id="f-tlf" checked> Remplir avec les joueurs et équipes du roster de cette ligue</label>' : "") +
     '<label class="hint"><input type="checkbox" id="f-tls"'+(isNew || tl.sync ? " checked" : "")+'> Suivre les rosters : ajouter automatiquement les nouveaux joueurs et équipes de la ligue</label>',
     footer(isNew ? "Créer" : "Valider", isNew ? "" : '<button type="button" class="btn danger" id="f-tldel">Supprimer la tier list</button>'),
     function(f){
+      $("#f-tll").onchange = function(){ $("#f-tlintl").hidden = this.value !== INTL_TL; };
       if (!isNew) { var del = $("#f-tldel"); del.onclick = function(){ if (del.dataset.ok) { state.tierlists.splice(state.tierlists.indexOf(tl),1); ui.tl = ""; dlg.close(); changed(); return; } del.dataset.ok = "1"; del.textContent = "Confirmer la suppression"; }; }
       f.onsubmit = function(ev){
         ev.preventDefault(); var t = $("#f-tlt").value.trim(); if (!t) { $("#f-tlt").focus(); return; }
         tl.title = t; tl.league = $("#f-tll").value;
+        if (tl.league === INTL_TL) tl.intlTeams = [].map.call(dlg.querySelectorAll("#f-tlintl input:checked"), function(x){ return x.value; });
+        else delete tl.intlTeams;
         if ($("#f-tls").checked) tl.sync = true; else delete tl.sync;
         if (isNew) {
           var fill = $("#f-tlf").checked;
@@ -1383,7 +1412,7 @@ var tlDb = null, tlDbReady = false, tlApplied = {}, tlRemote = {tl:{}, tlp:{}}, 
 function tlParts(){
   var out = {};
   state.tierlists.forEach(function(x, i){
-    out["tl/" + x.id] = {meta: {title:x.title, league:x.league, sync:!!x.sync, order:x.people.map(function(p){ return p.id; }), pos:i}};
+    out["tl/" + x.id] = {meta: {title:x.title, league:x.league, sync:!!x.sync, intlTeams:x.intlTeams || null, order:x.people.map(function(p){ return p.id; }), pos:i}};
     x.people.forEach(function(p){
       var parts = {name: p.name};
       TCOLS.forEach(function(c){ parts["cols." + c[0]] = p.cols[c[0]] || []; });
@@ -1447,6 +1476,7 @@ function tlApplyRemote(){
       return {id:pid, name:d.name || pid, cols:cols};
     })};
     if (L.d.sync) x.sync = true;
+    if (L.d.intlTeams) x.intlTeams = L.d.intlTeams.slice();
     return x;
   });
   state.tierlists = out;
