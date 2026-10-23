@@ -321,6 +321,11 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .intlpick .logo img{max-width:22px;max-height:22px}
 .intlpick small{color:var(--muted);font-size:11.5px}
 @media (max-width:520px){.intlpick{grid-template-columns:1fr}}
+/* while measuring a name that may not fit: let every part take its natural width */
+.fit-measure .pp,.fit-measure .ppn{flex:none;min-width:auto;overflow:visible}
+.pl .n.multi.wrap2{flex-wrap:wrap;column-gap:5px;row-gap:3px;line-height:1.15;white-space:normal;max-height:40px}
+.pl .n.multi.wrap2 .pp{gap:4px}
+.pl .n.multi.wrap2 .pp .flag{width:15px;height:10px}
 
 .online{margin-left:auto;align-self:center;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-2);background:var(--panel-2);color:var(--fg);font:600 12.5px var(--f-body);padding:4px 5px 4px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .online:hover{border-color:var(--fg)}
@@ -512,7 +517,36 @@ var FLAGS = {
   CO:'<rect width="30" height="10" fill="#fcd116"/><rect y="10" width="30" height="5" fill="#003893"/><rect y="15" width="30" height="5" fill="#ce1126"/>',
   RS:H(["#c6363c","#0c4076","#fff"]),
   MK:'<rect width="30" height="20" fill="#d20000"/><path d="M15 10L0 0M15 10L30 0M15 10L0 20M15 10L30 20M15 10L15 0M15 10L15 20M15 10L0 10M15 10L30 10" stroke="#ffe600" stroke-width="2"/><circle cx="15" cy="10" r="3.2" fill="#ffe600" stroke="#d20000" stroke-width=".7"/>',
-  ME:'<rect width="30" height="20" fill="#d3ae3b"/><rect x="1.4" y="1.4" width="27.2" height="17.2" fill="#c40308"/><circle cx="15" cy="10" r="3" fill="#d3ae3b"/>'
+  ME:'<rect width="30" height="20" fill="#d3ae3b"/><rect x="1.4" y="1.4" width="27.2" height="17.2" fill="#c40308"/><circle cx="15" cy="10" r="3" fill="#d3ae3b"/>',
+  /* more flags (simplified, readable at 20 px) */
+  IL:'<rect width="30" height="20" fill="#fff"/><rect y="2" width="30" height="3" fill="#0038b8"/><rect y="15" width="30" height="3" fill="#0038b8"/><polygon points="15,6.2 18.3,11.9 11.7,11.9" fill="none" stroke="#0038b8" stroke-width=".9"/><polygon points="15,13.8 18.3,8.1 11.7,8.1" fill="none" stroke="#0038b8" stroke-width=".9"/>',
+  EC:'<rect width="30" height="10" fill="#ffdd00"/><rect y="10" width="30" height="5" fill="#034ea2"/><rect y="15" width="30" height="5" fill="#ed1c24"/><ellipse cx="15" cy="10" rx="2.4" ry="3" fill="#7a5c2e"/><ellipse cx="15" cy="10" rx="1.4" ry="2" fill="#4a8fd6"/>',
+  VE:H(["#ffcc00","#00247d","#cf142b"])+(function(){ var g=""; for (var i=0;i<8;i++){ var a=Math.PI*(0.85-0.7*i/7); g+=star(15+5.2*Math.cos(a), 11.6-5.2*Math.sin(a), 0.9, "#fff"); } return g; })(),
+  UY:(function(){ var s=""; for (var i=0;i<9;i++) s+='<rect y="'+(i*20/9)+'" width="30" height="'+(20/9+0.05)+'" fill="'+(i%2?"#0038a8":"#fff")+'"/>'; return s+'<rect width="11.1" height="11.1" fill="#fff"/><circle cx="5.55" cy="5.55" r="2.6" fill="#fcd116" stroke="#7b3f00" stroke-width=".3"/>'; })(),
+  BO:H(["#d52b1e","#f9e300","#007934"]),
+  CR:'<rect width="30" height="20" fill="#002b7f"/><rect y="3.33" width="30" height="13.34" fill="#fff"/><rect y="6.67" width="30" height="6.66" fill="#ce1126"/>',
+  PA:'<rect width="30" height="20" fill="#fff"/><rect x="15" width="15" height="10" fill="#d21034"/><rect y="10" width="15" height="10" fill="#005293"/>'+star(7.5,5,2.6,"#005293")+star(22.5,15,2.6,"#d21034"),
+  DO:'<rect width="30" height="20" fill="#fff"/><rect width="13" height="8" fill="#002d62"/><rect x="17" width="13" height="8" fill="#ce1126"/><rect y="12" width="13" height="8" fill="#ce1126"/><rect x="17" y="12" width="13" height="8" fill="#002d62"/><circle cx="15" cy="10" r="1.4" fill="#00843d"/>',
+  IS:cross("#02529c","#fff","#dc1e35"),
+  EE:H(["#0072ce","#000","#fff"]),
+  LV:'<rect width="30" height="20" fill="#9e3039"/><rect y="8" width="30" height="4" fill="#fff"/>',
+  IE:V(["#169b62","#fff","#ff883e"]),
+  BA:'<rect width="30" height="20" fill="#002395"/><polygon points="8,0 22.5,0 22.5,20" fill="#fecb00"/>'+(function(){ var g=""; for (var i=0;i<8;i++){ var t=(i+0.3)/7.6; g+=star(8+14.5*t-2.3, 20*t, 1.05, "#fff"); } return g; })(),
+  NZ:'<rect width="30" height="20" fill="#012169"/><g transform="scale(.5)"><path d="M0 0L30 20M30 0L0 20" stroke="#fff" stroke-width="4"/><path d="M0 0L30 20M30 0L0 20" stroke="#c8102e" stroke-width="1.6"/><rect x="12" width="6" height="20" fill="#fff"/><rect y="7" width="30" height="6" fill="#fff"/><rect x="13" width="4" height="20" fill="#c8102e"/><rect y="8" width="30" height="4" fill="#c8102e"/></g>'+star(22.5,15.5,1.6,"#fff")+star(22.5,15.5,1.1,"#c8102e")+star(19.5,8.5,1.4,"#fff")+star(19.5,8.5,0.95,"#c8102e")+star(25.5,7,1.4,"#fff")+star(25.5,7,0.95,"#c8102e")+star(22.5,3.5,1.4,"#fff")+star(22.5,3.5,0.95,"#c8102e"),
+  SG:'<rect width="30" height="20" fill="#fff"/><rect width="30" height="10" fill="#ef3340"/><circle cx="6.5" cy="5" r="3.2" fill="#fff"/><circle cx="7.8" cy="5" r="3" fill="#ef3340"/>'+star(9.6,3.2,.7,"#fff")+star(11.6,4.4,.7,"#fff")+star(10.9,6.6,.7,"#fff")+star(8.4,6.6,.7,"#fff")+star(7.7,4.4,.7,"#fff"),
+  ID:H(["#ff0000","#fff"]),
+  IN:H(["#ff9933","#fff","#138808"])+'<circle cx="15" cy="10" r="2.6" fill="none" stroke="#000080" stroke-width=".7"/><circle cx="15" cy="10" r=".7" fill="#000080"/>',
+  EG:H(["#ce1126","#fff","#000"])+'<path d="M15 7.6l1.6 1.2-.4 2.6h-2.4l-.4-2.6z" fill="#c09300"/>',
+  MA:'<rect width="30" height="20" fill="#c1272d"/><polygon points="15,5.2 16.6,10.6 12.1,7.3 17.9,7.3 13.4,10.6" fill="none" stroke="#006233" stroke-width=".9"/>',
+  TN:'<rect width="30" height="20" fill="#e70013"/><circle cx="15" cy="10" r="5" fill="#fff"/><circle cx="14.2" cy="10" r="3.6" fill="#e70013"/><circle cx="15.2" cy="10" r="2.9" fill="#fff"/>'+star(16,10,1.9,"#e70013"),
+  SA:'<rect width="30" height="20" fill="#006c35"/><path d="M8 7.5h14M9 9h12M10 7v3" stroke="#fff" stroke-width=".9" fill="none"/><path d="M8.5 13h13l-1.5 1h-11z" fill="#fff"/>',
+  AE:'<rect width="30" height="20" fill="#fff"/><rect width="30" height="6.67" fill="#00732f"/><rect y="13.33" width="30" height="6.67" fill="#000"/><rect width="8" height="20" fill="#ff0000"/>',
+  LB:'<rect width="30" height="20" fill="#fff"/><rect width="30" height="5" fill="#ed1c24"/><rect y="15" width="30" height="5" fill="#ed1c24"/><polygon points="15,5.6 18.6,13.6 11.4,13.6" fill="#00a651"/><polygon points="15,5.6 17.4,10 12.6,10" fill="#00a651"/><rect x="14.4" y="13.4" width="1.2" height="1.4" fill="#00a651"/>',
+  IQ:H(["#ce1126","#fff","#000"])+'<path d="M10.5 11.5h2M13.5 9v2.5h3M18 9v2.5h1.5" stroke="#007a3d" stroke-width=".9" fill="none"/>',
+  PS:H(["#000","#fff","#007a3d"])+'<polygon points="0,0 12,10 0,20" fill="#ce1126"/>',
+  PH:'<rect width="30" height="10" fill="#0038a8"/><rect y="10" width="30" height="10" fill="#ce1126"/><polygon points="0,0 17.3,10 0,20" fill="#fff"/><circle cx="6" cy="10" r="2" fill="#fcd116"/>'+star(1.8,2.6,.8,"#fcd116")+star(1.8,17.4,.8,"#fcd116")+star(14,10,.8,"#fcd116"),
+  TH:'<rect width="30" height="20" fill="#a51931"/><rect y="3.33" width="30" height="13.34" fill="#f4f5f8"/><rect y="6.67" width="30" height="6.66" fill="#2d2a4a"/>',
+  MY:(function(){ var s=""; for (var i=0;i<14;i++) s+='<rect y="'+(i*20/14)+'" width="30" height="'+(20/14+0.05)+'" fill="'+(i%2?"#fff":"#cc0001")+'"/>'; return s+'<rect width="15" height="11.43" fill="#010066"/><circle cx="5.6" cy="5.7" r="3.6" fill="#fc0"/><circle cx="6.6" cy="5.7" r="3" fill="#010066"/>'+star(10.6,5.7,2.4,"#fc0"); })()
 };
 /* A roster player's nationality: set on the player (p.nat, "-" = none), else taken from the Prodle tabs by name. */
 var natCache = null;
@@ -568,7 +602,27 @@ function render(){
   $("#view").innerHTML = ui.tab === "rosters" ? renderRosters() : ui.tab === "tiers" ? renderTiers() : renderProdleTab();
   var q = $("#q"); if (q && document.activeElement !== q) q.value = ui.q;
   renderSave();
+  requestAnimationFrame(fitNames);
 }
+/* names too long for their cell are written smaller (down to 10 px) instead of being cut */
+function fitNames(){
+  document.querySelectorAll("#view .pl .n, #view .tc .n").forEach(function(el){
+    el.style.fontSize = ""; el.classList.remove("wrap2");
+    if (el.scrollWidth <= el.clientWidth + 1 && !el.classList.contains("multi")) return;
+    var fs = parseFloat(getComputedStyle(el).fontSize), min = 10, base = fs;
+    el.classList.add("fit-measure");
+    for (var k = 0; k < 16 && fs > min && el.scrollWidth > el.clientWidth + 1; k++) { fs = Math.max(min, fs - 0.5); el.style.fontSize = fs + "px"; }
+    /* several players that still do not fit on one line: two lines (the cell keeps its height) */
+    if (el.classList.contains("multi") && el.scrollWidth > el.clientWidth + 1) {
+      el.classList.add("wrap2"); fs = Math.min(base, 12.5); el.style.fontSize = fs + "px";
+      for (var j = 0; j < 12 && fs > min && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1); j++) { fs = Math.max(min, fs - 0.5); el.style.fontSize = fs + "px"; }
+    }
+    el.classList.remove("fit-measure");
+  });
+}
+var fitT = null;
+window.addEventListener("resize", function(){ clearTimeout(fitT); fitT = setTimeout(fitNames, 150); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ fitNames(); });
 /* legend texts can be renamed (stored in state.labels); the defaults are the original wording */
 var LABEL_DEF = {off:"Officiel", leak:"Leakers / 99 %", maybe:"Peut-être", rumor:"Rumeur / plusieurs joueurs",
   newTag:"Nouvelle", newDesc:"équipe potentielle", repTag:"Remplacé", repDesc:"équipe / logo remplacé"};
