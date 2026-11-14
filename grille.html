@@ -544,21 +544,24 @@ function generate(){
   for (var mi = 0; mi < order.length; mi++) {
     var lg = order[mi], teamsL = teams.filter(function(c){ return T[c.team].lg === lg; });
     if (teamsL.length < 3) continue;
+    /* rows and columns filled in turn: each new header has to work with every header already on the other side */
     var t3 = Date.now();
-    for (var at = 0; at < 1500 && Date.now() - t3 < 250; at++) {
+    for (var at = 0; at < 20000 && Date.now() - t3 < 600; at++) {
       var sl = shuffle(Array.from({length:n * 2}, function(_, i){ return i; })).slice(0, nSpecial);
       var used2 = new Set(), rows2 = [], cols2 = [], f2 = false;
-      for (var i2 = 0; i2 < n && !f2; i2++) { var c2 = wpick(sl.indexOf(i2) >= 0 ? others : teamsL, used2); if (!c2) { f2 = true; break; } used2.add(c2.id); rows2.push(c2); }
-      if (f2) continue;
-      for (var j2 = 0; j2 < n && !f2; j2++) {
-        var list2 = shuffle((sl.indexOf(n + j2) >= 0 ? others : teamsL).filter(function(c){ return !used2.has(c.id); })), found = null;
-        for (var k2 = 0; k2 < list2.length && !found; k2++) {
-          var cc = list2[k2], good = true;
-          for (var r2 = 0; r2 < n; r2++) if (clash(rows2[r2], cc) || ic(rows2[r2], cc) < min) { good = false; break; }
-          if (good) found = cc;
-        }
-        if (!found) { f2 = true; break; }
-        used2.add(found.id); cols2.push(found);
+      for (var s2 = 0; s2 < n * 2 && !f2; s2++) {
+        var isR = s2 % 2 === 0, ix = Math.floor(s2 / 2), slot2 = isR ? ix : n + ix;
+        var same2 = isR ? rows2 : cols2, oth2 = isR ? cols2 : rows2;
+        var cands2 = (sl.indexOf(slot2) >= 0 ? others : teamsL).filter(function(c){
+          if (used2.has(c.id)) return false;
+          for (var o = 0; o < oth2.length; o++) if (clash(oth2[o], c) || ic(oth2[o], c) < min) return false;
+          for (var q = 0; q < same2.length; q++) if (same2[q].fam === c.fam && (c.fam === "intl" || c.fam === "career")) return false;
+          return true;
+        });
+        if (!cands2.length) { f2 = true; break; }
+        var w2 = cands2.map(function(c){ return Math.sqrt(c.set.size); }), tt2 = w2.reduce(function(a, b){ return a + b; }, 0), rr = Math.random() * tt2, p2 = 0;
+        for (; p2 < cands2.length - 1; p2++) { rr -= w2[p2]; if (rr <= 0) break; }
+        used2.add(cands2[p2].id); same2.push(cands2[p2]);
       }
       if (f2) continue;
       var g2 = finish(rows2, cols2); if (!g2) continue;
@@ -584,10 +587,26 @@ function startNew(){
   $("#grid").classList.add("busy");
   setTimeout(function(){ startNow(); $("#grid").classList.remove("busy"); }, 20);
 }
+/* when the settings allow no grid: first a harder difficulty, then a few criteria other than teams (recent years: too few team × team links) */
+function generateRelaxed(){
+  var g = generate(); if (g) return g;
+  var kd = cfg.diff, ks = cfg.special, tries = [];
+  for (var d = kd + 1; d < DIFF.length; d++) tries.push([d, ks]);
+  [2, 4, 6].forEach(function(s){ if (s > ks) for (var d = kd; d < DIFF.length; d++) tries.push([d, s]); });
+  for (var t = 0; t < tries.length && !g; t++) { cfg.diff = tries[t][0]; cfg.special = tries[t][1]; g = generate(); }
+  cfg.diff = kd; cfg.special = ks;
+  if (g) {
+    var what = [];
+    if (g.cfg.diff !== kd) what.push("en " + DIFF[g.cfg.diff].n);
+    if (g.cfg.special !== ks) what.push("avec " + g.cfg.special + " critères autres que des équipes");
+    toast("Pas de grille possible avec tes réglages exacts : celle-ci est " + what.join(" et ") + ".");
+  }
+  return g;
+}
 function startNow(){
   prepare();
-  var g = generate();
-  if (!g) { toast("Impossible de créer une grille avec ces réglages : élargis les ligues, la période ou la difficulté."); return; }
+  var g = generateRelaxed();
+  if (!g) { toast("Impossible de créer une grille avec ces réglages : élargis les ligues ou la période."); return; }
   game = g; ls("grille.game", game); render();
 }
 function cellCrit(i){ var n = game.cfg.size; return [CRIT[game.rows[Math.floor(i / n)]], CRIT[game.cols[i % n]]]; }
@@ -859,8 +878,8 @@ function rulesHTML(){ return '<table class="rules">' + RULES.map(function(r){ re
 function vsCreate(db, name, T, target){
   if (vsCreating) return;
   var bot = target === "bot", peer = target && target !== "bot" ? target : null;
-  prepare(); var g = generate();
-  if (!g) { toast("Impossible de créer une grille avec ces réglages."); return; }
+  prepare(); var g = generateRelaxed();
+  if (!g) { toast("Impossible de créer une grille avec ces réglages : élargis les ligues ou la période."); return; }
   var A = "ABCDEFGHJKLMNPQRSTUVWXYZ", code = ""; for (var k = 0; k < 4; k++) code += A[Math.floor(Math.random() * A.length)];
   var n = g.cfg.size, first = Math.random() < .5 ? 0 : 1;
   var d = {code: code, v: GD.v, gen: GEN, cfg: g.cfg, rows: g.rows, cols: g.cols, filled: new Array(n * n).fill(-1), own: new Array(n * n).fill(-1),
