@@ -736,14 +736,24 @@ function openPick(i){
       var el = document.querySelector('.cell[data-i="'+i+'"]'); if (el) el.classList.add("pop");
     } else {
       game.errors++; ls("grille.game", game);
-      var why = [cc[0], cc[1]].filter(function(c){ return !c.test(p); }).map(function(c){ return c.label; });
-      toast(p.n + " ne correspond pas : " + (why.length ? why.join(" et ") : "hors des ligues ou des années choisies") + ".");
+      toast(whyNot(p, [cc[0], cc[1]]));
       b.classList.add("bad"); setTimeout(function(){ b.classList.remove("bad"); }, 600);
       render();
     }
   });
 }
 
+/* why a player is refused; a team he played for before the chosen period is said so (KaKAO: KT Rolster in 2013-2014, "depuis 2019") */
+function whyNot(p, cc){
+  var parts = cc.filter(function(c){ return !c.test(p); }).map(function(c){
+    if (c.fam === "team") {
+      var ys = p.s.filter(function(s){ return s[0] === c.team; }).map(function(s){ return s[2]; }).sort();
+      if (ys.length) { var y = ys[0] === ys[ys.length - 1] ? "en " + ys[0] : "de " + ys[0] + " à " + ys[ys.length - 1]; return "il était chez " + c.label + " " + y + ", hors de ta période (depuis " + cfg.from + ")"; }
+    }
+    return c.label;
+  });
+  return p.n + " ne correspond pas : " + (parts.length ? parts.join(" et ") : "hors des ligues ou des années choisies") + ".";
+}
 /* every possible answer of a cell (once the answers are shown) */
 function openAnswers(i){
   var cc = cellCrit(i), here = game.filled[i], sol = document.querySelector('[data-sol="'+i+'"]');
@@ -1062,7 +1072,7 @@ function vsMove(i, pi, ok){
   if (ok && d.filled.indexOf(pi) >= 0) { toast(P[pi].n + " est déjà utilisé."); return; }
   var filled = d.filled.slice(), own = d.own.slice();
   if (ok) { filled[i] = pi; own[i] = VS.slot; }
-  else { var cc = cellCrit(i), why = cc.filter(function(c){ return !c.test(P[pi]); }).map(function(c){ return c.label; }); toast(P[pi].n + " ne correspond pas" + (why.length ? " : " + why.join(" et ") : "") + ". Ton tour passe."); }
+  else toast(whyNot(P[pi], cellCrit(i)) + " Ton tour passe.");
   vsWrite(d, vsNext(d, filled, own, {s: VS.slot, i: i, p: pi, k: ok ? "ok" : "bad", t: Date.now()}, ok));
 }
 function vsPass(d){ vsWrite(d, vsNext(d, d.filled.slice(), d.own.slice(), {s: d.turn, i: -1, p: -1, k: "time", t: Date.now()}, false)); }
