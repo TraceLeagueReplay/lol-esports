@@ -624,9 +624,15 @@ function headHTML(c){
     var tip = t.n + (al.length ? "\nCompte aussi : " + al.map(function(a){ return a[0] + " (" + yr(a) + ")"; }).join(", ") : "");
     /* under the logo: the 2 main former names (sister teams like "SK Telecom T1 K" fold into "SK Telecom T1") */
     var main = [t.n];
-    al.slice().sort(function(x, y){ return (y[2] - y[1]) - (x[2] - x[1]) || x[1] - y[1]; }).forEach(function(a){
-      var w0 = a[0].split(" ")[0];
-      if (!main.some(function(m, k){ return a[0].indexOf(m) === 0 || m.indexOf(a[0]) === 0 || (k > 0 && m.split(" ")[0] === w0) || (GD.AL && GD.AL[m] && GD.AL[m] === GD.AL[a[0]]); })) main.push(a[0]);
+    /* same team written differently ("X" / "X Esports") or same logo = shown once; KT Rolster Arrows / Bullets are real former teams, shown */
+    var GENW = {esports:1, "e-sports":1, gaming:1, team:1, club:1, kia:1, esport:1};
+    var same = function(p, q){
+      var x = p.length >= q.length ? p : q, y = x === p ? q : p;
+      if (x.toLowerCase().indexOf(y.toLowerCase()) === 0) { var rest = x.slice(y.length).trim().toLowerCase(); if (!rest || rest.split(/\s+/).every(function(w){ return GENW[w]; })) return true; }
+      return !!(GD.AL && GD.AL[p] && GD.AL[p] === GD.AL[q]);
+    };
+    al.slice().sort(function(x, y){ return (y[2] - y[1]) - (x[2] - x[1]) || y[1] - x[1]; }).forEach(function(a){
+      if (!main.some(function(m){ return same(m, a[0]); })) main.push(a[0]);
     });
     main = main.slice(1);
     /* former teams as small logos (name on hover); a name only when there is no logo */
