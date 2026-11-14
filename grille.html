@@ -340,6 +340,7 @@ var FLAGS = {
 var GD = window.GD, P = GD.P, T = GD.T, GEN = 4;
 var LG = ["LEC","LCK","LCS","LPL","LFL"], ROLE = ["Top","Jungle","Mid","ADC","Support"];
 var MAXY = 2026;
+var STARS = ["Faker","Caps","Rekkles","Uzi","Perkz","Doublelift","Bjergsen","ShowMaker","Chovy","Ruler","Deft","TheShy","Jankos","Rookie","Keria","Knight","Peanut","CoreJJ","Impact","Jensen","Bang","Zeus","Canyon"];
 var $ = function(s, r){ return (r || document).querySelector(s); };
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function norm(s){ return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
@@ -349,12 +350,12 @@ function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
 
 /* ---------- settings ---------- */
 var DEF = {size:5, leagues:[1,1,1,1,0], mix:1, from:2013, diff:1, special:3,
-  fam:{intl:1, champ:1, nat:1, role:1, league:1, career:1}};
+  fam:{intl:1, champ:1, nat:1, role:1, league:1, career:1, mate:1}};
 var cfg = Object.assign({}, DEF, ls("grille.cfg") || {});
 while (cfg.leagues.length < LG.length) cfg.leagues.push(0);   /* settings saved before the LFL was added */
 cfg.fam = Object.assign({}, DEF.fam, cfg.fam || {});
 var DIFF = [{n:"Facile", min:4}, {n:"Normal", min:2}, {n:"Difficile", min:1}];
-var FAMS = [["intl","Titres internationaux"],["champ","Titres de ligue"],["nat","Nationalités"],["role","Rôles"],["league","Ligues"],["career","Carrière"]];
+var FAMS = [["intl","Titres internationaux"],["champ","Titres de ligue"],["nat","Nationalités"],["role","Rôles"],["league","Ligues"],["career","Carrière"],["mate","Coéquipiers de stars"]];
 
 /* ---------- criteria ---------- */
 function inRange(y){ return y >= cfg.from && y <= MAXY; }
@@ -389,6 +390,13 @@ function buildCriteria(){
   C.push({id:"k2l", fam:"career", label:"A joué dans 2 ligues", sub:"ou plus", test:function(p){ var s = {}; stintsIn(p).forEach(function(x){ s[x[1]] = 1; }); return Object.keys(s).length >= 2; }});
   C.push({id:"k6", fam:"career", label:"6 saisons ou plus", sub:"années jouées", test:function(p){ var s = {}; stintsIn(p).forEach(function(x){ s[x[2]] = 1; }); return Object.keys(s).length >= 6; }});
   C.push({id:"kact", fam:"career", label:"Encore pro en 2026", sub:"dans ces ligues", test:function(p){ return p.s.some(function(x){ return x[2] === 2026 && okLg(x[1]); }); }});
+  /* teammate of a star: same team, same year (in the chosen leagues and years) */
+  STARS.forEach(function(sn){
+    var best = -1; P.forEach(function(p, pi){ if (p.n === sn && (best < 0 || p.s.length > P[best].s.length)) best = pi; });
+    if (best < 0) return;
+    var key = {}; P[best].s.forEach(function(s){ if (okLg(s[1]) && inRange(s[2])) key[s[0] + "|" + s[2]] = 1; });
+    C.push({id:"mt" + best, fam:"mate", star:best, label:"A joué avec " + sn, sub:"même équipe, même année" + y, test:function(p){ return p !== P[best] && p.s.some(function(s){ return key[s[0] + "|" + s[2]] && okLg(s[1]); }); }});
+  });
   C.push({id:"kold", fam:"career", label:"A joué en 2016 ou avant", sub:"dans ces ligues", test:function(p){ return p.s.some(function(x){ return x[2] <= 2016 && okLg(x[1]); }); }});
   /* candidate sets over the pool */
   var W = Math.ceil(pool.length / 32) || 1;
@@ -492,7 +500,7 @@ function generate(){
           if (used.has(c.id)) return false;
           if (c.fam === "team" && (sameL[T[c.team].lg] || 0) >= maxLine) return false;
           for (var o = 0; o < other.length; o++) if (clash(other[o], c) || ic(other[o], c) < min) return false;
-          for (var q = 0; q < same.length; q++) if (same[q].fam === c.fam && (c.fam === "intl" || c.fam === "career")) return false;
+          for (var q = 0; q < same.length; q++) if (same[q].fam === c.fam && (c.fam === "intl" || c.fam === "career" || c.fam === "mate")) return false;
           return true;
         });
         if (!cands.length) { fail = true; break; }
@@ -576,7 +584,7 @@ function generate(){
         var cands2 = (sl.indexOf(slot2) >= 0 ? others : teamsL).filter(function(c){
           if (used2.has(c.id)) return false;
           for (var o = 0; o < oth2.length; o++) if (clash(oth2[o], c) || ic(oth2[o], c) < min) return false;
-          for (var q = 0; q < same2.length; q++) if (same2[q].fam === c.fam && (c.fam === "intl" || c.fam === "career")) return false;
+          for (var q = 0; q < same2.length; q++) if (same2[q].fam === c.fam && (c.fam === "intl" || c.fam === "career" || c.fam === "mate")) return false;
           return true;
         });
         if (!cands2.length) { f2 = true; break; }
@@ -664,7 +672,7 @@ function headHTML(c){
     }).join("") + (main.length > 2 ? '<i>+' + (main.length - 2) + '</i>' : "") + '</span>' : '<span class="ha"></span>';
     return '<div class="hd team" title="'+esc(tip)+'">' + (t.logo ? (t.dark ? '<img class="lt" src="'+t.logo+'" alt=""><img class="dk" src="'+t.dark+'" alt="">' : '<img src="'+t.logo+'" alt="">') : '<b class="sh">'+esc(t.s || t.n)+'</b>') + '<span class="hn">'+esc(t.n)+'</span>' + ex + '</div>';
   }
-  var ic = {intl:"🏆", champ:"🥇", nat:"", role:"🎯", league:"🗺️", career:"📈"}[c.fam] || "";
+  var ic = {intl:"🏆", champ:"🥇", nat:"", role:"🎯", league:"🗺️", career:"📈", mate:"🤝"}[c.fam] || "";
   if (c.fam === "nat") ic = flag(c.nat);
   return '<div class="hd crit f-'+c.fam+'"><span class="ic">'+ic+'</span><span class="hl">'+esc(c.label)+'</span>'+(c.sub ? '<span class="hs">'+esc(c.sub)+'</span>' : "")+'</div>';
 }
