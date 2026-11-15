@@ -542,7 +542,7 @@ function matching(cand, fixed){
   for (var i = 0; i < cand.length; i++) if (cand[i] && tryCell(i, new Set())) ok++;
   return {ok:ok, assign:assign};
 }
-function generate(budget){
+function generate(budget, strictMix){
   var dl = Date.now() + (budget || 1500);   /* time budget: the page must never freeze */
   prepare(); var C = CACHE.list, n = cfg.size, min = DIFF[cfg.diff].min;
   var big = function(c){ return c.set.size >= Math.max(6, min * 2); };
@@ -583,6 +583,10 @@ function generate(budget){
   /* what worked before with these settings: a search that keeps failing is skipped (no wasted second) */
   var skey = cfg.diff + "|" + cfg.size + "|" + nSpecial, stat = CACHE.stat = CACHE.stat || {};
   var st = stat[skey] = stat[skey] || {mixFail:0, txFail:0};
+  if (cfg.mix && on.length === 2) {   /* 2 leagues: teams of both on both sides, at least 30 % of each, the slider respected */
+    var bm = balancedMix(); if (bm) return bm;
+    if (strictMix) return null;
+  }
   if (cfg.mix && on.length > 1) {
     var best = null, t0 = Date.now();
     if (st.mixFail >= 2 && Math.random() < 0.85) best = {skip:true};
@@ -592,8 +596,10 @@ function generate(budget){
       cols.forEach(function(c){ if (c.fam === "team") { var l = T[c.team].lg; lc[l] = (lc[l] || 0) + 1; all[l] = 1; } });
       [lr, lc].forEach(function(m){ Object.keys(m).forEach(function(l){ maxAxis = Math.max(maxAxis, m[l]); }); });
       rows.forEach(function(a){ cols.forEach(function(b){ if (a.fam === "team" && b.fam === "team") { tt++; if (T[a.team].lg !== T[b.team].lg) cross++; } }); });
-      var nl = Object.keys(all).length;
-      return {nl:nl, maxAxis:maxAxis, cross:tt ? cross / tt : 0, nlr:Object.keys(lr).length, nlc:Object.keys(lc).length,
+      var nl = Object.keys(all).length, tc = {}, ntm = 0;
+      rows.concat(cols).forEach(function(c){ if (c.fam === "team") { tc[T[c.team].lg] = (tc[T[c.team].lg] || 0) + 1; ntm++; } });
+      var minor = ntm ? Math.min.apply(null, on.map(function(l){ return tc[l] || 0; })) / ntm : 0;
+      return {minor:minor, nl:nl, maxAxis:maxAxis, cross:tt ? cross / tt : 0, nlr:Object.keys(lr).length, nlc:Object.keys(lc).length,
               s:nl * 4 + (tt ? cross / tt : 0) * 10 + Object.keys(lr).length * 2 + Object.keys(lc).length * 2 - maxAxis * 3};
     }
     /* first at most 2 teams of a league per line; if that never works (easy mode, no special criteria), allow more */
@@ -635,17 +641,60 @@ function generate(budget){
     }
     }
     if (best && best.skip) best = null;
-    else if (best && best.sc.cross >= 0.5) { st.mixFail = 0; return best.g; }
+    else if (best && best.sc.cross >= 0.5 && (on.length > 2 || best.sc.minor >= 0.3)) { st.mixFail = 0; return best.g; }
     else st.mixFail++;
+    if (on.length === 2) best = null;   /* 2 leagues: no lopsided grid, no "all the teams on one side" grid: one league per grid instead */
 
     /* Recent years: few players moved between regions, so team × team cells across leagues barely exist.
        Then one side gets teams from several leagues and the other side criteria that every team has
        (nationality, role, titles…), plus a team when one fits. */
-    var tx = st.txFail >= 2 && Math.random() < 0.85 ? null : teamsByCriteria();
+    var tx = on.length === 2 || st.txFail >= 2 && Math.random() < 0.85 ? null : teamsByCriteria();
     if (tx) { st.txFail = 0; return tx; } st.txFail++;
     if (best) return best.g;
   }
 
+  /* rows' teams × columns' teams must all share players: build both team sets together, then add the other criteria */
+  function balancedMix(){
+    var t1 = Date.now(), nT = n * 2 - nSpecial, need = Math.ceil(nT * 0.3);
+    if (nT < 2) return null;
+    for (var at = 0; at < 20000 && Date.now() - t1 < 700 && Date.now() < dl; at++) {
+      /* the smaller side Y first, keeping enough teams compatible with all of Y; then X among those */
+      var ys = Math.max(1, nT - n) + Math.floor(Math.random() * (Math.floor(nT / 2) - Math.max(1, nT - n) + 1));
+      var pop = function(list){ return list.map(function(c){ return [Math.random() * Math.sqrt(c.set.size), c]; }).sort(function(a, b){ return b[0] - a[0]; }).map(function(x){ return x[1]; }); };
+      var Y = [], comp = teams.slice(), cnt = {};
+      pop(teams).forEach(function(t){
+        if (Y.length >= ys || comp.indexOf(t) < 0) return;
+        var c2 = comp.filter(function(c){ return c !== t && !bad(t, c); });
+        if (c2.length < nT - ys) return;
+        Y.push(t); comp = c2; cnt[T[t.team].lg] = (cnt[T[t.team].lg] || 0) + 1;
+      });
+      if (Y.length < ys) continue;
+      var X = [], cand = pop(comp);
+      on.forEach(function(l){ cand.forEach(function(c){ if (X.length < nT - ys && (cnt[l] || 0) < need && T[c.team].lg === l && X.indexOf(c) < 0) { X.push(c); cnt[l] = (cnt[l] || 0) + 1; } }); });
+      cand.forEach(function(c){ if (X.length < nT - ys && X.indexOf(c) < 0) { X.push(c); cnt[T[c.team].lg] = (cnt[T[c.team].lg] || 0) + 1; } });
+      if (X.length > n) continue;
+      if (X.length + Y.length < nT || on.some(function(l){ return (cnt[l] || 0) < need; }) || !X.length || !Y.length) continue;
+      /* the other slots: criteria that work with every header of the other side */
+      var rows = X.slice(), cols = Y.slice(), used = new Set(X.concat(Y).map(function(c){ return c.id; })), ok = true;
+      [[rows, cols], [cols, rows]].forEach(function(pair){
+        var me = pair[0], them = pair[1];
+        while (ok && me.length < n) {
+          var cs = others.filter(function(c){
+            if (used.has(c.id)) return false;
+            for (var q = 0; q < me.length; q++) if (me[q].fam === c.fam && (c.fam === "intl" || c.fam === "career" || c.fam === "mate" || c.fam === "year" || c.fam === "role" || c.fam === "nat") || yrLike(me[q]) && yrLike(c)) return false;
+            return them.every(function(o){ return !bad(o, c); });
+          });
+          if (!cs.length) { ok = false; break; }
+          var tot = 0; cs.forEach(function(c){ tot += Math.sqrt(c.set.size) * (c.wt || 1); });
+          var r = Math.random() * tot, pi = 0; for (; pi < cs.length - 1; pi++) { r -= Math.sqrt(cs[pi].set.size) * (cs[pi].wt || 1); if (r <= 0) break; }
+          used.add(cs[pi].id); me.push(cs[pi]);
+        }
+      });
+      if (!ok) continue;
+      var g = finish(shuffle(rows), shuffle(cols)); if (g) return g;
+    }
+    return null;
+  }
   function teamsByCriteria(){
     var t1 = Date.now(), bestX = null, cap = Math.max(2, Math.ceil(n / on.length));   /* teams of one league on the team side */
     for (var at = 0; at < 20000 && Date.now() - t1 < 450 && Date.now() < dl; at++) {
@@ -733,6 +782,14 @@ function startNew(){
 }
 /* when the settings allow no grid: first a harder difficulty, then a few criteria other than teams (recent years: too few team × team links) */
 function generateRelaxed(){
+  var on2 = LG.filter(function(_, i){ return cfg.leagues[i]; });
+  var bk = "bm|" + cfg.diff + "|" + cfg.size + "|" + cfg.special, bs = CACHE.stat = CACHE.stat || {};
+  if (cfg.mix && on2.length === 2 && !((bs[bk] || 0) >= 3 && Math.random() < 0.8)) {   /* 2 leagues mixed: rather one more criterion than a grid of a single league (skipped mostly when it keeps failing) */
+    var g2 = generate(800, true), ks0 = cfg.special;
+    for (var add = 1; add <= 2 && !g2 && ks0 + add <= cfg.size * 2 - 2; add++) { cfg.special = ks0 + add; g2 = generate(600, true); }
+    cfg.special = ks0; bs[bk] = g2 ? 0 : (bs[bk] || 0) + 1;
+    if (g2) { if (g2.cfg.special !== ks0) toast("Pour mélanger " + on2.join(" et ") + " dans la grille : " + g2.cfg.special + " critères au lieu de " + ks0 + "."); return g2; }
+  }
   var g = generate(1000); if (g) return g;
   var kd = cfg.diff, ks = cfg.special, tries = [];
   for (var d = kd + 1; d < DIFF.length; d++) tries.push([d, ks]);
@@ -1465,7 +1522,7 @@ window.__grilleSim = function(c, k){
   cfg = Object.assign({}, DEF, c); cfg.fam = Object.assign({}, DEF.fam, c.fam || {}); prepare();
   var t0 = Date.now();
   for (var r = 0; r < k; r++) {
-    var g0 = Date.now(), g = generate(1000), relaxed = false;
+    var g0 = Date.now(), g = null, relaxed = false;
     if (!g) { g = generateRelaxed(); relaxed = !!g; }
     var ms = Date.now() - g0;
     if (!g) { out.push({fail: 1, ms: ms}); continue; }
