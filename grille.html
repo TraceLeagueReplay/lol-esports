@@ -472,11 +472,11 @@ function buildCriteria(){
   C.push({id:"mp", fam:"intl", label:"A joué le MSI", sub:"Mid-Season Invitational" + y, test:function(p){ return anyYear(p.mp); }});
   C.push({id:"f", fam:"intl", label:"Vainqueur du First Stand", sub:"2025-2026", test:function(p){ return anyYear(p.f); }});
   LG.forEach(function(l, li){
-    if (okLg(li)) C.push({id:"ch"+li, fam:"champ", lg:li, label:"Champion " + l, sub:"un split ou plus" + y, test:function(p){ return (p.ch || []).some(function(c){ return c[0] === li && inRange(c[1]); }); }});
+    C.push({id:"ch"+li, fam:"champ", lg:li, label:"Champion " + l, sub:"un split ou plus" + y, test:function(p){ return (p.ch || []).some(function(c){ return c[0] === li && inRange(c[1]); }); }});
     C.push({id:"lg"+li, fam:"league", lg:li, label:"A joué en " + l, sub:y ? y.trim() : "", test:function(p){ return p.s.some(function(s){ return s[1] === li && inRange(s[2]); }); }});
   });
   /* a precise pair of leagues: "A joué en LCK et en LPL" */
-  LG.forEach(function(a, ai){ LG.forEach(function(b, bi){ if (bi <= ai || !okLg(ai) || !okLg(bi)) return;
+  LG.forEach(function(a, ai){ LG.forEach(function(b, bi){ if (bi <= ai) return;
     C.push({id:"l2" + ai + bi, fam:"league", label:"A joué en " + a + " et en " + b, sub:y ? y.trim() : "les deux ligues", test:function(p){ var s = stintsIn(p); return s.some(function(x){ return x[1] === ai; }) && s.some(function(x){ return x[1] === bi; }); }});
   }); });
   Object.keys(NATN).forEach(function(c){
