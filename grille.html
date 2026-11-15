@@ -636,23 +636,24 @@ function generate(){
   }
 
   function teamsByCriteria(){
-    var t1 = Date.now(), bestX = null;
+    var t1 = Date.now(), bestX = null, cap = Math.max(2, Math.ceil(n / on.length));   /* teams of one league on the team side */
     for (var at = 0; at < 20000 && Date.now() - t1 < 450; at++) {
       var side = [], lgc = {}, used = new Set(), ok = true;
       for (var i = 0; i < n; i++) {
-        var cands = teams.filter(function(c){ return !used.has(c.id) && (lgc[T[c.team].lg] || 0) < 2; });
+        var cands = teams.filter(function(c){ return !used.has(c.id) && (lgc[T[c.team].lg] || 0) < cap; });
         if (!cands.length) { ok = false; break; }
-        var ws = cands.map(function(c){ return Math.sqrt(c.set.size) * (lgc[T[c.team].lg] ? 0.3 : 5); });
+        var ws = cands.map(function(c){ return Math.sqrt(c.set.size) / (1 + 4 * (lgc[T[c.team].lg] || 0)); });   /* the league with the fewest teams so far first */
         var tot = ws.reduce(function(a, b){ return a + b; }, 0), r = Math.random() * tot, k = 0;
         for (; k < cands.length - 1; k++) { r -= ws[k]; if (r <= 0) break; }
         used.add(cands[k].id); side.push(cands[k]); lgc[T[cands[k].team].lg] = (lgc[T[cands[k].team].lg] || 0) + 1;
       }
       if (!ok || Object.keys(lgc).length < Math.min(3, on.length)) continue;
+      if (on.length === 2 && on.some(function(l){ return (lgc[l] || 0) < Math.ceil(n * 0.3); })) continue;   /* 2 leagues: at least 30 % of the teams each */
       var axis = [], famc = {};
       for (var j = 0; j < n && ok; j++) {
         var c2 = shuffle(others.concat(teams)).filter(function(c){
           if (used.has(c.id)) return false;
-          if (c.fam !== "team" && famc[c.fam] >= (c.fam === "nat" ? 2 : 1)) return false;
+          if (c.fam !== "team" && famc[c.fam] >= (c.fam === "nat" || c.fam === "year" || c.fam === "career" ? 2 : c.fam === "role" ? (n >= 7 ? 3 : 2) : 1)) return false;   /* a 7-long side needs a few criteria of the same kind */
           if (c.fam === "team" && famc.team >= 1) return false;
           for (var o = 0; o < side.length; o++) if (clash(side[o], c) || ic(side[o], c) < min) return false;
           return true;
@@ -1445,6 +1446,26 @@ function vsBoot(){
 window.__grilleEnter = function(code){ vsDb().then(function(db){ if (db) { if (dlg.open) dlg.close(); vsEnter(db, code); } }); };
 window.__grilleJoin = function(code){ vsDb().then(function(db){ if (db) { if (dlg.open) dlg.close(); vsJoin(db, code, vsName() || "Joueur"); } }); };
 /* used from the chat side to see the answers of a shared grid (no effect on play) */
+/* test hook: generate grids with given settings and describe them (used by the simulation scripts) */
+window.__grilleSim = function(c, k){
+  var keep = cfg, kg = game, out = [];
+  cfg = Object.assign({}, DEF, c); cfg.fam = Object.assign({}, DEF.fam, c.fam || {}); prepare();
+  var t0 = Date.now();
+  for (var r = 0; r < k; r++) {
+    var g0 = Date.now(), g = generate(), relaxed = false;
+    if (!g) { g = generateRelaxed(); relaxed = !!g; }
+    var ms = Date.now() - g0;
+    if (!g) { out.push({fail: 1, ms: ms}); continue; }
+    game = g; var n = g.cfg.size, cells = [];
+    for (var i = 0; i < n * n; i++) { var cc = cellCrit(i), cand = cellCands(i); cells.push({a: cc[0].id, b: cc[1].id, la: cc[0].label, lb: cc[1].label, na: cc[0].set.size, nb: cc[1].set.size, k: cand.length}); }
+    var mm = matching(cells.map(function(_, i){ return cellCands(i); }), []);
+    var my = r < 2 ? pickMystery(g) : null;
+    out.push({rows: g.rows, cols: g.cols, cells: cells, solv: mm.ok === n * n, relaxed: relaxed, diff: g.cfg.diff, special: g.cfg.special, ms: ms, mys: !!my});
+  }
+  cfg = keep; game = kg; prepare();
+  return {pool: pool.length, out: out, total: Date.now() - t0};
+};
+window.__grilleCrit = function(c){ var keep = cfg; cfg = Object.assign({}, DEF, c); cfg.fam = Object.assign({}, DEF.fam, c.fam || {}); prepare(); var r = CACHE.list.map(function(x){ return {id: x.id, fam: x.fam, label: x.label, sub: x.sub, n: x.set.size, team: x.team, set: Array.from(x.set)}; }); cfg = keep; prepare(); return r; };
 window.__grilleCands = function(d){
   var keep = cfg; cfg = Object.assign({}, DEF, d.cfg); cfg.fam = Object.assign({}, DEF.fam, d.cfg.fam || {}); prepare();
   var g0 = game; game = {cfg: d.cfg, rows: d.rows, cols: d.cols, filled: d.filled};
