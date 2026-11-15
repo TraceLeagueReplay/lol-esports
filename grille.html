@@ -1205,35 +1205,57 @@ function rareStar(i){ if (isMys(i) || !game.own || !VS || !VS.doc || !docOpt(VS.
 function vsMyTurn(){ return !!(VS && VS.doc && VS.doc.st === "play" && VS.doc.turn === VS.slot); }
 function pname(d, s){ return d.p[s] ? d.p[s].name : "…"; }
 
-/* ---------- sound effects (made in the page, no audio files) ---------- */
-var SND = {on: ls("grille.snd") !== 0}, ACX = null;
-function tone(seq){
+/* ---------- sound effects: synth voices made in the page (no audio files) ---------- */
+var SND = {on: ls("grille.snd") !== 0}, ACX = null, BUS = null;
+function actx(){
+  ACX = ACX || new (window.AudioContext || window.webkitAudioContext)();
+  if (ACX.state === "suspended") ACX.resume();
+  if (!BUS) {   /* shared echo: dry + short feedback delay */
+    BUS = ACX.createGain(); BUS.connect(ACX.destination);
+    var dl = ACX.createDelay(0.5), fb = ACX.createGain(), wet = ACX.createGain(), lp = ACX.createBiquadFilter();
+    dl.delayTime.value = 0.13; fb.gain.value = 0.28; wet.gain.value = 0.32; lp.type = "lowpass"; lp.frequency.value = 3200;
+    BUS.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(wet); wet.connect(ACX.destination);
+  }
+  return ACX;
+}
+/* one note = 2 detuned oscillators -> lowpass sweep -> envelope -> echo.
+   {f: freq, f2: end freq (glide), t: start, d: duration, w: wave, v: volume, cut / cut2: filter start / end, dry: no echo} */
+function synth(notes){
   if (!SND.on) return;
-  try {
-    ACX = ACX || new (window.AudioContext || window.webkitAudioContext)();
-    if (ACX.state === "suspended") ACX.resume();
-    var t0 = ACX.currentTime + 0.01;
-    seq.forEach(function(s){   /* [frequency, start, duration, wave, volume] */
-      var o = ACX.createOscillator(), g = ACX.createGain();
-      o.type = s[3] || "sine"; o.frequency.value = s[0];
-      g.gain.setValueAtTime(0.0001, t0 + s[1]);
-      g.gain.exponentialRampToValueAtTime(s[4] || 0.06, t0 + s[1] + 0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + s[1] + s[2]);
-      o.connect(g); g.connect(ACX.destination); o.start(t0 + s[1]); o.stop(t0 + s[1] + s[2] + 0.03);
+  try { var A = actx(), t0 = A.currentTime + 0.01;
+    notes.forEach(function(n){
+      var g = A.createGain(), lp = A.createBiquadFilter(), st = t0 + n.t, en = st + n.d;
+      lp.type = "lowpass"; lp.Q.value = 6; lp.frequency.setValueAtTime(n.cut || 4000, st); lp.frequency.exponentialRampToValueAtTime(n.cut2 || 900, en);
+      g.gain.setValueAtTime(0.0001, st); g.gain.exponentialRampToValueAtTime(n.v || 0.05, st + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, en);
+      [-7, 7].forEach(function(dt){
+        var o = A.createOscillator(); o.type = n.w || "sawtooth"; o.detune.value = dt;
+        o.frequency.setValueAtTime(n.f, st); if (n.f2) o.frequency.exponentialRampToValueAtTime(n.f2, en);
+        o.connect(lp); o.start(st); o.stop(en + 0.03);
+      });
+      lp.connect(g); g.connect(n.dry ? A.destination : BUS);
     });
   } catch(e){}
 }
+function noise(t, d, v, hp){
+  if (!SND.on) return;
+  try { var A = actx(), st = A.currentTime + 0.01 + t, len = Math.floor(A.sampleRate * d), buf = A.createBuffer(1, len, A.sampleRate), ch = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    var s = A.createBufferSource(), f = A.createBiquadFilter(), g = A.createGain(); s.buffer = buf; f.type = "highpass"; f.frequency.value = hp || 2500; g.gain.value = v;
+    s.connect(f); f.connect(g); g.connect(A.destination); s.start(st);
+  } catch(e){}
+}
 var SFX = {
-  mine: function(){ tone([[880, 0, 0.11, "sine", 0.05], [1320, 0.055, 0.13, "sine", 0.04]]); },           /* your point: light "ding" */
-  opp: function(){ tone([[392, 0, 0.14, "triangle", 0.07], [294, 0.07, 0.17, "triangle", 0.06]]); },      /* opponent's point: lower, duller */
-  bad: function(){ tone([[175, 0, 0.13, "square", 0.022], [150, 0.08, 0.15, "square", 0.02]]); },        /* refused: soft buzz */
-  shape: function(pts, mine){                                                                              /* a pattern: rising notes, more and louder with the points */
-    var notes = mine === false ? [392, 494, 587, 784, 988] : [523, 659, 784, 1047, 1319, 1568], k = Math.min(notes.length, 2 + Math.floor(pts / 3)), seq = [];
-    for (var x = 0; x < k; x++) seq.push([notes[x], x * 0.075, x === k - 1 ? 0.3 : 0.14, "sine", Math.min(0.1, 0.05 + pts * 0.005)]);
-    tone(seq);
+  mine: function(){ synth([{f: 1319, t: 0, d: 0.09, v: 0.035, cut: 6000, cut2: 2000}, {f: 1976, t: 0.06, d: 0.14, v: 0.03, cut: 7000, cut2: 1800}]); },        /* your point */
+  opp: function(){ synth([{f: 330, t: 0, d: 0.13, w: "square", v: 0.03, cut: 1600, cut2: 500}, {f: 247, t: 0.08, d: 0.2, w: "square", v: 0.028, cut: 1400, cut2: 400}]); },   /* opponent's point */
+  bad: function(){ synth([{f: 220, f2: 70, t: 0, d: 0.22, w: "square", v: 0.03, cut: 1800, cut2: 300, dry: 1}]); noise(0, 0.06, 0.05, 3000); noise(0.09, 0.04, 0.035, 3000); },   /* refused */
+  shape: function(pts, mine){   /* a pattern: fast rising arpeggio, longer with the points, a bass from +5 */
+    var sc = mine === false ? [196, 247, 294, 392, 494, 587] : [523, 659, 784, 1047, 1319, 1568, 2093], k = Math.min(sc.length, 2 + Math.floor(pts / 2)), seq = [], v = Math.min(0.05, 0.028 + pts * 0.002);
+    for (var x = 0; x < k; x++) seq.push({f: sc[x], t: x * 0.055, d: x === k - 1 ? 0.42 : 0.1, v: v, cut: 2500 + x * 700, cut2: x === k - 1 ? 700 : 1500});
+    if (pts >= 5) seq.push({f: sc[k - 1] / 2, t: (k - 1) * 0.055, d: 0.5, w: "square", v: v * 0.6, cut: 1200, cut2: 300});
+    synth(seq);
   },
-  turn: function(){ tone([[660, 0, 0.09, "sine", 0.045], [990, 0.1, 0.13, "sine", 0.045]]); },            /* your turn */
-  tick: function(){ tone([[1250, 0, 0.035, "square", 0.018]]); }                                          /* last 5 seconds */
+  turn: function(){ synth([{f: 880, t: 0, d: 0.07, w: "square", v: 0.028, cut: 5000, cut2: 2500}, {f: 1760, t: 0.09, d: 0.12, w: "square", v: 0.028, cut: 6000, cut2: 2000}]); },   /* your turn */
+  tick: function(){ noise(0, 0.025, 0.06, 5000); synth([{f: 2200, t: 0, d: 0.03, w: "square", v: 0.012, cut: 8000, cut2: 4000, dry: 1}]); }   /* last 5 seconds */
 };
 function sndBtn(){ var b = $("#snd"); if (!b) return; b.textContent = SND.on ? "🔊" : "🔇"; b.title = SND.on ? "Couper les sons" : "Activer les sons"; }
 /* Match: sounds for what just arrived from the shared game */
