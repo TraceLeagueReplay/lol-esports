@@ -1075,7 +1075,7 @@ var RULES = [["Case prise", "1"], ["3 alignées (ligne ou colonne, pas en diagon
 function vsTok(){ if (HOST) return HOST.tok; var t = ls("grille.vs.tok"); if (!t) { t = Math.random().toString(36).slice(2, 12); ls("grille.vs.tok", t); } return t; }
 function vsDb(){ if (!DBP) DBP = HOST ? Promise.resolve(HOST.db) : (window.claude && window.claude.use) ? window.claude.use("db").catch(function(){ return null; }) : Promise.resolve(null); return DBP; }
 /* the middle cell can't be taken by the first move of the game */
-function vsLocked(i){ var n = game.cfg.size; return n % 2 === 1 && i === (n * n - 1) / 2 && game.filled.every(function(x){ return x < 0; }); }
+function vsLocked(i){ return false; }   /* the centre lock on the first move was removed: without diagonals the centre is an ordinary cell */
 function rareStar(i){ if (isMys(i) || !game.own || !VS || !VS.doc || !docOpt(VS.doc).rare) return ""; var b = rareBonus(i); return b ? '<span class="rar" title="' + (b === 2 ? "Case très rare : 1 seule réponse possible" : "Case rare : 2 réponses possibles") + ', +' + b + ' point' + (b > 1 ? "s" : "") + '">' + (b === 2 ? "★★" : "★") + '</span>' : ""; }
 function vsMyTurn(){ return !!(VS && VS.doc && VS.doc.st === "play" && VS.doc.turn === VS.slot); }
 function pname(d, s){ return d.p[s] ? d.p[s].name : "…"; }
