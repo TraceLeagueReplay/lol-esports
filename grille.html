@@ -266,20 +266,20 @@ button.cell.rev:hover,button.cell.ok[title]:hover{border-color:var(--accent)}
 
 /* ---------- bigger content in the cells (scales with the cell) ---------- */
 #grid .cell{container-type:inline-size}
-#grid .cell .pn,#grid.big .cell .pn{font-size:clamp(11px,14.5cqi,24px);line-height:1.08}
-#grid .cell .pt,#grid.big .cell .pt{font-size:clamp(9px,9.5cqi,15px)}
-#grid .cell .flag,#grid.big .cell .flag,#grid .cell.rev .pn .flag{width:clamp(16px,24cqi,42px);height:auto;aspect-ratio:3/2}
-#grid .cell{gap:clamp(2px,4cqi,8px)}
-#grid .cell .plus{font-size:clamp(18px,22cqi,34px)}
+#grid .cell .pn,#grid.big .cell .pn{font-size:clamp(11px,11.5cqi,19px);line-height:1.1}
+#grid .cell .pt,#grid.big .cell .pt{font-size:clamp(9px,8cqi,13px)}
+#grid .cell .flag,#grid.big .cell .flag,#grid .cell.rev .pn .flag{width:clamp(16px,19cqi,32px);height:auto;aspect-ratio:3/2}
+#grid .cell{gap:clamp(2px,3cqi,6px)}
+#grid .cell .plus{font-size:clamp(18px,18cqi,30px)}
 #grid .cell.dead .x{font-size:clamp(22px,30cqi,48px)}
 #grid .cell.lock .lk{font-size:clamp(14px,18cqi,28px)}
 @media (max-width:640px){ #grid .cell .pt{display:none} }
 #grid .hd{container-type:inline-size}
-#grid .hd .hn{font-size:clamp(10px,10.5cqi,15px)}
-#grid .hd.crit .hl{font-size:clamp(10px,11cqi,16px)}
-#grid .hd.crit .hs{font-size:clamp(9px,8.5cqi,13px)}
-#grid .hd.crit .ic{font-size:clamp(14px,17cqi,26px)}
-#grid .hd > img{width:clamp(28px,48cqi,72px);height:auto;max-height:clamp(22px,36cqi,54px)}
+#grid .hd .hn{font-size:clamp(10px,9cqi,13.5px)}
+#grid .hd.crit .hl{font-size:clamp(10px,9.5cqi,14.5px)}
+#grid .hd.crit .hs{font-size:clamp(9px,7.5cqi,12px)}
+#grid .hd.crit .ic{font-size:clamp(14px,15cqi,24px)}
+#grid .hd > img{width:clamp(28px,42cqi,64px);height:auto;max-height:clamp(22px,31cqi,48px)}
 
 /* ---------- hints ---------- */
 .hintbox{display:flex;align-items:flex-start;gap:10px;margin-top:8px;flex-wrap:wrap}
@@ -718,17 +718,6 @@ function headHTML(c){
   return '<div class="hd crit f-'+c.fam+'"><span class="ic">'+ic+'</span><span class="hl">'+esc(c.label)+'</span>'+(c.sub ? '<span class="hs">'+esc(c.sub)+'</span>' : "")+'</div>';
 }
 function lastTeam(p){ var best = null; p.s.forEach(function(s){ if (!best || s[2] > best[2]) best = s; }); return best ? T[best[0]].n + " · " + best[2] : ""; }
-/* the whole grid must fit the window height (7 x 7 at 100 %): shrink it like a browser zoom when it is too tall */
-function fitGrid(){
-  var box = $("#grid"); if (!box || !game) return;
-  box.style.zoom = ""; box.style.maxWidth = "";
-  if (window.innerWidth <= 640) return;
-  var top = box.getBoundingClientRect().top + window.scrollY;
-  var avail = window.innerHeight - top - 44;   /* keep the status line visible */
-  var h = box.getBoundingClientRect().height;
-  if (h > avail && avail > 200) box.style.zoom = Math.max(0.5, avail / h).toFixed(3);
-}
-window.addEventListener("resize", function(){ fitGrid(); });
 function render(){
   var box = $("#grid"); if (!game) { box.innerHTML = ""; return; }
   var n = game.cfg.size, used = usedSet(), h = '<div class="corner"><b>'+game.filled.filter(function(x){ return x >= 0; }).length+'</b><span>/ '+(n*n)+'</span></div>';
@@ -759,7 +748,7 @@ function render(){
       }
     }
   }
-  box.style.setProperty("--n", n); box.classList.toggle("big", n >= 7); setTimeout(fitGrid, 0);
+  box.style.setProperty("--n", n); box.classList.toggle("big", n >= 7);
   box.innerHTML = h;
   /* answer key when the player gives up: a full matching that respects what is already placed */
   if (game.gaveUp) {
