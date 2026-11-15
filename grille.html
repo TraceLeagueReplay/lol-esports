@@ -453,8 +453,8 @@ var FAMS = [["intl","Titres internationaux"],["champ","Titres de ligue"],["nat",
 /* ---------- criteria ---------- */
 function inRange(y){ return y >= cfg.from && y <= MAXY; }
 function okLg(l){ return !!cfg.leagues[l]; }
-var pool = [];          // players with at least one stint in the chosen leagues / years
-function stintsIn(p){ return p.s.filter(function(s){ return okLg(s[1]) && inRange(s[2]); }); }
+var pool = [];          // players with at least one stint in the chosen years (any league)
+function stintsIn(p){ return p.s.filter(function(s){ return inRange(s[2]); }); }   /* career criteria count every league */
 function anyYear(list){ return (list || []).some(inRange); }
 var NATN = {KR:"Corée du Sud",CN:"Chine",DK:"Danemark",FR:"France",DE:"Allemagne",ES:"Espagne",PL:"Pologne",SE:"Suède",US:"États-Unis",CA:"Canada",VN:"Vietnam",TW:"Taïwan",GB:"Royaume-Uni",BE:"Belgique",NL:"Pays-Bas",CZ:"Tchéquie",SI:"Slovénie",GR:"Grèce",TR:"Turquie",AU:"Australie",BG:"Bulgarie",RO:"Roumanie",HR:"Croatie",RS:"Serbie",SK:"Slovaquie",LT:"Lituanie",AT:"Autriche",IT:"Italie",PT:"Portugal",NO:"Norvège",FI:"Finlande",HU:"Hongrie",UA:"Ukraine",BR:"Brésil",MX:"Mexique",AR:"Argentine",CH:"Suisse",IE:"Irlande",IS:"Islande",JP:"Japon",HK:"Hong Kong",MY:"Malaisie",NZ:"Nouvelle-Zélande",RU:"Russie",IL:"Israël",LV:"Lettonie",EE:"Estonie",BA:"Bosnie",CL:"Chili",PE:"Pérou",CO:"Colombie",UY:"Uruguay",PH:"Philippines",ID:"Indonésie",TH:"Thaïlande",SG:"Singapour",MA:"Maroc",TN:"Tunisie",DZ:"Algérie",LU:"Luxembourg"};
 
@@ -472,7 +472,7 @@ function buildCriteria(){
   C.push({id:"mp", fam:"intl", label:"A joué le MSI", sub:"Mid-Season Invitational" + y, test:function(p){ return anyYear(p.mp); }});
   C.push({id:"f", fam:"intl", label:"Vainqueur du First Stand", sub:"2025-2026", test:function(p){ return anyYear(p.f); }});
   LG.forEach(function(l, li){
-    C.push({id:"ch"+li, fam:"champ", lg:li, label:"Champion " + l, sub:"un split ou plus" + y, test:function(p){ return (p.ch || []).some(function(c){ return c[0] === li && inRange(c[1]); }); }});
+    if (okLg(li)) C.push({id:"ch"+li, fam:"champ", lg:li, label:"Champion " + l, sub:"un split ou plus" + y, test:function(p){ return (p.ch || []).some(function(c){ return c[0] === li && inRange(c[1]); }); }});
     C.push({id:"lg"+li, fam:"league", lg:li, label:"A joué en " + l, sub:y ? y.trim() : "", test:function(p){ return p.s.some(function(s){ return s[1] === li && inRange(s[2]); }); }});
   });
   /* a precise pair of leagues: "A joué en LCK et en LPL" */
@@ -485,21 +485,21 @@ function buildCriteria(){
   ROLE.forEach(function(r, ri){ C.push({id:"r"+ri, fam:"role", role:ri, label:r, sub:"poste principal", test:function(p){ return p.r === ri; }}); });
   var lastY = {}; P.forEach(function(p){ p.s.forEach(function(s){ if (!(lastY[s[0]] >= s[2])) lastY[s[0]] = s[2]; }); });
   C.push({id:"kdis", fam:"career", wt:0.5, label:"A joué pour une équipe disparue", sub:"qui n’existe plus en 2026", test:function(p){ return stintsIn(p).some(function(x){ return lastY[x[0]] < 2026; }); }});
-  C.push({id:"k3", fam:"career", label:"3 équipes ou plus", sub:"dans ces ligues", test:function(p){ var s = {}; stintsIn(p).forEach(function(x){ s[x[0]] = 1; }); return Object.keys(s).length >= 3; }});
+  C.push({id:"k3", fam:"career", label:"3 équipes ou plus", sub:"toutes ligues", test:function(p){ var s = {}; stintsIn(p).forEach(function(x){ s[x[0]] = 1; }); return Object.keys(s).length >= 3; }});
   C.push({id:"k2l", fam:"career", label:"A joué dans 2 ligues", sub:"ou plus", test:function(p){ var s = {}; stintsIn(p).forEach(function(x){ s[x[1]] = 1; }); return Object.keys(s).length >= 2; }});
   C.push({id:"k6", fam:"career", label:"6 saisons ou plus", sub:"années jouées", test:function(p){ var s = {}; stintsIn(p).forEach(function(x){ s[x[2]] = 1; }); return Object.keys(s).length >= 6; }});
-  C.push({id:"kact", fam:"career", label:"Encore pro en 2026", sub:"dans ces ligues", test:function(p){ return p.s.some(function(x){ return x[2] === 2026 && okLg(x[1]); }); }});
+  C.push({id:"kact", fam:"career", label:"Encore pro en 2026", sub:"LEC, LCK, LCS, LPL ou LFL", test:function(p){ return p.s.some(function(x){ return x[2] === 2026; }); }});
   /* teammate of a star: same team, same year (in the chosen leagues and years) */
   STARS.forEach(function(sn){
     var best = -1; P.forEach(function(p, pi){ if (p.n === sn && (best < 0 || p.s.length > P[best].s.length)) best = pi; });
     if (best < 0) return;
-    var key = {}; P[best].s.forEach(function(s){ if (okLg(s[1]) && inRange(s[2])) key[s[0] + "|" + s[2]] = 1; });
-    C.push({id:"mt" + best, fam:"mate", star:best, label:"A joué avec " + sn, sub:"même équipe, même année" + y, test:function(p){ return p !== P[best] && p.s.some(function(s){ return key[s[0] + "|" + s[2]] && okLg(s[1]); }); }});
+    var key = {}; P[best].s.forEach(function(s){ if (inRange(s[2])) key[s[0] + "|" + s[2]] = 1; });
+    C.push({id:"mt" + best, fam:"mate", star:best, label:"A joué avec " + sn, sub:"même équipe, même année" + y, test:function(p){ return p !== P[best] && p.s.some(function(s){ return key[s[0] + "|" + s[2]]; }); }});
   });
   for (var yy = Math.max(cfg.from, 2013); yy <= 2025; yy++) (function(Y){
-    C.push({id:"y" + Y, fam:"year", wt:0.12, label:"A joué en " + Y, sub:"dans ces ligues", test:function(p){ return p.s.some(function(x){ return x[2] === Y && okLg(x[1]); }); }});
+    C.push({id:"y" + Y, fam:"year", wt:0.12, label:"A joué en " + Y, sub:"toutes ligues", test:function(p){ return p.s.some(function(x){ return x[2] === Y; }); }});
   })(yy);
-  C.push({id:"kold", fam:"career", label:"A joué en 2016 ou avant", sub:"dans ces ligues", test:function(p){ return p.s.some(function(x){ return x[2] <= 2016 && okLg(x[1]); }); }});
+  C.push({id:"kold", fam:"career", label:"A joué en 2016 ou avant", sub:"toutes ligues", test:function(p){ return p.s.some(function(x){ return x[2] <= 2016; }); }});
   /* candidate sets over the pool */
   var W = Math.ceil(pool.length / 32) || 1;
   C.forEach(function(c){
@@ -708,7 +708,7 @@ var CACHE = {};
 function prepare(){
   var key = cfg.leagues.join("") + "|" + cfg.from;
   if (CACHE.key === key) { pool = CACHE.pool; poolSet = CACHE.poolSet; CRIT = CACHE.CRIT; return; }
-  pool = []; P.forEach(function(p, i){ if (p.s.some(function(s){ return okLg(s[1]) && inRange(s[2]); })) pool.push(i); });
+  pool = []; P.forEach(function(p, i){ if (p.s.some(function(s){ return inRange(s[2]); })) pool.push(i); });   /* any league: the leagues setting picks the teams of the grid, not the players */
   poolSet = new Set(pool);
   var list = buildCriteria(); CRIT = {}; list.forEach(function(c){ CRIT[c.id] = c; });
   CACHE = {key:key, pool:pool, poolSet:poolSet, CRIT:CRIT, list:list, memo:{}};
@@ -1022,7 +1022,7 @@ function whyNot(p, cc){
     }
     return c.label;
   });
-  return p.n + " ne correspond pas : " + (parts.length ? parts.join(" et ") : "hors des ligues ou des années choisies") + ".";
+  return p.n + " ne correspond pas : " + (parts.length ? parts.join(" et ") : "il n’a pas joué pendant ta période (depuis " + cfg.from + ")") + ".";
 }
 /* every possible answer of a cell (once the answers are shown) */
 function openAnswers(i){
@@ -1043,7 +1043,7 @@ function openCfg(){
   var c = JSON.parse(JSON.stringify(cfg));
   var years = [2013]; for (var y = 2015; y <= 2025; y++) years.push(y);
   dlg.innerHTML = '<form method="dialog" class="cfg"><div class="ph"><div class="pc">Réglages</div><button type="button" class="x" data-close aria-label="Fermer">✕</button></div>' +
-    '<div class="f"><span class="lb">Ligues</span><div class="chips">' + LG.map(function(l, i){ return '<label><input type="checkbox" name="lg" value="'+i+'"'+(c.leagues[i] ? " checked" : "")+'>'+l+'</label>'; }).join("") + '</div></div>' +
+    '<div class="f"><span class="lb">Ligues</span><div class="chips">' + LG.map(function(l, i){ return '<label><input type="checkbox" name="lg" value="'+i+'"'+(c.leagues[i] ? " checked" : "")+'>'+l+'</label>'; }).join("") + '</div><small>Choisit les équipes de la grille. Pour les autres critères (nationalité, poste, titres…), un joueur de n’importe quelle ligue est accepté.</small></div>' +
     '<div class="f"><span class="lb">Dans une même grille</span><div class="chips"><label><input type="radio" name="mx" value="1"'+(c.mix ? " checked" : "")+'>Ligues mélangées</label><label><input type="radio" name="mx" value="0"'+(c.mix ? "" : " checked")+'>Une seule ligue</label></div></div>' +
     '<div class="f"><label class="lb" for="c-from">Période</label><select id="c-from">' + years.map(function(y){ return '<option value="'+y+'"'+(y === c.from ? " selected" : "")+'>'+(y === 2013 ? "Toutes les années (jusqu'à 2026)" : "Depuis " + y)+'</option>'; }).join("") + '</select></div>' +
     '<div class="f"><span class="lb">Difficulté</span><div class="chips">' + DIFF.map(function(d, i){ return '<label><input type="radio" name="df" value="'+i+'"'+(i === c.diff ? " checked" : "")+'>'+d.n+'</label>'; }).join("") + '</div><small>Nombre minimum de réponses possibles par case : '+DIFF.map(function(d){ return d.n + " " + d.min; }).join(" · ")+'</small></div>' +
