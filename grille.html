@@ -542,7 +542,8 @@ function matching(cand, fixed){
   for (var i = 0; i < cand.length; i++) if (cand[i] && tryCell(i, new Set())) ok++;
   return {ok:ok, assign:assign};
 }
-function generate(){
+function generate(budget){
+  var dl = Date.now() + (budget || 1500);   /* time budget: the page must never freeze */
   prepare(); var C = CACHE.list, n = cfg.size, min = DIFF[cfg.diff].min;
   var big = function(c){ return c.set.size >= Math.max(6, min * 2); };
   var teams = C.filter(function(c){ return c.fam === "team" && c.set.size >= Math.max(7, min * 2); });
@@ -558,6 +559,16 @@ function generate(){
   var nSpecial = Math.min(cfg.special, others.length, n * 2 - 2);
   var memo = CACHE.memo;
   function ic(a, b){ var k = a.id < b.id ? a.id + "|" + b.id : b.id + "|" + a.id; var v = memo[k]; if (v === undefined) v = memo[k] = popAnd(a.bits, b.bits); return v; }
+  /* a header pair that can't share a cell: no sense, not enough answers, one criterion (almost) contains the other
+     (Schalke × "équipe disparue", T1 × Corée du Sud…), or far too many answers (two broad criteria crossing) */
+  function bad(a, b){
+    if (clash(a, b)) return true;
+    var k = ic(a, b); if (k < min) return true;
+    if (k >= 4 && k >= 0.9 * Math.min(a.set.size, b.set.size)) return true;
+    if (a.fam !== "team" && b.fam !== "team" && k > 40) return true;
+    return false;
+  }
+  function yrLike(c){ return c.fam === "year" || c.id === "kold"; }
   function finish(rows, cols){
     var cand = [];
     for (var a = 0; a < n; a++) for (var b = 0; b < n; b++) cand.push(shuffle(inter(rows[a].set, cols[b].set)));
@@ -588,7 +599,7 @@ function generate(){
     /* first at most 2 teams of a league per line; if that never works (easy mode, no special criteria), allow more */
     for (var tier = 0; tier < 3 && (!best || best.skip) && !(best && best.skip); tier++) {
     var maxLine = [2, 3, 5][tier], t1 = Date.now();
-    for (var attempt = 0; attempt < 20000 && Date.now() - t1 < [450, 220, 150][tier]; attempt++) {
+    for (var attempt = 0; attempt < 20000 && Date.now() - t1 < [450, 220, 150][tier] && Date.now() < dl; attempt++) {
       if (best && best.sc && best.sc.cross >= 0.5 && Date.now() - t0 > 200) break;   /* good enough, don't make the player wait */
       var slots = shuffle(Array.from({length:n * 2}, function(_, i){ return i; })).slice(0, nSpecial);
       var rows = [], cols = [], used = new Set(), fail = false;
@@ -601,8 +612,8 @@ function generate(){
         var cands = pool.filter(function(c){
           if (used.has(c.id)) return false;
           if (c.fam === "team" && (sameL[T[c.team].lg] || 0) >= maxLine) return false;
-          for (var o = 0; o < other.length; o++) if (clash(other[o], c) || ic(other[o], c) < min) return false;
-          for (var q = 0; q < same.length; q++) if (same[q].fam === c.fam && (c.fam === "intl" || c.fam === "career" || c.fam === "mate" || c.fam === "year")) return false;
+          for (var o = 0; o < other.length; o++) if (bad(other[o], c)) return false;
+          for (var q = 0; q < same.length; q++) if (same[q].fam === c.fam && (c.fam === "intl" || c.fam === "career" || c.fam === "mate" || c.fam === "year") || yrLike(same[q]) && yrLike(c)) return false;
           return true;
         });
         if (!cands.length) { fail = true; break; }
@@ -637,7 +648,7 @@ function generate(){
 
   function teamsByCriteria(){
     var t1 = Date.now(), bestX = null, cap = Math.max(2, Math.ceil(n / on.length));   /* teams of one league on the team side */
-    for (var at = 0; at < 20000 && Date.now() - t1 < 450; at++) {
+    for (var at = 0; at < 20000 && Date.now() - t1 < 450 && Date.now() < dl; at++) {
       var side = [], lgc = {}, used = new Set(), ok = true;
       for (var i = 0; i < n; i++) {
         var cands = teams.filter(function(c){ return !used.has(c.id) && (lgc[T[c.team].lg] || 0) < cap; });
@@ -653,14 +664,15 @@ function generate(){
       for (var j = 0; j < n && ok; j++) {
         var c2 = shuffle(others.concat(teams)).filter(function(c){
           if (used.has(c.id)) return false;
-          if (c.fam !== "team" && famc[c.fam] >= (c.fam === "nat" || c.fam === "year" || c.fam === "career" ? 2 : c.fam === "role" ? (n >= 7 ? 3 : 2) : 1)) return false;   /* a 7-long side needs a few criteria of the same kind */
+          var fk = c.fam === "year" || c.id === "kold" ? "yr" : c.fam;   /* "A joué en 2016 ou avant" counts as a year */
+          if (c.fam !== "team" && famc[fk] >= (fk === "nat" || fk === "career" || fk === "role" ? 2 : 1)) return false;   /* a 7-long side needs a few criteria of the same kind, not more */
           if (c.fam === "team" && famc.team >= 1) return false;
-          for (var o = 0; o < side.length; o++) if (clash(side[o], c) || ic(side[o], c) < min) return false;
+          for (var o = 0; o < side.length; o++) if (bad(side[o], c)) return false;
           return true;
         });
         if (!c2.length) { ok = false; break; }
         var pickc = c2.find(function(c){ return c.fam === "team"; }) && Math.random() < 0.5 ? c2.find(function(c){ return c.fam === "team"; }) : c2[0];
-        used.add(pickc.id); axis.push(pickc); famc[pickc.fam] = (famc[pickc.fam] || 0) + 1;
+        used.add(pickc.id); axis.push(pickc); var pk = pickc.fam === "year" || pickc.id === "kold" ? "yr" : pickc.fam; famc[pk] = (famc[pk] || 0) + 1;
       }
       if (!ok) continue;
       var rows = Math.random() < 0.5 ? side : axis, cols = rows === side ? axis : side;
@@ -678,7 +690,7 @@ function generate(){
     if (teamsL.length < 3) continue;
     /* rows and columns filled in turn: each new header has to work with every header already on the other side */
     var t3 = Date.now();
-    for (var at = 0; at < 20000 && Date.now() - t3 < 600; at++) {
+    for (var at = 0; at < 20000 && Date.now() - t3 < 600 && Date.now() < dl; at++) {
       var sl = shuffle(Array.from({length:n * 2}, function(_, i){ return i; })).slice(0, nSpecial);
       var used2 = new Set(), rows2 = [], cols2 = [], f2 = false;
       for (var s2 = 0; s2 < n * 2 && !f2; s2++) {
@@ -686,8 +698,8 @@ function generate(){
         var same2 = isR ? rows2 : cols2, oth2 = isR ? cols2 : rows2;
         var cands2 = (sl.indexOf(slot2) >= 0 ? others : teamsL).filter(function(c){
           if (used2.has(c.id)) return false;
-          for (var o = 0; o < oth2.length; o++) if (clash(oth2[o], c) || ic(oth2[o], c) < min) return false;
-          for (var q = 0; q < same2.length; q++) if (same2[q].fam === c.fam && (c.fam === "intl" || c.fam === "career" || c.fam === "mate" || c.fam === "year")) return false;
+          for (var o = 0; o < oth2.length; o++) if (bad(oth2[o], c)) return false;
+          for (var q = 0; q < same2.length; q++) if (same2[q].fam === c.fam && (c.fam === "intl" || c.fam === "career" || c.fam === "mate" || c.fam === "year") || yrLike(same2[q]) && yrLike(c)) return false;
           return true;
         });
         if (!cands2.length) { f2 = true; break; }
@@ -721,11 +733,12 @@ function startNew(){
 }
 /* when the settings allow no grid: first a harder difficulty, then a few criteria other than teams (recent years: too few team × team links) */
 function generateRelaxed(){
-  var g = generate(); if (g) return g;
+  var g = generate(1000); if (g) return g;
   var kd = cfg.diff, ks = cfg.special, tries = [];
   for (var d = kd + 1; d < DIFF.length; d++) tries.push([d, ks]);
   [2, 4, 6].forEach(function(s){ if (s > ks) for (var d = kd; d < DIFF.length; d++) tries.push([d, s]); });
-  for (var t = 0; t < tries.length && !g; t++) { cfg.diff = tries[t][0]; cfg.special = tries[t][1]; g = generate(); }
+  var t0 = Date.now();
+  for (var t = 0; t < tries.length && !g && Date.now() - t0 < 1300; t++) { cfg.diff = tries[t][0]; cfg.special = tries[t][1]; g = generate(Math.min(500, 1400 - (Date.now() - t0))); }   /* never freeze the page for long */
   cfg.diff = kd; cfg.special = ks;
   if (g) {
     var what = [];
@@ -1452,7 +1465,7 @@ window.__grilleSim = function(c, k){
   cfg = Object.assign({}, DEF, c); cfg.fam = Object.assign({}, DEF.fam, c.fam || {}); prepare();
   var t0 = Date.now();
   for (var r = 0; r < k; r++) {
-    var g0 = Date.now(), g = generate(), relaxed = false;
+    var g0 = Date.now(), g = generate(1000), relaxed = false;
     if (!g) { g = generateRelaxed(); relaxed = !!g; }
     var ms = Date.now() - g0;
     if (!g) { out.push({fail: 1, ms: ms}); continue; }
