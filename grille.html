@@ -760,6 +760,8 @@ function pickMystery(g){
 }
 var MYS_PTS = 3;   /* Match: bonus for whoever finds the mystery player */
 function isMys(i){ return !!(game && game.mys && game.mys.i === i); }
+/* Match: a wrong guess on the mystery cell locks it for the rest of that turn (you can still play another cell) */
+function mysTried(){ var d = VS && VS.doc; return !!(d && d.mys && d.st === "play" && (d.log || []).some(function(l){ return l.k === "bad" && l.i === d.mys.i && l.n === d.n && l.s === d.turn; })); }
 function mysNeighbours(i){ var n = game.cfg.size, r = Math.floor(i / n), c = i % n, out = []; [[-1,0],[1,0],[0,-1],[0,1]].forEach(function(d){ var rr = r + d[0], cc = c + d[1]; if (rr >= 0 && cc >= 0 && rr < n && cc < n) out.push(rr * n + cc); }); return out; }
 function mysClues(){
   var m = game.mys, p = P[m.t], cc = cellCrit(m.i);
@@ -814,8 +816,7 @@ function openMystery(i){
     if (game.own) {   /* Match: a guess is a move */
       if (!vsMyTurn()) { dlg.close(); return; }
       if (pi === m.t) { dlg.close(); vsMove(i, pi, true); return; }
-      vsMove(i, pi, false);
-      if (!docOpt(VS.doc).err) { m.g.push(pi); $("#mysb").innerHTML = body(); q.value = ""; draw(); q.focus(); } else dlg.close();
+      dlg.close(); vsMove(i, pi, false);   /* one try per turn on the mystery cell */
       return;
     }
     if (pi === m.t) { game.filled[i] = pi; m.found = 1; dlg.close(); ls("grille.game", game); render(); toast("Joueur mystère trouvé : " + P[pi].n + " !"); var el = document.querySelector('.cell[data-i="'+i+'"]'); if (el) el.classList.add("pop"); return; }
@@ -878,8 +879,8 @@ function render(){
         var opts = isMys(i) ? (used.has(game.mys.t) ? [] : [game.mys.t]) : cellCands(i).filter(function(x){ return !used.has(x); });
         if (isMys(i) && !game.gaveUp && opts.length) {
           var cl = mysClues();
-          var mwait = game.own && (!vsMyTurn() || vsLocked(i));
-          h += '<button class="cell mys" data-i="'+i+'"'+(mwait ? " disabled" : "")+' title="Joueur mystère : un joueur précis à deviner'+(game.own ? " (+" + MYS_PTS + " pour qui le trouve)" : "")+'"><span class="q">?</span><span class="pt">' + cl.shown.length + '/' + cl.total + ' indice' + (cl.total > 1 ? "s" : "") + '</span></button>';
+          var mtried = game.own && vsMyTurn() && mysTried(), mwait = game.own && (!vsMyTurn() || vsLocked(i) || mtried);
+          h += '<button class="cell mys" data-i="'+i+'"'+(mwait ? " disabled" : "")+' title="Joueur mystère : un joueur précis à deviner'+(game.own ? " (+" + MYS_PTS + " pour qui le trouve)" : "")+'"><span class="q">?</span><span class="pt">' + (mtried ? "déjà tenté ce tour" : cl.shown.length + '/' + cl.total + ' indice' + (cl.total > 1 ? "s" : "")) + '</span></button>';
           remaining.push(opts); remIdx.push(i);
           continue;
         }
@@ -1371,7 +1372,7 @@ function vsPanel(){
       : l.k === "ff" ? '<span class="ans miss">abandonne</span>' : '<span class="ans miss">temps écoulé</span>';
     return '<li class="mv p'+l.s+(l.k === "ok" ? "" : " fail")+'"><span class="tn">'+e.t+'</span><div class="mv-main"><div class="mv-top"><b>'+esc(pname(d, l.s))+'</b>'+what+'</div>'+(where ? '<div class="mv-sub">'+where+'</div>' : "")+(e.bon.length ? '<div class="mv-bon">'+e.bon.map(esc).join(" · ")+'</div>' : "")+'</div><span class="gain">'+(l.k === "ok" ? "+" + e.gain : l.k === "ff" ? "" : "0")+'</span></li>';
   });
-  $("#vsrules").innerHTML = '<div class="vs-rules"><h3>Barème</h3>' + rulesHTML(d) + '<p class="hint">' + (docOpt(d).err ? "Mauvaise réponse ou chrono écoulé : le tour passe." : "Mauvaise réponse : tu peux réessayer tant que ton chrono tourne. Chrono écoulé : le tour passe.") + ' Fin quand plus aucune case n’est jouable ou quand tout le monde a raté 3 tours d’affilée.</p></div>';
+  $("#vsrules").innerHTML = '<div class="vs-rules"><h3>Barème</h3>' + rulesHTML(d) + '<p class="hint">' + (docOpt(d).err ? "Mauvaise réponse ou chrono écoulé : le tour passe." : "Mauvaise réponse : tu peux réessayer tant que ton chrono tourne" + (d.mys ? " (joueur mystère : 1 seul essai par tour)" : "") + ". Chrono écoulé : le tour passe.") + ' Fin quand plus aucune case n’est jouable ou quand tout le monde a raté 3 tours d’affilée.</p></div>';
   $("#vshist").innerHTML = '<div class="vs-hist"><h3>Coups joués</h3>' + (items.length ? '<ol>' + items.join("") + '</ol>' : '<p class="hint">Aucun coup pour l’instant.</p>') + '</div>';
   vsClock();
 }
@@ -1414,11 +1415,12 @@ function vsForfeit(d, s){
 function vsMove(i, pi, ok){
   var d = VS.doc; if (!vsMyTurn() || d.filled[i] >= 0 || vsLocked(i)) return;
   if (ok && d.filled.indexOf(pi) >= 0) { toast(P[pi].n + " est déjà utilisé."); return; }
+  if (isMys(i) && mysTried()) { toast("Tu as déjà tenté le joueur mystère ce tour."); return; }
   var filled = d.filled.slice(), own = d.own.slice();
   if (ok) { filled[i] = pi; own[i] = VS.slot; }
   else if (!docOpt(d).err) {   /* option: try again while the clock runs; the miss is only written in the history */
-    toast((isMys(i) ? "Ce n’est pas le joueur mystère." : whyNot(P[pi], cellCrit(i))) + " Réessaie !");
-    vsWrite(d, {log: (d.log || []).concat([{s: VS.slot, i: i, p: pi, k: "bad", t: Date.now()}]).slice(-60)});
+    toast(isMys(i) ? "Ce n’est pas le joueur mystère : plus d’essai sur cette case ce tour-ci, joue une autre case !" : whyNot(P[pi], cellCrit(i)) + " Réessaie !");
+    vsWrite(d, {log: (d.log || []).concat([{s: VS.slot, i: i, p: pi, k: "bad", t: Date.now(), n: d.n}]).slice(-60)});
     return;
   }
   else toast((isMys(i) ? "Ce n’est pas le joueur mystère." : whyNot(P[pi], cellCrit(i))) + " Ton tour passe.");
