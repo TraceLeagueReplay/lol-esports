@@ -568,6 +568,16 @@ function generate(budget, strictMix){
     if (a.fam !== "team" && b.fam !== "team" && k > 40) return true;
     return false;
   }
+  /* the non-team criteria split between rows and columns (never all on one side) */
+  function specialSlots(){
+    if (LOOSE_SLOTS) return shuffle(Array.from({length:n * 2}, function(_, i){ return i; })).slice(0, nSpecial);
+    var kr = Math.random() < 0.5 ? Math.floor(nSpecial / 2) : Math.ceil(nSpecial / 2);
+    if (nSpecial >= 3 && Math.random() < 0.3) kr = 1 + Math.floor(Math.random() * (nSpecial - 1));   /* sometimes less even (still at least 1 on each side): some settings need it */
+    var kc = nSpecial - kr;
+    var r = shuffle(Array.from({length:n}, function(_, i){ return i; })).slice(0, Math.min(kr, n - 1));
+    var c = shuffle(Array.from({length:n}, function(_, i){ return n + i; })).slice(0, Math.min(kc, n - 1));
+    return r.concat(c);
+  }
   function yrLike(c){ return c.fam === "year" || c.id === "kold"; }
   function finish(rows, cols){
     var cand = [];
@@ -583,9 +593,9 @@ function generate(budget, strictMix){
   /* what worked before with these settings: a search that keeps failing is skipped (no wasted second) */
   var skey = cfg.diff + "|" + cfg.size + "|" + nSpecial, stat = CACHE.stat = CACHE.stat || {};
   var st = stat[skey] = stat[skey] || {mixFail:0, txFail:0};
-  if (cfg.mix && on.length === 2) {   /* 2 leagues: teams of both on both sides, at least 30 % of each, the slider respected */
+  if (cfg.mix && on.length === 2 && strictMix !== "skip") {   /* 2 leagues: teams of both on both sides, at least 30 % of each, the slider respected */
     var bm = balancedMix(); if (bm) return bm;
-    if (strictMix) return null;
+    if (strictMix === true) return null;
   }
   if (cfg.mix && on.length > 1) {
     var best = null, t0 = Date.now();
@@ -607,7 +617,7 @@ function generate(budget, strictMix){
     var maxLine = [2, 3, 5][tier], t1 = Date.now();
     for (var attempt = 0; attempt < 20000 && Date.now() - t1 < [450, 220, 150][tier] && Date.now() < dl; attempt++) {
       if (best && best.sc && best.sc.cross >= 0.5 && Date.now() - t0 > 200) break;   /* good enough, don't make the player wait */
-      var slots = shuffle(Array.from({length:n * 2}, function(_, i){ return i; })).slice(0, nSpecial);
+      var slots = specialSlots();
       var rows = [], cols = [], used = new Set(), fail = false;
       for (var step = 0; step < n * 2 && !fail; step++) {
         var isRow = step % 2 === 0, idx = Math.floor(step / 2), slot = isRow ? idx : n + idx;
@@ -655,11 +665,12 @@ function generate(budget, strictMix){
 
   /* rows' teams × columns' teams must all share players: build both team sets together, then add the other criteria */
   function balancedMix(){
-    var t1 = Date.now(), nT = n * 2 - nSpecial, need = Math.ceil(nT * 0.3);
+    var t1 = Date.now(), nT = n * 2 - nSpecial, need = Math.max(1, Math.round(nT * 0.2));   /* a few teams of the other league are enough */
     if (nT < 2) return null;
     for (var at = 0; at < 20000 && Date.now() - t1 < 700 && Date.now() < dl; at++) {
       /* the smaller side Y first, keeping enough teams compatible with all of Y; then X among those */
-      var ys = Math.max(1, nT - n) + Math.floor(Math.random() * (Math.floor(nT / 2) - Math.max(1, nT - n) + 1));
+      /* teams (and so criteria) split evenly between rows and columns; a bit less even only if that keeps failing */
+      var spread = Date.now() - t1 < 350 ? 0 : 1, ys = Math.max(Math.max(1, nT - n), Math.floor(nT / 2) - spread);
       var pop = function(list){ return list.map(function(c){ return [Math.random() * Math.sqrt(c.set.size), c]; }).sort(function(a, b){ return b[0] - a[0]; }).map(function(x){ return x[1]; }); };
       var Y = [], comp = teams.slice(), cnt = {};
       pop(teams).forEach(function(t){
@@ -739,8 +750,9 @@ function generate(budget, strictMix){
     if (teamsL.length < 3) continue;
     /* rows and columns filled in turn: each new header has to work with every header already on the other side */
     var t3 = Date.now();
-    for (var at = 0; at < 20000 && Date.now() - t3 < 600 && Date.now() < dl; at++) {
-      var sl = shuffle(Array.from({length:n * 2}, function(_, i){ return i; })).slice(0, nSpecial);
+    var share = Math.min(600, Math.max(80, (dl - Date.now()) / (order.length - mi)));   /* every league gets its share of the time */
+    for (var at = 0; at < 20000 && Date.now() - t3 < share; at++) {
+      var sl = specialSlots();
       var used2 = new Set(), rows2 = [], cols2 = [], f2 = false;
       for (var s2 = 0; s2 < n * 2 && !f2; s2++) {
         var isR = s2 % 2 === 0, ix = Math.floor(s2 / 2), slot2 = isR ? ix : n + ix;
@@ -781,6 +793,7 @@ function startNew(){
   setTimeout(function(){ startNow(); $("#grid").classList.remove("busy"); }, 20);
 }
 /* when the settings allow no grid: first a harder difficulty, then a few criteria other than teams (recent years: too few team × team links) */
+var LOOSE_SLOTS = false;   /* last resort: criteria anywhere, even all on one side */
 function generateRelaxed(){
   var on2 = LG.filter(function(_, i){ return cfg.leagues[i]; });
   var bk = "bm|" + cfg.diff + "|" + cfg.size + "|" + cfg.special, bs = CACHE.stat = CACHE.stat || {};
@@ -790,13 +803,15 @@ function generateRelaxed(){
     cfg.special = ks0; bs[bk] = g2 ? 0 : (bs[bk] || 0) + 1;
     if (g2) { if (g2.cfg.special !== ks0) toast("Pour mélanger " + on2.join(" et ") + " dans la grille : " + g2.cfg.special + " critères au lieu de " + ks0 + "."); return g2; }
   }
-  var g = generate(1000); if (g) return g;
+  var tried = cfg.mix && on2.length === 2 ? "skip" : false;   /* the 2-league search was just tried: give the time to the other layouts */
+  var g = generate(1000, tried); if (g) return g;
   var kd = cfg.diff, ks = cfg.special, tries = [];
   for (var d = kd + 1; d < DIFF.length; d++) tries.push([d, ks]);
   [2, 4, 6].forEach(function(s){ if (s > ks) for (var d = kd; d < DIFF.length; d++) tries.push([d, s]); });
   var t0 = Date.now();
-  for (var t = 0; t < tries.length && !g && Date.now() - t0 < 1300; t++) { cfg.diff = tries[t][0]; cfg.special = tries[t][1]; g = generate(Math.min(500, 1400 - (Date.now() - t0))); }   /* never freeze the page for long */
+  for (var t = 0; t < tries.length && !g && Date.now() - t0 < 1300; t++) { cfg.diff = tries[t][0]; cfg.special = tries[t][1]; g = generate(Math.min(500, 1400 - (Date.now() - t0)), tried); }   /* never freeze the page for long */
   cfg.diff = kd; cfg.special = ks;
+  if (!g) { LOOSE_SLOTS = true; g = generate(800, tried); LOOSE_SLOTS = false; if (g) return g; }
   if (g) {
     var what = [];
     if (g.cfg.diff !== kd) what.push("en " + DIFF[g.cfg.diff].n);
