@@ -828,8 +828,8 @@ function openCfg(){
    own[i] = slot (0/1) of the player who took cell i, -1 = free. Scores are recomputed from own[] (never stored). */
 var VS = null, vsPat = [], DBP = null, vsTick = null, vsWQ = Promise.resolve(), vsCreating = false;
 var HOST = (function(){ try { return window.parent !== window && window.parent.__grilleHost ? window.parent.__grilleHost : null; } catch(e){ return null; } })();
-var PTS = [[3, 3], [4, 6], [5, 10]];  /* run length -> points */
-var RULES = [["Case prise", "1"], ["3 alignées (ligne ou colonne, pas en diagonale)", "+3"], ["4 alignées", "+6"], ["5 alignées", "+10"], ["Carré 2×2", "+2"], ["Croix (une case + ses 4 voisines)", "+5"], ["Les 4 coins", "+4"]];
+var PTS = [[3, 3], [4, 6], [5, 10], [6, 15], [7, 21]];  /* run length -> points (6 and 7 only exist in 7 x 7) */
+var RULES = [["Case prise", "1"], ["3 alignées (ligne ou colonne, pas en diagonale)", "+3"], ["4 alignées", "+6"], ["5 alignées", "+10"], ["6 alignées (7×7)", "+15"], ["7 alignées : ligne ou colonne complète (7×7)", "+21"], ["Carré 2×2", "+2"], ["Croix (une case + ses 4 voisines)", "+5"], ["Les 4 coins", "+4"]];
 function vsTok(){ if (HOST) return HOST.tok; var t = ls("grille.vs.tok"); if (!t) { t = Math.random().toString(36).slice(2, 12); ls("grille.vs.tok", t); } return t; }
 function vsDb(){ if (!DBP) DBP = HOST ? Promise.resolve(HOST.db) : (window.claude && window.claude.use) ? window.claude.use("db").catch(function(){ return null; }) : Promise.resolve(null); return DBP; }
 /* the middle cell can't be taken by the first move of the game */
@@ -844,7 +844,7 @@ function patterns(own, n){
     for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) {
       var o = at(r, c); if (o < 0 || at(r - d[0], c - d[1]) === o) continue;
       var cells = []; while (at(r + cells.length * d[0], c + cells.length * d[1]) === o) cells.push((r + cells.length * d[0]) * n + c + cells.length * d[1]);
-      var pt = PTS.filter(function(x){ return x[0] === Math.min(cells.length, 5); })[0];
+      var pt = PTS.filter(function(x){ return x[0] === Math.min(cells.length, 7); })[0];
       if (cells.length >= 3) out[o].push({k: d[2] + " de " + cells.length, pts: pt[1], cells: cells});
     }
   });
