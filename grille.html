@@ -363,6 +363,7 @@ button.cell:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
 #grid.huge{max-width:1180px;gap:4px}
 .btn.snd{padding:6px 10px;font-size:16px;line-height:1.1}
 .cell .drg-ic{width:clamp(26px,46cqi,60px);height:auto;filter:drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent))}
+.cell.drglock .drg-ic{opacity:.55;filter:grayscale(.3)}
 .cell.protpick{cursor:pointer;outline:2px dashed var(--accent);outline-offset:-4px}
 .cell .shield{position:absolute;top:3px;left:5px;font-size:clamp(11px,11cqi,16px)}
 .pc-drg{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;align-items:center}
@@ -1062,7 +1063,7 @@ function renderGrid(){
         } else if (!opts.length) {
           h += '<div class="cell dead" data-i="'+i+'" title="Plus aucun joueur possible pour cette case"><span class="x">✕</span></div>';
         } else if (game.own && vsLocked(i)) {
-          h += '<div class="cell lock" data-i="'+i+'" title="La case du milieu ne peut pas être prise au premier coup"><span class="lk">🔒</span><span class="pt">pas au 1er coup</span></div>';
+          var dl0 = VS.doc.dr; h += '<div class="cell lock drglock" data-i="'+i+'" title="'+DRGN[dl0.k]+' réservé à '+esc(pname(VS.doc, dl0.o))+' pour son prochain tour"><img class="drg-ic" src="'+DRGI[dl0.k]+'" alt=""><span class="pt">réservé à '+esc(pname(VS.doc, dl0.o))+'</span></div>';
         } else if (game.own && !vsMyTurn()) {
           h += '<div class="cell wait" data-i="'+i+'">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+'</div>';
           remaining.push(opts); remIdx.push(i);
@@ -1255,7 +1256,9 @@ var RULES = [["Case prise", "1"], ["3 alignées (ligne ou colonne, pas en diagon
 function vsTok(){ if (HOST) return HOST.tok; var t = ls("grille.vs.tok"); if (!t) { t = Math.random().toString(36).slice(2, 12); ls("grille.vs.tok", t); } return t; }
 function vsDb(){ if (!DBP) DBP = HOST ? Promise.resolve(HOST.db) : (window.claude && window.claude.use) ? window.claude.use("db").catch(function(){ return null; }) : Promise.resolve(null); return DBP; }
 /* the middle cell can't be taken by the first move of the game */
-function vsLocked(i){ return false; }   /* the centre lock on the first move was removed: without diagonals the centre is an ordinary cell */
+/* a dragon is first reserved to one player (each in turn); the others can't play its cell until that player's next turn is over */
+function drgLocked(i){ var d = VS && VS.doc; return !!(game && game.own && d && docOpt(d).drg && d.dr && !d.dr.open && d.dr.i === i && d.dr.o !== VS.slot); }
+function vsLocked(i){ return drgLocked(i); }
 function rareStar(i){ if (isMys(i) || !game.own || !VS || !VS.doc || !docOpt(VS.doc).rare) return ""; var b = rareBonus(i); return b ? '<span class="rar" title="' + (b === 2 ? "Case très rare : 1 seule réponse possible" : "Case rare : 2 réponses possibles") + ', +' + b + ' point' + (b > 1 ? "s" : "") + '">' + (b === 2 ? "★★" : "★") + '</span>' : ""; }
 function vsMyTurn(){ return !!(VS && VS.doc && VS.doc.st === "play" && VS.doc.turn === VS.slot); }
 function pname(d, s){ return d.p[s] ? d.p[s].name : "…"; }
@@ -1385,7 +1388,7 @@ function vsSounds(d, pat){
   });
   if (docOpt(d).drg) {
     fresh.forEach(function(l){ if (l.k === "ok" && l.dr) toast(pname(d, l.s) + " prend le " + DRGN[l.dr] + " : " + DRGE[l.dr]); });
-    if (d.dr && (!VS.prev.dr || VS.prev.dr.i !== d.dr.i || VS.prev.dr.k !== d.dr.k)) { setTimeout(SFX.drg, wait + 100); wait += 700; if (!fresh.some(function(l){ return l.dr; })) toast("🐉 " + DRGN[d.dr.k] + " apparu : " + DRGE[d.dr.k]); }
+    if (d.dr && (!VS.prev.dr || VS.prev.dr.i !== d.dr.i || VS.prev.dr.k !== d.dr.k)) { setTimeout(SFX.drg, wait + 100); wait += 700; if (!fresh.some(function(l){ return l.dr; })) toast("🐉 " + DRGN[d.dr.k] + " apparu" + (d.dr.o != null ? (d.dr.o === VS.slot && !VS.self ? " : il est pour toi ce tour-ci !" : " pour " + pname(d, d.dr.o)) : "") + " — " + DRGE[d.dr.k]); }
   }
   if (baronOn(d)) { if (VS.baronSnd !== d.code) { VS.baronSnd = d.code; setTimeout(SFX.baron, wait + 150); wait += 1400; toast("🐉 Phase Baron : chaque coup rapporte double !"); } }
   var myTurnNow = !VS.self && d.st === "play" && d.turn === VS.slot;
@@ -1529,7 +1532,8 @@ function dragonMove(d, i, pi, filled, entry, reuse){
     if (open.length && (eld || cnt >= at)) {
       var kinds = ["inf", "oce", "mon", "nua", "hex", "chem"].filter(function(x){ return x !== d.lastk; });
       var kind = eld ? "eld" : kinds[Math.floor(Math.random() * kinds.length)];
-      out.dr = {i: open[Math.floor(Math.random() * open.length)], k: kind}; out.lastk = kind;
+      var act = d.p.map(function(p, s){ return p && !p.out ? s : -1; }).filter(function(s){ return s >= 0; }), q = d.drq || 0;
+      out.dr = {i: open[Math.floor(Math.random() * open.length)], k: kind, o: act[q % act.length], open: false}; out.lastk = kind; out.drq = q + 1;
       if (eld) out.eld = 1;
     }
   }
@@ -1567,7 +1571,7 @@ function drgBanner(d){
   if (!docOpt(d).drg || d.st !== "play") return "";
   var me = myBuffs(d, VS.slot);
   if (me.mon > 0) return '<small class="drgb">⛰️ Clique une de tes cases pour la protéger</small>';
-  if (d.dr) return '<small class="drgb"><img src="' + DRGI[d.dr.k] + '" alt="">' + DRGN[d.dr.k] + ' : ' + DRGE[d.dr.k] + '</small>';
+  if (d.dr) return '<small class="drgb"><img src="' + DRGI[d.dr.k] + '" alt="">' + DRGN[d.dr.k] + ' : ' + DRGE[d.dr.k] + (d.dr.open || d.dr.o == null ? ' · ouvert à tous' : ' · réservé à ' + esc(pname(d, d.dr.o)) + ' ce tour-ci') + '</small>';
   return "";
 }
 function scoreOf(d, s, pat){ return baronExtra(d, s) + d.own.filter(function(o){ return o === s; }).length + (d.mys && d.own[d.mys.i] === s ? MYS_PTS : 0) + (docOpt(d).rare ? d.own.reduce(function(a, o, i){ return a + (o === s && !(d.mys && d.mys.i === i) ? rareBonus(i) : 0); }, 0) : 0) + pat[s].reduce(function(a, x){ return a + x.pts; }, 0) - ((d.hp || [])[s] || 0); }
@@ -1659,7 +1663,7 @@ function rulesHTML(d){
   var rows = RULES.slice();
   if (d && docOpt(d).rare) rows.splice(1, 0, ["Case très rare ★★ (1 seule réponse possible)", "+2"], ["Case rare ★ (2 réponses possibles)", "+1"]);
   if (d && d.mys) rows.splice(1, 0, ["Joueur mystère trouvé (case ?)", "+" + MYS_PTS]);
-  if (d && docOpt(d).drg) { rows.push(["Dragon : remplis sa case pour gagner son effet (survole-le)", "🐉"]); rows.push(["Dragon ancestral (fin de partie)", "+5"]); }
+  if (d && docOpt(d).drg) { rows.push(["Dragon : chacun son tour, réservé à un joueur pendant son prochain tour, puis ouvert à tous", "🐉"]); rows.push(["Dragon ancestral (fin de partie)", "+5"]); }
   if (d && docOpt(d).baron) rows.push(["Phase Baron : les " + baronN(d.cfg.size) + " dernières cases jouables", "×2"]);
   return '<table class="rules">' + rows.map(function(r){ return '<tr><td>'+esc(r[0])+'</td><td>'+r[1]+'</td></tr>'; }).join("") + '</table>'; }
 function nps(d){ return d.np || 2; }
@@ -1879,6 +1883,7 @@ function vsNext(d, filled, own, entry, ok){
   var nxt = nextTurn(d, d.turn), fails = ok ? 0 : (d.fails || 0) + 1, act = d.p.filter(function(x){ return !x.out; }).length;
   var log = (d.log || []).concat([entry]).slice(-400);
   var patch = {filled: filled, own: own, log: log, turn: nxt, n: d.n + 1, fails: fails, dl: vsDeadline(d, nxt)};
+  if (docOpt(d).drg && d.dr && !d.dr.open && d.dr.o === entry.s) patch.dr = Object.assign({}, d.dr, {open: true});
   if (!playable(filled) || fails >= 3 * act) { patch.st = "end"; patch.dl = 0; }
   else if (docOpt(d).drg && patch.dl && myBuffs(d, nxt).nua > 0) {   /* cloud dragon: +20 s */
     var bf = (d.bf || []).map(function(o){ return Object.assign({}, o || {}); }); bf[nxt].nua--; patch.bf = bf; patch.dl += 20000;
@@ -1909,8 +1914,11 @@ function vsMove(i, pi, ok){
   else toast((isMys(i) ? "Ce n’est pas le joueur mystère." : whyNot(P[pi], cellCrit(i))) + " Ton tour passe.");
   var entry = {s: VS.slot, i: i, p: pi, k: ok ? "ok" : "bad", t: Date.now()};
   var extra = ok ? dragonMove(d, i, pi, filled, entry, reuse) : {};
-  var patch = vsNext(extra.bf ? Object.assign({}, d, {bf: extra.bf}) : d, filled, own, entry, ok), bf2 = patch.bf;
+  var d2 = Object.assign({}, d, extra.bf ? {bf: extra.bf} : {}, "dr" in extra ? {dr: extra.dr} : {});
+  var patch = vsNext(d2, filled, own, entry, ok), bf2 = patch.bf, dr2 = patch.dr;
   Object.assign(patch, extra); if (bf2) patch.bf = bf2;
+  var fresh = extra.dr && (!d.dr || d.dr.i !== extra.dr.i || d.dr.k !== extra.dr.k);   /* a dragon born on this move stays reserved */
+  if (dr2 && !fresh) patch.dr = dr2;
   vsWrite(d, patch);
   if (entry.hex) hexHint(i, filled);
 }
