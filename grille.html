@@ -1257,7 +1257,7 @@ function vsTok(){ if (HOST) return HOST.tok; var t = ls("grille.vs.tok"); if (!t
 function vsDb(){ if (!DBP) DBP = HOST ? Promise.resolve(HOST.db) : (window.claude && window.claude.use) ? window.claude.use("db").catch(function(){ return null; }) : Promise.resolve(null); return DBP; }
 /* the middle cell can't be taken by the first move of the game */
 /* a dragon is first reserved to one player (each in turn); the others can't play its cell until that player's next turn is over */
-function drgLocked(i){ var d = VS && VS.doc; return !!(game && game.own && d && docOpt(d).drg && d.dr && !d.dr.open && d.dr.i === i && d.dr.o !== VS.slot); }
+function drgLocked(i){ return false; }   /* no lock: the dragon shows for everyone, its player just gets the first shot */
 function vsLocked(i){ return drgLocked(i); }
 function rareStar(i){ if (isMys(i) || !game.own || !VS || !VS.doc || !docOpt(VS.doc).rare) return ""; var b = rareBonus(i); return b ? '<span class="rar" title="' + (b === 2 ? "Case très rare : 1 seule réponse possible" : "Case rare : 2 réponses possibles") + ', +' + b + ' point' + (b > 1 ? "s" : "") + '">' + (b === 2 ? "★★" : "★") + '</span>' : ""; }
 function vsMyTurn(){ return !!(VS && VS.doc && VS.doc.st === "play" && VS.doc.turn === VS.slot); }
@@ -1573,7 +1573,7 @@ function drgBanner(d){
   if (!docOpt(d).drg || d.st !== "play") return "";
   var me = myBuffs(d, VS.slot);
   if (me.mon > 0) return '<small class="drgb">⛰️ Clique une de tes cases pour la protéger</small>';
-  if (d.dr) return '<small class="drgb"><img src="' + DRGI[d.dr.k] + '" alt="">' + DRGN[d.dr.k] + ' : ' + DRGE[d.dr.k] + (d.dr.open || d.dr.o == null ? ' · ouvert à tous' : ' · réservé à ' + esc(pname(d, d.dr.o)) + ' ce tour-ci') + '</small>';
+  if (d.dr) return '<small class="drgb"><img src="' + DRGI[d.dr.k] + '" alt="">' + DRGN[d.dr.k] + ' : ' + DRGE[d.dr.k] + '</small>';
   return "";
 }
 function scoreOf(d, s, pat){ return baronExtra(d, s) + d.own.filter(function(o){ return o === s; }).length + (d.mys && d.own[d.mys.i] === s ? MYS_PTS : 0) + (docOpt(d).rare ? d.own.reduce(function(a, o, i){ return a + (o === s && !(d.mys && d.mys.i === i) ? rareBonus(i) : 0); }, 0) : 0) + pat[s].reduce(function(a, x){ return a + x.pts; }, 0) - ((d.hp || [])[s] || 0); }
@@ -1665,7 +1665,7 @@ function rulesHTML(d){
   var rows = RULES.slice();
   if (d && docOpt(d).rare) rows.splice(1, 0, ["Case très rare ★★ (1 seule réponse possible)", "+2"], ["Case rare ★ (2 réponses possibles)", "+1"]);
   if (d && d.mys) rows.splice(1, 0, ["Joueur mystère trouvé (case ?)", "+" + MYS_PTS]);
-  if (d && docOpt(d).drg) { rows.push(["Dragon : chacun son tour, réservé à un joueur pendant son prochain tour, puis ouvert à tous", "🐉"]); rows.push(["Dragon ancestral (fin de partie)", "+5"]); }
+  if (d && docOpt(d).drg) { rows.push(["Dragon : apparaît au début du tour de chaque joueur à tour de rôle ; s'il ne le prend pas, les autres peuvent", "🐉"]); rows.push(["Dragon ancestral (fin de partie)", "+5"]); }
   if (d && docOpt(d).baron) rows.push(["Phase Baron : les " + baronN(d.cfg.size) + " dernières cases jouables", "×2"]);
   return '<table class="rules">' + rows.map(function(r){ return '<tr><td>'+esc(r[0])+'</td><td>'+r[1]+'</td></tr>'; }).join("") + '</table>'; }
 function nps(d){ return d.np || 2; }
