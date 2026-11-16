@@ -362,6 +362,9 @@ button.cell:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
 /* 8 × 8 */
 #grid.huge{max-width:1180px;gap:4px}
 .btn.snd{padding:6px 10px;font-size:16px;line-height:1.1}
+.pc-sec{font-size:12px;margin-top:5px;padding:4px 7px;border-radius:6px;background:var(--panel-2);color:var(--muted);line-height:1.3}
+.pc-sec.ok{color:var(--ok);background:var(--ok-bg)}
+.vs-mid .baron{color:var(--accent);font-weight:700;font-size:12.5px}
 /* solver page */
 body.slvpage .wrap{max-width:1500px}
 body.slvpage #grid{max-width:none}
@@ -1356,7 +1359,83 @@ function patterns(own, n){
   var co = at(0, 0); if (n > 2 && co >= 0 && at(0, n-1) === co && at(n-1, 0) === co && at(n-1, n-1) === co) out[co].push({k: "4 coins", pts: 4, cells: [0, n-1, (n-1)*n, n*n-1]});
   return out;
 }
-function scoreOf(d, s, pat){ return d.own.filter(function(o){ return o === s; }).length + (d.mys && d.own[d.mys.i] === s ? MYS_PTS : 0) + (docOpt(d).rare ? d.own.reduce(function(a, o, i){ return a + (o === s && !(d.mys && d.mys.i === i) ? rareBonus(i) : 0); }, 0) : 0) + pat[s].reduce(function(a, x){ return a + x.pts; }, 0) - ((d.hp || [])[s] || 0); }
+/* ---------- objectif secret + phase Baron (Match options) ---------- */
+function secPts(n){ return n <= 4 ? 3 : 5; }
+function baronN(n){ return Math.max(2, Math.round(n * n * 0.2)); }   /* the last ~20 % of the cells: 2 in 3×3, 5 in 5×5, 10 in 7×7, 13 in 8×8 */
+function secTest(m, d, i){
+  var pi = d.filled[i]; if (pi < 0) return false;
+  var n = d.cfg.size;
+  if (m.t === "nat") return P[pi].c === m.v;
+  if (m.t === "role") return P[pi].r === m.v;
+  if (m.t === "lg") return P[pi].s.some(function(s){ return s[1] === m.v; });
+  if (m.t === "wch") return !!(CRIT.w && CRIT.w.set.has(pi));
+  if (m.t === "row") return Math.floor(i / n) === m.v;
+  if (m.t === "col") return i % n === m.v;
+  return false;
+}
+function secText(m, d){
+  var k = m.k, pl = k > 1 ? "s" : "";
+  if (m.t === "nat") return "Place " + k + " joueur" + pl + " — " + (NATN[m.v] || m.v);
+  if (m.t === "role") return "Place " + k + " joueur" + pl + " au poste " + ROLE[m.v];
+  if (m.t === "lg") return "Place " + k + " joueur" + pl + " passé" + pl + " par la " + LG[m.v];
+  if (m.t === "wch") return "Place " + k + " champion" + pl + " du monde";
+  if (m.t === "row") return "Prends " + k + " cases dans la ligne « " + CRIT[d.rows[m.v]].label + " »";
+  if (m.t === "col") return "Prends " + k + " cases dans la colonne « " + CRIT[d.cols[m.v]].label + " »";
+  return "";
+}
+function secDone(d, s){ var m = d.sec && d.sec[s]; if (!m) return -1; var c = 0; d.own.forEach(function(o, i){ if (o === s && secTest(m, d, i)) c++; }); return c; }
+function secBonus(d, s){ var m = d.sec && d.sec[s]; return m && secDone(d, s) >= m.k ? secPts(d.cfg.size) : 0; }
+/* one mission per seat, sized to the grid, and only if the grid can really give it */
+function makeSecrets(g, np){
+  var keep = game; game = g;
+  var n = g.cfg.size, N = n * n, cand = [], out = [];
+  for (var i = 0; i < N; i++) cand.push(cellCands(i));
+  var K = Math.max(2, Math.round(n * 0.5)), Kt = Math.max(1, Math.round(n * 0.3)), Kl = Math.ceil(n / 2) + (n >= 6 ? 1 : 0);
+  var fake = {cfg: g.cfg, rows: g.rows, cols: g.cols, filled: []};
+  var cellsWith = function(m){ var c = 0; cand.forEach(function(cs, i){ if (cs.some(function(pi){ fake.filled[i] = pi; var ok = secTest(m, fake, i); fake.filled[i] = -1; return ok; })) c++; }); return c; };
+  var opts = {nat: [], role: [], lg: [], wch: [], line: []};
+  var nats = {}; cand.forEach(function(cs){ cs.forEach(function(pi){ if (P[pi].c) nats[P[pi].c] = 1; }); });
+  Object.keys(nats).forEach(function(v){ var m = {t: "nat", v: v, k: K}; if (cellsWith(m) >= K + 2) opts.nat.push(m); });
+  for (var r = 0; r < 5; r++) { var mr = {t: "role", v: r, k: K}; if (cellsWith(mr) >= K + 2) opts.role.push(mr); }
+  for (var l = 0; l < 5; l++) { var ml = {t: "lg", v: l, k: K}; if (cellsWith(ml) >= K + 2) opts.lg.push(ml); }
+  var mw = {t: "wch", v: 0, k: Kt}; if (cellsWith(mw) >= Kt + 2) opts.wch.push(mw);
+  for (var x = 0; x < n; x++) { opts.line.push({t: "row", v: x, k: Kl}); opts.line.push({t: "col", v: x, k: Kl}); }
+  var kinds = shuffle(Object.keys(opts).filter(function(k){ return opts[k].length; }));
+  for (var s = 0; s < np; s++) {
+    var kd = kinds[s % kinds.length], list = shuffle(opts[kd].slice()), pick = list.filter(function(m){ return !out.some(function(o){ return o.t === m.t && o.v === m.v; }); })[0] || list[0];
+    out.push(pick);
+  }
+  game = keep; return out;
+}
+var MG = {key: ""};
+/* what each move earned, replayed from the log (cell, rarity / mystery, new patterns), doubled in the Baron phase */
+function moveGains(d){
+  var key = d.code + "|" + (d.log || []).length + "|" + d.st; if (MG.key === key) return MG.v;
+  var n = d.cfg.size, rep = new Array(n * n).fill(-1), seen = [{}, {}, {}, {}], out = [], B = docOpt(d).baron ? baronN(n) : -1;
+  var live = 0; for (var i = 0; i < n * n; i++) if (cellCands(i).length || (d.mys && d.mys.i === i)) live++;
+  var placed = 0;
+  (d.log || []).forEach(function(l){
+    var e = {l: l, gain: 0, bon: [], extra: 0};
+    if (l.k === "ok" && l.i >= 0) {
+      var baron = B > 0 && live - placed <= B; placed++;
+      rep[l.i] = l.s; e.gain = 1;
+      if (d.mys && l.i === d.mys.i) { e.gain += MYS_PTS; e.bon.push("Joueur mystère +" + MYS_PTS); }
+      else if (docOpt(d).rare) { var rb = rareBonus(l.i); if (rb) { e.gain += rb; e.bon.push("Case rare +" + rb); } }
+      patterns(rep, n)[l.s].forEach(function(x){ var k2 = x.k + x.cells.join(); if (!seen[l.s][k2]) { seen[l.s][k2] = 1; e.gain += x.pts; e.bon.push(x.k + " +" + x.pts); } });
+      if (baron) { e.extra = e.gain; e.gain *= 2; e.bon.push("Baron ×2"); }
+    }
+    out.push(e);
+  });
+  MG = {key: key, v: out}; return out;
+}
+function baronExtra(d, s){ if (!docOpt(d).baron) return 0; return moveGains(d).reduce(function(a, e){ return a + (e.l.s === s ? e.extra : 0); }, 0); }
+function baronOn(d){
+  if (!docOpt(d).baron || d.st !== "play") return false;
+  var n = d.cfg.size, used = new Set(d.filled.filter(function(x){ return x >= 0; })), left = 0;
+  d.filled.forEach(function(x, i){ if (x < 0 && (isMys(i) ? [d.mys.t] : cellCands(i)).some(function(c){ return !used.has(c); })) left++; });
+  return left > 0 && left <= baronN(n);
+}
+function scoreOf(d, s, pat){ return baronExtra(d, s) + (d.st === "end" ? secBonus(d, s) : 0) + d.own.filter(function(o){ return o === s; }).length + (d.mys && d.own[d.mys.i] === s ? MYS_PTS : 0) + (docOpt(d).rare ? d.own.reduce(function(a, o, i){ return a + (o === s && !(d.mys && d.mys.i === i) ? rareBonus(i) : 0); }, 0) : 0) + pat[s].reduce(function(a, x){ return a + x.pts; }, 0) - ((d.hp || [])[s] || 0); }
 function playable(filled){
   var used = new Set(filled.filter(function(x){ return x >= 0; }));
   return filled.some(function(x, i){ return x < 0 && (isMys(i) ? [game.mys.t] : cellCands(i)).some(function(c){ return !used.has(c); }); });
@@ -1397,13 +1476,15 @@ function vsLobby(){
         '<label title="Décoché : tu peux te tromper et réessayer tant que ton chrono tourne"><input type="checkbox" id="vo-err"'+(vsOpt().err ? " checked" : "")+'>Une erreur fait passer le tour</label>' +
         '<label title="Une case à un seul joueur précis, avec des indices débloqués par les cases voisines : +' + MYS_PTS + ' pour qui le trouve"><input type="checkbox" id="vo-mys"'+(vsOpt().mys ? " checked" : "")+'>Joueur mystère ?</label>' +
         '<label title="Une ligne ou une colonne affiche « ? » : son critère se révèle à la 1re bonne réponse placée dedans"><input type="checkbox" id="vo-hid"'+(vsOpt().hid ? " checked" : "")+'>Critère caché</label>' +
+        '<label title="Chaque joueur reçoit une mission connue de lui seul, adaptée à la taille de la grille : réussie, elle rapporte un bonus révélé à la fin"><input type="checkbox" id="vo-sec"'+(vsOpt().sec ? " checked" : "")+'>Objectif secret</label>' +
+        '<label title="Quand il ne reste qu’environ 20 % des cases jouables, chaque coup rapporte le double"><input type="checkbox" id="vo-baron"'+(vsOpt().baron ? " checked" : "")+'>Phase Baron</label>' +
       '</div></div>' +
       '<div class="f"><span class="lb">' + (HOST ? "Connectés sur le site" : "Connectés sur la page") + '</span><div id="vs-peers" class="peers"></div><small id="np-hint">' + (np > 2 ? "Tu pourras inviter les autres joueurs dans le salon." : "") + '</small></div>' +
       '<details class="f"><summary class="lb" style="cursor:pointer">Avec un code</summary><div class="row" style="margin-top:6px"><button type="button" class="btn" id="vs-create">Créer un salon avec code</button></div><div class="row" style="margin-top:8px"><input id="vs-code" class="inp" maxlength="4" placeholder="CODE" style="text-transform:uppercase"><button type="button" class="btn" id="vs-join">Rejoindre</button></div></details>' +
       '<details class="f"><summary class="lb" style="cursor:pointer">Barème des points</summary>' + rulesHTML() + '</details></form>';
     dlg.showModal(); drawPeers();
     function nm(){ var v = $("#vs-name").value.trim().slice(0, 16); if (!v) { toast("Choisis d’abord un pseudo."); $("#vs-name").focus(); return null; } vsSetName(v); vsPresence(); return v; }
-    function T(){ var t = +dlg.querySelector('[name=tm]:checked').value; ls("grille.vs.T", t); ls("grille.vs.opt", {rare: $("#vo-rare").checked ? 1 : 0, err: $("#vo-err").checked ? 1 : 0, mys: $("#vo-mys").checked ? 1 : 0, hid: $("#vo-hid").checked ? 1 : 0}); return t; }
+    function T(){ var t = +dlg.querySelector('[name=tm]:checked').value; ls("grille.vs.T", t); ls("grille.vs.opt", {rare: $("#vo-rare").checked ? 1 : 0, err: $("#vo-err").checked ? 1 : 0, mys: $("#vo-mys").checked ? 1 : 0, hid: $("#vo-hid").checked ? 1 : 0, sec: $("#vo-sec").checked ? 1 : 0, baron: $("#vo-baron").checked ? 1 : 0}); return t; }
     dlg.querySelectorAll("[name=np]").forEach(function(r){ r.onchange = function(){ ls("grille.vs.np", +this.value); $("#np-hint").textContent = +this.value > 2 ? "Tu pourras inviter les autres joueurs dans le salon." : ""; drawPeers(); }; });
     $("#vs-name").addEventListener("change", function(){ if (this.value.trim()) { vsSetName(this.value.trim().slice(0, 16)); vsPresence(); } });
     $("#vs-peers").onclick = function(e){
@@ -1436,13 +1517,15 @@ function vsUninvite(db, code, tok){
   db.doc("vs/" + code).get().then(function(s){ if (!s.exists) return; var d = s.data(); db.doc("vs/" + code).update({invs: (d.invs || []).filter(function(x){ return x !== tok; })}); }).catch(function(){});
 }
 /* options: rarity bonus, does a wrong answer pass the turn */
-function vsOpt(){ var o = ls("grille.vs.opt") || {}; return {rare: o.rare ? 1 : 0, err: o.err === 0 ? 0 : 1, mys: o.mys ? 1 : 0, hid: o.hid ? 1 : 0}; }
-function docOpt(d){ var o = d.opt || {}; return {rare: o.rare ? 1 : 0, err: o.err === 0 ? 0 : 1, mys: o.mys ? 1 : 0, hid: o.hid ? 1 : 0}; }
+function vsOpt(){ var o = ls("grille.vs.opt") || {}; return {rare: o.rare ? 1 : 0, err: o.err === 0 ? 0 : 1, mys: o.mys ? 1 : 0, hid: o.hid ? 1 : 0, sec: o.sec ? 1 : 0, baron: o.baron ? 1 : 0}; }
+function docOpt(d){ var o = d.opt || {}; return {rare: o.rare ? 1 : 0, err: o.err === 0 ? 0 : 1, mys: o.mys ? 1 : 0, hid: o.hid ? 1 : 0, sec: o.sec ? 1 : 0, baron: o.baron ? 1 : 0}; }
 function rareBonus(i){ var k = cellCands(i).length; return k <= 1 ? 2 : k === 2 ? 1 : 0; }   /* 1 answer: very rare, 2 answers: rare */
 function rulesHTML(d){
   var rows = RULES.slice();
   if (d && docOpt(d).rare) rows.splice(1, 0, ["Case très rare ★★ (1 seule réponse possible)", "+2"], ["Case rare ★ (2 réponses possibles)", "+1"]);
   if (d && d.mys) rows.splice(1, 0, ["Joueur mystère trouvé (case ?)", "+" + MYS_PTS]);
+  if (d && d.sec) rows.push(["Objectif secret réussi (révélé à la fin)", "+" + secPts(d.cfg.size)]);
+  if (d && docOpt(d).baron) rows.push(["Phase Baron : les " + baronN(d.cfg.size) + " dernières cases jouables", "×2"]);
   return '<table class="rules">' + rows.map(function(r){ return '<tr><td>'+esc(r[0])+'</td><td>'+r[1]+'</td></tr>'; }).join("") + '</table>'; }
 function nps(d){ return d.np || 2; }
 function active(d, s){ return !!(d.p[s] && !d.p[s].out); }
@@ -1465,6 +1548,7 @@ function vsCreate(db, name, T, target, opt){
     p: [me], np: np, invs: target.invite || [], turn: 0, first: 0, n: 0, T: T, st: "wait", fails: 0, log: [], created: Date.now(), dl: 0, opt: opt, hp: [], hu: []};
   if (opt.mys) { var my = pickMystery(g); if (my) d.mys = {i: my.i, t: my.t}; }
   if (opt.hid) d.hid = pickHidden(g);
+  if (opt.sec) d.sec = makeSecrets(g, np);
   if (target.bot) Object.assign(d, startPatch(d, [me, {name: "Claude", id: "claude", bot: 1}]));
   else if (target.self) { var ps = [me]; for (var s = 2; s <= np; s++) ps.push({name: name + " (" + s + ")", id: vsTok()}); Object.assign(d, startPatch(d, ps)); }
   vsCreating = true; document.querySelectorAll("#vs-peers button, #vs-create, #vs-again, #vs-rematch").forEach(function(b){ b.disabled = true; });
@@ -1560,6 +1644,12 @@ function vsSync(d){
   render(); vsPresence();
 }
 function ranking(d, sc){ return d.p.map(function(_, s){ return s; }).sort(function(a, b){ return (active(d, b) - active(d, a)) || sc[b] - sc[a]; }); }
+function secLine(d, s, me){
+  var m = d.sec && d.sec[s]; if (!m) return "";
+  var show = me || VS.self || d.st === "end"; if (!show) return '<div class="pc-sec">🎯 Objectif secret</div>';
+  var c = secDone(d, s), ok = c >= m.k;
+  return '<div class="pc-sec' + (ok ? " ok" : "") + '">🎯 ' + esc(secText(m, d)) + ' · ' + Math.min(c, m.k) + '/' + m.k + (d.st === "end" ? (ok ? " ✓ +" + secPts(d.cfg.size) : " ✗") : (ok ? " ✓" : "")) + '</div>';
+}
 function vsPanel(){
   var d = VS.doc, np = d.st === "wait" ? nps(d) : d.p.length, pat = patterns(d.own, d.cfg.size);
   var sc = d.p.map(function(_, s){ return scoreOf(d, s, pat); });
@@ -1569,7 +1659,7 @@ function vsPanel(){
     var bon = pat[s].reduce(function(m, x){ m[x.k] = (m[x.k] || 0) + x.pts; return m; }, {});
     var nc = d.own.filter(function(o){ return o === s; }).length;
     return '<div class="pc-card p'+s+(on ? " on" : "")+(out ? " out" : "")+'"><div class="pc-top"><span class="dot"></span><b>'+esc(pname(d, s))+'</b>'+(me ? '<span class="you">toi</span>' : "")+(out ? '<span class="you">abandon</span>' : "")+'<span class="sc">'+sc[s]+'</span></div>' +
-      '<div class="pc-det">'+nc+' case'+(nc > 1 ? "s" : "")+(Object.keys(bon).length ? " · " + Object.keys(bon).map(function(k){ return esc(k) + " +" + bon[k]; }).join(" · ") : "")+((d.hp || [])[s] ? " · indices −" + d.hp[s] : "")+'</div></div>';
+      '<div class="pc-det">'+nc+' case'+(nc > 1 ? "s" : "")+(Object.keys(bon).length ? " · " + Object.keys(bon).map(function(k){ return esc(k) + " +" + bon[k]; }).join(" · ") : "")+((d.hp || [])[s] ? " · indices −" + d.hp[s] : "")+'</div>' + secLine(d, s, me) + '</div>';
   };
   var mid;
   if (d.st === "wait") mid = '<div class="vs-mid">Salon · ' + d.p.length + '/' + np + ' joueurs<br><span class="code">'+esc(d.code)+'</span><small>code à donner pour rejoindre</small></div>';
@@ -1578,7 +1668,7 @@ function vsPanel(){
     var rk = ranking(d, sc), top = rk[0], tie = rk.length > 1 && active(d, rk[1]) && sc[rk[1]] === sc[top];
     mid = '<div class="vs-mid end">Fin<br><b>' + (tie ? "Égalité" : esc(pname(d, top)) + " gagne") + '</b></div>';
   }
-  else mid = '<div class="vs-mid">'+(d.turn === VS.slot ? "<b>À toi !</b>" : "Au tour de " + esc(pname(d, d.turn)))+'<div class="clock" id="vs-clock"></div><small>Partie '+esc(d.code)+'</small></div>';
+  else mid = '<div class="vs-mid">'+(d.turn === VS.slot ? "<b>À toi !</b>" : "Au tour de " + esc(pname(d, d.turn)))+'<div class="clock" id="vs-clock"></div>'+(baronOn(d) ? '<small class="baron">🐉 Phase Baron : chaque coup ×2</small>' : '')+'<small>Partie '+esc(d.code)+'</small></div>';
   var cards = []; for (var s = 0; s < np; s++) cards.push(card(s));
   $("#vsbar").innerHTML = (np === 2 ? '<div class="vsb">' + cards[0] + mid + cards[1] + '</div>' : '<div class="vsb multi" style="--np:' + np + '">' + mid + cards.join("") + '</div>') + '<div class="tbar" id="vs-tbar"><i></i></div>';
   var st = $("#status"), isHost = VS.slot === 0 && !VS.self;
@@ -1617,17 +1707,7 @@ function vsPanel(){
   $("#giveup").hidden = true;
   $("#cfgsum").textContent = summary(d.cfg) + " · " + "match à " + np + (d.T ? " · " + d.T + " s par tour" : "") + (docOpt(d).rare ? " · rareté ★" : "") + (d.mys ? " · joueur mystère" : "") + (d.hid ? " · critère caché" : "") + (docOpt(d).err ? "" : " · erreurs sans perdre le tour");
   /* history: replay the moves to know what each one earned */
-  var n = d.cfg.size, rep = new Array(n * n).fill(-1), seen = [{}, {}, {}, {}], hist = [];
-  (d.log || []).forEach(function(l, t){
-    var e = {l: l, t: t + 1, gain: 0, bon: []};
-    if (l.k === "ok" && l.i >= 0) {
-      rep[l.i] = l.s; e.gain = 1;
-      if (d.mys && l.i === d.mys.i) { e.gain += MYS_PTS; e.bon.push("Joueur mystère +" + MYS_PTS); }
-      else if (docOpt(d).rare) { var rb = rareBonus(l.i); if (rb) { e.gain += rb; e.bon.push("Case rare +" + rb); } }
-      patterns(rep, n)[l.s].forEach(function(x){ var key = x.k + x.cells.join(); if (!seen[l.s][key]) { seen[l.s][key] = 1; e.gain += x.pts; e.bon.push(x.k + " +" + x.pts); } });
-    }
-    hist.push(e);
-  });
+  var n = d.cfg.size, hist = moveGains(d).map(function(e, t){ return {l: e.l, t: t + 1, gain: e.gain, bon: e.bon}; });
   var items = hist.reverse().map(function(e){
     var l = e.l, cc = l.i >= 0 ? [CRIT[d.rows[Math.floor(l.i / n)]], CRIT[d.cols[l.i % n]]] : [];
     var where = cc[0] && cc[1] ? esc(lbl(cc[0])) + " × " + esc(lbl(cc[1])) : "";
@@ -1663,7 +1743,7 @@ function vsWrite(base, patch){
 }
 function vsNext(d, filled, own, entry, ok){
   var nxt = nextTurn(d, d.turn), fails = ok ? 0 : (d.fails || 0) + 1, act = d.p.filter(function(x){ return !x.out; }).length;
-  var log = (d.log || []).concat([entry]).slice(-60);
+  var log = (d.log || []).concat([entry]).slice(-400);
   var patch = {filled: filled, own: own, log: log, turn: nxt, n: d.n + 1, fails: fails, dl: vsDeadline(d, nxt)};
   if (!playable(filled) || fails >= 3 * act) { patch.st = "end"; patch.dl = 0; }
   return patch;
@@ -1672,7 +1752,7 @@ function vsNext(d, filled, own, entry, ok){
 function vsForfeit(d, s){
   var p = d.p.map(function(x, k){ return k === s ? Object.assign({}, x, {out: 1}) : x; });
   var left = p.filter(function(x){ return !x.out; }).length;
-  var patch = {p: p, n: d.n + 1, log: (d.log || []).concat([{s: s, i: -1, p: -1, k: "ff", t: Date.now()}]).slice(-60)};
+  var patch = {p: p, n: d.n + 1, log: (d.log || []).concat([{s: s, i: -1, p: -1, k: "ff", t: Date.now()}]).slice(-400)};
   if (left < 2) { patch.st = "end"; patch.dl = 0; patch.ff = s; }
   else if (d.turn === s) { var dd = Object.assign({}, d, {p: p}); patch.turn = nextTurn(dd, s); patch.dl = vsDeadline(dd, patch.turn); }
   vsWrite(d, patch);
@@ -1685,7 +1765,7 @@ function vsMove(i, pi, ok){
   if (ok) { filled[i] = pi; own[i] = VS.slot; }
   else if (!docOpt(d).err) {   /* option: try again while the clock runs; the miss is only written in the history */
     toast(isMys(i) ? "Ce n’est pas le joueur mystère : plus d’essai sur cette case ce tour-ci, joue une autre case !" : whyNot(P[pi], cellCrit(i)) + " Réessaie !");
-    vsWrite(d, {log: (d.log || []).concat([{s: VS.slot, i: i, p: pi, k: "bad", t: Date.now(), n: d.n}]).slice(-60)});
+    vsWrite(d, {log: (d.log || []).concat([{s: VS.slot, i: i, p: pi, k: "bad", t: Date.now(), n: d.n}]).slice(-400)});
     return;
   }
   else toast((isMys(i) ? "Ce n’est pas le joueur mystère." : whyNot(P[pi], cellCrit(i))) + " Ton tour passe.");
