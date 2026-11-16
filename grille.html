@@ -381,6 +381,18 @@ button.cell:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
 @keyframes tgtp{50%{outline-color:transparent}}
 .cell.notgt{opacity:.35;pointer-events:none}
 .pc-sum{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.spmini{width:24px;height:24px;border-radius:6px;box-shadow:0 0 0 1px rgba(0,0,0,.25)} .spmini.used{opacity:.3;filter:grayscale(1)}
+.spbar{margin:10px 0 2px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.sph{font-size:11.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.spnone{font-size:13px;color:var(--muted)}
+.spnext{font-size:12px;color:var(--muted);margin-left:auto}
+.spcard{display:flex;align-items:center;gap:10px;padding:6px 12px 6px 6px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);font:inherit;color:var(--fg);text-align:left;min-width:180px;transition:transform .12s,box-shadow .12s}
+.spcard img{width:44px;height:44px;border-radius:9px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
+.spcard b{display:block;font-size:14px;line-height:1.15} .spcard small{display:block;font-size:11.5px;color:var(--muted);line-height:1.2} .spcard em{display:block;font-style:normal;font-size:11px;font-weight:700;margin-top:2px;color:var(--muted)}
+.spcard.ready{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);cursor:pointer} .spcard.ready em{color:var(--accent)} .spcard.ready:hover{transform:translateY(-2px)}
+.spcard.wait{opacity:.75} .spcard.used{opacity:.35} .spcard.used b{text-decoration:line-through} .spcard.used img{filter:grayscale(1)}
+.spcast{display:flex;align-items:center;gap:12px;padding:10px 14px;margin:10px 0 2px;border-radius:14px;border:2px solid var(--accent);background:var(--accent-soft);animation:rin .2s}
+.spcast img{width:48px;height:48px;border-radius:10px;flex:none} .spcast b{display:block;font-size:15px} .spcast span{font-size:13.5px} .spcast .btn{margin-left:auto}
 .spchip{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:11.5px;font-weight:700;padding:2px 9px 2px 2px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:default}
 button.spchip{cursor:pointer;border-color:var(--accent)} button.spchip:hover{background:var(--accent-soft)}
 .spchip.off{opacity:.55} .spchip.used{opacity:.35;text-decoration:line-through}
@@ -1698,20 +1710,29 @@ function spWhy(d, k){
   if (k === "gho") return "";
   return spTargets(d, k).length ? "" : k === "hea" ? "Aucune de tes cases n’est brûlée." : k === "ign" ? "Aucune case adverse à brûler." : k === "bar" ? "Aucune de tes cases à protéger." : k === "fla" ? "Aucun de tes joueurs ne peut être déplacé." : "Aucune case possible.";
 }
+/* in the player cards: the spells as small icons, greyed once used (everyone sees them) */
 function sumLine(d, s){
   if (!docOpt(d).sum) return "";
-  var me = s === VS.slot && d.st === "play" && vsMyTurn(), sp = spOf(d, s);
-  if (!sp.length) return '<div class="pc-sum"><span class="spchip off" title="Tirage toutes les ' + sumGap(d.cfg.size) + ' cases">✦ sorts : tirage toutes les ' + sumGap(d.cfg.size) + ' cases</span></div>';
-  return '<div class="pc-sum">' + sp.map(function(o){
-    var why = me && !o.u ? spWhy(d, o.k) : "", tt = SPN[o.k] + " : " + SPE[o.k] + (o.u ? " (utilisé)" : why ? " · " + why : "");
-    return me && !o.u ? '<button type="button" class="spchip' + (why ? " off" : "") + '" data-sp="' + o.k + '" title="' + esc(tt) + '">' + spIc(o.k) + SPN[o.k] + '</button>'
-      : '<span class="spchip' + (o.u ? " used" : "") + '" title="' + esc(tt) + '">' + spIc(o.k) + SPN[o.k] + '</span>';
-  }).join("") + '</div>';
+  var sp = spOf(d, s); if (!sp.length) return "";
+  return '<div class="pc-sum">' + sp.map(function(o){ return '<img class="spmini' + (o.u ? " used" : "") + '" src="' + SPI[o.k] + '" alt="' + SPN[o.k] + '" title="' + esc(SPN[o.k] + " : " + SPE[o.k] + (o.u ? " (utilisé)" : "")) + '">'; }).join("") + '</div>';
 }
-function castBanner(d){
-  var c = VS.cast; if (!c || !vsMyTurn()) return "";
-  var t = c.k === "fla" && c.a != null ? "clique la case où mettre " + esc(P[d.filled[c.a]].n) : SPT[c.k];
-  return '<small class="castb">' + spIc(c.k) + '<b>' + SPN[c.k] + '</b> : ' + t + ' <button type="button" id="sp-cancel">Annuler</button></small>';
+/* under the scoreboard: my spells as big buttons, or what to click while a spell is being cast */
+function spellBar(d){
+  if (!docOpt(d).sum || d.st !== "play" || VS.slot < 0 || (d.p[VS.slot] && d.p[VS.slot].out)) return "";
+  var c = VS.cast;
+  if (c && vsMyTurn()) {
+    var t = c.k === "fla" && c.a != null ? "Clique la case où mettre <b>" + esc(P[d.filled[c.a]].n) + "</b>" : SPT[c.k].charAt(0).toUpperCase() + SPT[c.k].slice(1);
+    return '<div class="spcast"><img src="' + SPI[c.k] + '" alt=""><div><b>' + SPN[c.k] + '</b><span>' + t + ' : les cases possibles clignotent.</span></div><button type="button" class="btn" id="sp-cancel">Annuler</button></div>';
+  }
+  var sp = spOf(d, VS.slot), cnt = d.filled.filter(function(x){ return x >= 0; }).length, left = (d.spn != null ? d.spn : sumGap(d.cfg.size)) - cnt;
+  var more = spPool(d, VS.slot).length, next = more ? '<span class="spnext">Prochain tirage dans ' + Math.max(1, left) + ' case' + (left > 1 ? "s" : "") + '</span>' : "";
+  if (!sp.length) return '<div class="spbar"><span class="sph">Tes sorts</span><span class="spnone">Aucun pour l’instant.</span>' + next + '</div>';
+  var mine = vsMyTurn(), once = (d.sut || [])[VS.slot] === d.n;
+  return '<div class="spbar"><span class="sph">Tes sorts</span>' + sp.map(function(o){
+    var why = o.u ? "" : !mine ? "" : spWhy(d, o.k), cls = o.u ? "used" : !mine ? "wait" : why ? "wait" : "ready";
+    var st = o.u ? "Déjà utilisé" : !mine ? "Utilisable à ton tour" : why ? why : "Clique pour lancer";
+    return '<button type="button" class="spcard ' + cls + '"' + (cls === "ready" ? ' data-sp="' + o.k + '"' : " disabled") + ' title="' + esc(SPN[o.k] + " : " + SPE[o.k]) + '"><img src="' + SPI[o.k] + '" alt=""><span><b>' + SPN[o.k] + '</b><small>' + SPS[o.k] + '</small><em>' + st + '</em></span></button>';
+  }).join("") + (mine && once ? '<span class="spnext">Sort lancé ce tour : joue ta case.</span>' : next) + '</div>';
 }
 function spWrite(d, k, patch, info){
   var me = spMe(), sp = (d.sp || []).map(function(a){ return (a || []).map(function(o){ return Object.assign({}, o); }); });
@@ -1801,6 +1822,7 @@ function spText(d, l){
   return "";
 }
 /* the draw: a slot reel per player, landing one after the other */
+document.addEventListener("keydown", function(e){ if (e.key === "Escape" && VS && VS.cast) { VS.cast = null; render(); } });
 function rollShow(d){
   var g = d.roll.g, box = document.createElement("div"); box.className = "rollov";
   box.innerHTML = '<div class="rollbox"><b>✦ Tirage des sorts d’invocateur ✦</b><div class="reels">' + g.map(function(x){
@@ -2071,9 +2093,9 @@ function vsPanel(){
     var rk = ranking(d, sc), top = rk[0], tie = rk.length > 1 && active(d, rk[1]) && sc[rk[1]] === sc[top];
     mid = '<div class="vs-mid end">Fin<br><b>' + (tie ? "Égalité" : esc(pname(d, top)) + " gagne") + '</b></div>';
   }
-  else mid = '<div class="vs-mid">'+(d.turn === VS.slot ? "<b>À toi !</b>" : "Au tour de " + esc(pname(d, d.turn)))+'<div class="clock" id="vs-clock"></div>'+(baronOn(d) ? '<small class="baron">🐉 Phase Baron : chaque coup ×2</small>' : '')+drgBanner(d)+castBanner(d)+'<small>Partie '+esc(d.code)+'</small></div>';
+  else mid = '<div class="vs-mid">'+(d.turn === VS.slot ? "<b>À toi !</b>" : "Au tour de " + esc(pname(d, d.turn)))+'<div class="clock" id="vs-clock"></div>'+(baronOn(d) ? '<small class="baron">🐉 Phase Baron : chaque coup ×2</small>' : '')+drgBanner(d)+'<small>Partie '+esc(d.code)+'</small></div>';
   var cards = []; for (var s = 0; s < np; s++) cards.push(card(s));
-  $("#vsbar").innerHTML = (np === 2 ? '<div class="vsb">' + cards[0] + mid + cards[1] + '</div>' : '<div class="vsb multi" style="--np:' + np + '">' + mid + cards.join("") + '</div>') + '<div class="tbar" id="vs-tbar"><i></i></div>';
+  $("#vsbar").innerHTML = (np === 2 ? '<div class="vsb">' + cards[0] + mid + cards[1] + '</div>' : '<div class="vsb multi" style="--np:' + np + '">' + mid + cards.join("") + '</div>') + '<div class="tbar" id="vs-tbar"><i></i></div>' + spellBar(d);
   var st = $("#status"), isHost = VS.slot === 0 && !VS.self;
   if (d.st === "wait") {
     var inGame = {}; d.p.forEach(function(x){ inGame[x.id] = 1; });
