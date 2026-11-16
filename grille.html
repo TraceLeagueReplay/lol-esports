@@ -382,17 +382,18 @@ button.cell:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
 .cell.notgt{opacity:.35;pointer-events:none}
 .pc-sum{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .spmini{width:24px;height:24px;border-radius:6px;box-shadow:0 0 0 1px rgba(0,0,0,.25)} .spmini.used{opacity:.3;filter:grayscale(1)}
-.spbar{margin:10px 0 2px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
-.sph{font-size:11.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
-.spnone{font-size:13px;color:var(--muted)}
-.spnext{font-size:12px;color:var(--muted);margin-left:auto}
-.spcard{display:flex;align-items:center;gap:10px;padding:6px 12px 6px 6px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);font:inherit;color:var(--fg);text-align:left;min-width:180px;transition:transform .12s,box-shadow .12s}
-.spcard img{width:44px;height:44px;border-radius:9px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
-.spcard b{display:block;font-size:14px;line-height:1.15} .spcard small{display:block;font-size:11.5px;color:var(--muted);line-height:1.2} .spcard em{display:block;font-style:normal;font-size:11px;font-weight:700;margin-top:2px;color:var(--muted)}
-.spcard.ready{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);cursor:pointer} .spcard.ready em{color:var(--accent)} .spcard.ready:hover{transform:translateY(-2px)}
+.vs-spells{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:12px 14px;margin-top:12px;display:grid;gap:6px}
+.vs-spells h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0}
+.spnone,.spnext{font-size:12px;color:var(--muted);margin:2px 0 0}
+.spcard{display:flex;align-items:center;gap:9px;width:100%;padding:5px 8px 5px 5px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);font:inherit;color:var(--fg);text-align:left;transition:transform .12s,box-shadow .12s}
+.spcard img{width:36px;height:36px;border-radius:8px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
+.spcard b{display:block;font-size:13px;line-height:1.15} .spcard small{display:block;font-size:11px;color:var(--muted);line-height:1.2} .spcard em{display:block;font-style:normal;font-size:10.5px;font-weight:700;margin-top:1px;color:var(--muted)}
+.spcard.ready{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);cursor:pointer} .spcard.ready em{color:var(--accent)} .spcard.ready:hover{transform:translateX(2px)}
+.spcard.on{background:var(--accent-soft);animation:tgtp 1s ease-in-out infinite;outline:2px solid var(--accent)}
 .spcard.wait{opacity:.75} .spcard.used{opacity:.35} .spcard.used b{text-decoration:line-through} .spcard.used img{filter:grayscale(1)}
-.spcast{display:flex;align-items:center;gap:12px;padding:10px 14px;margin:10px 0 2px;border-radius:14px;border:2px solid var(--accent);background:var(--accent-soft);animation:rin .2s}
-.spcast img{width:48px;height:48px;border-radius:10px;flex:none} .spcast b{display:block;font-size:15px} .spcast span{font-size:13.5px} .spcast .btn{margin-left:auto}
+.vs-mid .castb{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--accent);max-width:280px;text-align:left;margin:2px 0}
+.vs-mid .castb img{width:26px;height:26px;border-radius:6px;flex:none}
+.vs-mid .castb button{font:inherit;font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;flex:none}
 .spchip{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:11.5px;font-weight:700;padding:2px 9px 2px 2px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:default}
 button.spchip{cursor:pointer;border-color:var(--accent)} button.spchip:hover{background:var(--accent-soft)}
 .spchip.off{opacity:.55} .spchip.used{opacity:.35;text-decoration:line-through}
@@ -1109,6 +1110,7 @@ function renderGrid(){
         h += '<button class="cell ok'+oc+(canProt ? " protpick" : "")+'" data-i="'+i+'"'+(canProt ? ' data-prot="1" title="Protéger cette case"' : game.gaveUp ? ' title="Voir toutes les réponses possibles"' : " disabled")+'>'+(prot ? '<span class="shield" title="Protégée">🛡️</span>' : "")+(brn ? '<span class="fire" title="Brûlée : ne rapporte plus rien">🔥</span>' : "")+flag(p.c)+'<span class="pn">'+esc(p.n)+'</span><span class="pt">'+esc(ROLE[p.r] || "")+'</span></button>';
       } else {
         var opts = isMys(i) ? (used.has(game.mys.t) ? [] : [game.mys.t]) : cellCands(i).filter(function(x){ return !used.has(x); });
+        if (castTg(i)) { h += '<button class="cell tgt" data-i="'+i+'" data-cast="1">'+plusOrDrg(i)+'</button>'; continue; }   /* Flash target: its only answer may be the player moved */
         if (isMys(i) && !game.gaveUp && opts.length) {
           var cl = mysClues();
           var mtried = game.own && vsMyTurn() && mysTried(), mwait = game.own && (!vsMyTurn() || vsLocked(i) || mtried);
@@ -1716,23 +1718,25 @@ function sumLine(d, s){
   var sp = spOf(d, s); if (!sp.length) return "";
   return '<div class="pc-sum">' + sp.map(function(o){ return '<img class="spmini' + (o.u ? " used" : "") + '" src="' + SPI[o.k] + '" alt="' + SPN[o.k] + '" title="' + esc(SPN[o.k] + " : " + SPE[o.k] + (o.u ? " (utilisé)" : "")) + '">'; }).join("") + '</div>';
 }
-/* under the scoreboard: my spells as big buttons, or what to click while a spell is being cast */
-function spellBar(d){
+/* left column, under the scoring: my spells */
+function spellPanel(d){
   if (!docOpt(d).sum || d.st !== "play" || VS.slot < 0 || (d.p[VS.slot] && d.p[VS.slot].out)) return "";
-  var c = VS.cast;
-  if (c && vsMyTurn()) {
-    var t = c.k === "fla" && c.a != null ? "Clique la case où mettre <b>" + esc(P[d.filled[c.a]].n) + "</b>" : SPT[c.k].charAt(0).toUpperCase() + SPT[c.k].slice(1);
-    return '<div class="spcast"><img src="' + SPI[c.k] + '" alt=""><div><b>' + SPN[c.k] + '</b><span>' + t + ' : les cases possibles clignotent.</span></div><button type="button" class="btn" id="sp-cancel">Annuler</button></div>';
-  }
   var sp = spOf(d, VS.slot), cnt = d.filled.filter(function(x){ return x >= 0; }).length, left = (d.spn != null ? d.spn : sumGap(d.cfg.size)) - cnt;
-  var more = spPool(d, VS.slot).length, next = more ? '<span class="spnext">Prochain tirage dans ' + Math.max(1, left) + ' case' + (left > 1 ? "s" : "") + '</span>' : "";
-  if (!sp.length) return '<div class="spbar"><span class="sph">Tes sorts</span><span class="spnone">Aucun pour l’instant.</span>' + next + '</div>';
-  var mine = vsMyTurn(), once = (d.sut || [])[VS.slot] === d.n;
-  return '<div class="spbar"><span class="sph">Tes sorts</span>' + sp.map(function(o){
-    var why = o.u ? "" : !mine ? "" : spWhy(d, o.k), cls = o.u ? "used" : !mine ? "wait" : why ? "wait" : "ready";
-    var st = o.u ? "Déjà utilisé" : !mine ? "Utilisable à ton tour" : why ? why : "Clique pour lancer";
-    return '<button type="button" class="spcard ' + cls + '"' + (cls === "ready" ? ' data-sp="' + o.k + '"' : " disabled") + ' title="' + esc(SPN[o.k] + " : " + SPE[o.k]) + '"><img src="' + SPI[o.k] + '" alt=""><span><b>' + SPN[o.k] + '</b><small>' + SPS[o.k] + '</small><em>' + st + '</em></span></button>';
-  }).join("") + (mine && once ? '<span class="spnext">Sort lancé ce tour : joue ta case.</span>' : next) + '</div>';
+  var more = spPool(d, VS.slot).length, next = more ? '<p class="spnext">Prochain tirage dans ' + Math.max(1, left) + ' case' + (left > 1 ? "s" : "") + '</p>' : "";
+  var mine = vsMyTurn(), once = (d.sut || [])[VS.slot] === d.n, c = mine ? VS.cast : null;
+  var list = sp.map(function(o){
+    var why = o.u || !mine ? "" : spWhy(d, o.k), on = c && c.k === o.k;
+    var cls = on ? "ready on" : o.u ? "used" : !mine || why ? "wait" : "ready";
+    var st = on ? "En cours… (Échap pour annuler)" : o.u ? "Déjà utilisé" : !mine ? "Utilisable à ton tour" : why ? why : "Clique pour lancer";
+    return '<button type="button" class="spcard ' + cls + '"' + (cls.indexOf("ready") === 0 ? ' data-sp="' + o.k + '"' : " disabled") + ' title="' + esc(SPN[o.k] + " : " + SPE[o.k]) + '"><img src="' + SPI[o.k] + '" alt=""><span><b>' + SPN[o.k] + '</b><small>' + SPS[o.k] + '</small><em>' + st + '</em></span></button>';
+  }).join("");
+  return '<div class="vs-spells"><h3>Tes sorts</h3>' + (list || '<p class="spnone">Aucun pour l’instant.</p>') + (mine && once ? '<p class="spnext">Sort lancé ce tour : joue ta case.</p>' : next) + '</div>';
+}
+/* while casting: a short line in the middle of the scoreboard, next to the clock */
+function castBanner(d){
+  var c = VS.cast; if (!c || !vsMyTurn()) return "";
+  var t = c.k === "fla" && c.a != null ? "clique la case où mettre " + esc(P[d.filled[c.a]].n) : SPT[c.k];
+  return '<small class="castb"><img src="' + SPI[c.k] + '" alt=""><span><b>' + SPN[c.k] + '</b> : ' + t + '</span><button type="button" class="sp-cancel">Annuler</button></small>';
 }
 function spWrite(d, k, patch, info){
   var me = spMe(), sp = (d.sp || []).map(function(a){ return (a || []).map(function(o){ return Object.assign({}, o); }); });
@@ -2093,9 +2097,9 @@ function vsPanel(){
     var rk = ranking(d, sc), top = rk[0], tie = rk.length > 1 && active(d, rk[1]) && sc[rk[1]] === sc[top];
     mid = '<div class="vs-mid end">Fin<br><b>' + (tie ? "Égalité" : esc(pname(d, top)) + " gagne") + '</b></div>';
   }
-  else mid = '<div class="vs-mid">'+(d.turn === VS.slot ? "<b>À toi !</b>" : "Au tour de " + esc(pname(d, d.turn)))+'<div class="clock" id="vs-clock"></div>'+(baronOn(d) ? '<small class="baron">🐉 Phase Baron : chaque coup ×2</small>' : '')+drgBanner(d)+'<small>Partie '+esc(d.code)+'</small></div>';
+  else mid = '<div class="vs-mid">'+(d.turn === VS.slot ? "<b>À toi !</b>" : "Au tour de " + esc(pname(d, d.turn)))+'<div class="clock" id="vs-clock"></div>'+(baronOn(d) ? '<small class="baron">🐉 Phase Baron : chaque coup ×2</small>' : '')+drgBanner(d)+castBanner(d)+'<small>Partie '+esc(d.code)+'</small></div>';
   var cards = []; for (var s = 0; s < np; s++) cards.push(card(s));
-  $("#vsbar").innerHTML = (np === 2 ? '<div class="vsb">' + cards[0] + mid + cards[1] + '</div>' : '<div class="vsb multi" style="--np:' + np + '">' + mid + cards.join("") + '</div>') + '<div class="tbar" id="vs-tbar"><i></i></div>' + spellBar(d);
+  $("#vsbar").innerHTML = (np === 2 ? '<div class="vsb">' + cards[0] + mid + cards[1] + '</div>' : '<div class="vsb multi" style="--np:' + np + '">' + mid + cards.join("") + '</div>') + '<div class="tbar" id="vs-tbar"><i></i></div>';
   var st = $("#status"), isHost = VS.slot === 0 && !VS.self;
   if (d.st === "wait") {
     var inGame = {}; d.p.forEach(function(x){ inGame[x.id] = 1; });
@@ -2112,8 +2116,8 @@ function vsPanel(){
       : d.p[VS.slot] && d.p[VS.slot].out ? "Tu as abandonné : tu regardes la fin de la partie."
       : (d.turn === VS.slot ? "Choisis une case et trouve un joueur." : (d.p[d.turn].bot ? "Claude réfléchit… écris « à toi » dans le chat pour qu’il joue." : "Attends ton tour.")) + ' <button class="btn quiet" id="vs-ff" type="button">Abandonner</button>';
   }
-  document.querySelectorAll("#vsbar [data-sp]").forEach(function(b){ b.onclick = function(){ spClick(b.dataset.sp); }; });
-  if ($("#sp-cancel")) $("#sp-cancel").onclick = function(){ VS.cast = null; render(); };
+  $("#vsrules").onclick = function(e){ var b = e.target.closest("[data-sp]"); if (b) spClick(b.dataset.sp); };
+  document.querySelectorAll(".sp-cancel").forEach(function(b){ b.onclick = function(){ VS.cast = null; render(); }; });
   if ($("#vs-reveal")) $("#vs-reveal").onclick = function(){ VS.reveal = true; vsSync(VS.doc); };
   if ($("#vs-ff")) $("#vs-ff").onclick = function(){
     var b = this; if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = "Confirmer l’abandon ?"; b.classList.add("danger"); setTimeout(function(){ if (b.isConnected) { delete b.dataset.sure; b.textContent = "Abandonner"; b.classList.remove("danger"); } }, 4000); return; }
@@ -2144,7 +2148,7 @@ function vsPanel(){
     if (l.k === "sp") where = esc(spText(d, l));
     return '<li class="mv p'+l.s+(l.k === "ok" || l.k === "sp" ? "" : " fail")+'"><span class="tn">'+e.t+'</span><div class="mv-main"><div class="mv-top"><b>'+esc(pname(d, l.s))+'</b>'+what+'</div>'+(where ? '<div class="mv-sub">'+where+'</div>' : "")+(e.bon.length ? '<div class="mv-bon">'+e.bon.map(esc).join(" · ")+'</div>' : "")+'</div><span class="gain">'+(l.k === "ok" || (l.k === "sp" && e.gain) ? "+" + e.gain : l.k === "ff" || l.k === "sp" ? "" : "0")+'</span></li>';
   });
-  $("#vsrules").innerHTML = '<div class="vs-rules"><h3>Barème</h3>' + rulesHTML(d) + '<p class="hint">' + (docOpt(d).err ? "Mauvaise réponse ou chrono écoulé : le tour passe." : "Mauvaise réponse : tu peux réessayer tant que ton chrono tourne" + (d.mys ? " (joueur mystère : 1 seul essai par tour)" : "") + ". Chrono écoulé : le tour passe.") + ' Fin quand plus aucune case n’est jouable ou quand tout le monde a raté 3 tours d’affilée.</p></div>';
+  $("#vsrules").innerHTML = '<div class="vs-rules"><h3>Barème</h3>' + rulesHTML(d) + '<p class="hint">' + (docOpt(d).err ? "Mauvaise réponse ou chrono écoulé : le tour passe." : "Mauvaise réponse : tu peux réessayer tant que ton chrono tourne" + (d.mys ? " (joueur mystère : 1 seul essai par tour)" : "") + ". Chrono écoulé : le tour passe.") + ' Fin quand plus aucune case n’est jouable ou quand tout le monde a raté 3 tours d’affilée.</p></div>' + spellPanel(d);
   $("#vshist").innerHTML = '<div class="vs-hist"><h3>Coups joués</h3>' + (items.length ? '<ol>' + items.join("") + '</ol>' : '<p class="hint">Aucun coup pour l’instant.</p>') + '</div>';
   vsClock();
 }
