@@ -1273,7 +1273,12 @@ var SFX = {
     synth(seq);
   },
   turn: function(){ synth([{f: 880, t: 0, d: 0.07, w: "square", v: 0.028, cut: 5000, cut2: 2500}, {f: 1760, t: 0.09, d: 0.12, w: "square", v: 0.028, cut: 6000, cut2: 2000}]); },   /* your turn */
-  tick: function(){ noise(0, 0.025, 0.06, 5000); synth([{f: 2200, t: 0, d: 0.03, w: "square", v: 0.012, cut: 8000, cut2: 4000, dry: 1}]); }   /* last 5 seconds */
+  tick: function(){ noise(0, 0.025, 0.06, 5000); synth([{f: 2200, t: 0, d: 0.03, w: "square", v: 0.012, cut: 8000, cut2: 4000, dry: 1}]); }   /* last 5 seconds */,
+  baron: function(){   /* Baron phase starts: low growl rising, then a dark chord */
+    synth([{f: 55, f2: 110, t: 0, d: 0.9, w: "sawtooth", v: 0.06, cut: 300, cut2: 1400, dry: 1}, {f: 82, f2: 165, t: 0, d: 0.9, w: "square", v: 0.03, cut: 250, cut2: 1100, dry: 1}]);
+    noise(0, 0.5, 0.025, 800);
+    synth([{f: 220, t: 0.85, d: 0.9, v: 0.035, cut: 2200, cut2: 500}, {f: 261.6, t: 0.85, d: 0.9, v: 0.03, cut: 2200, cut2: 500}, {f: 329.6, t: 0.85, d: 0.9, v: 0.03, cut: 2200, cut2: 500}, {f: 110, t: 0.85, d: 1.1, w: "square", v: 0.03, cut: 900, cut2: 200}]);
+  }
 };
 /* ---------- solver page (grille.html#solveur, opened in another tab): it reads the grid being played
    in this browser (shared storage of the same site) and shows every right answer of every cell, live ---------- */
@@ -1340,6 +1345,7 @@ function vsSounds(d, pat){
       if (gain) { wait = 450; setTimeout(function(){ SFX.shape(gain, mine); }, 200); }
     } else if (l.k === "bad" && mine) SFX.bad();
   });
+  if (baronOn(d)) { if (VS.baronSnd !== d.code) { VS.baronSnd = d.code; setTimeout(SFX.baron, wait + 150); wait += 1400; toast("🐉 Phase Baron : chaque coup rapporte double !"); } }
   var myTurnNow = !VS.self && d.st === "play" && d.turn === VS.slot;
   if (myTurnNow && (VS.sndTurn !== d.turn || VS.prev.st !== "play")) setTimeout(SFX.turn, wait + 250);
   VS.sndTurn = d.turn;
