@@ -1504,6 +1504,23 @@ function cellOpen(d, c, filled){
   var used = new Set(filled.filter(function(x){ return x >= 0; }));
   return (d.mys && d.mys.i === c ? [d.mys.t] : cellCands(c)).some(function(x){ return !used.has(x); });
 }
+function drgGap(n){ return Math.max(3, Math.round(n * n / 6)); }   /* cells placed between two dragons: 3 in 3×3, 4 in 5×5, 8 in 7×7, 11 in 8×8 */
+/* at the start of a turn: a dragon appears for the player whose turn starts, if it is his turn in the dragon rotation */
+function drgSpawn(d, patch, filled, nxt){
+  var n = d.cfg.size, cur = "dr" in patch ? patch.dr : d.dr;
+  if (cur && !cellOpen(d, cur.i, filled)) { cur = null; patch.dr = null; }   /* its cell has no answer left: it flies away */
+  if (cur || d.eld) return;
+  var open = [];
+  for (var c = 0; c < n * n; c++) if (cellOpen(d, c, filled) && !(d.mys && d.mys.i === c)) open.push(c);
+  if (!open.length) return;
+  var act = d.p.map(function(p, s){ return p && !p.out ? s : -1; }).filter(function(s){ return s >= 0; }), q = d.drq || 0;
+  if (act[q % act.length] !== nxt) return;   /* not this player's dragon: wait for his turn */
+  var cnt = filled.filter(function(x){ return x >= 0; }).length, eld = open.length <= baronN(n);
+  if (!eld && cnt < (d.drn != null ? d.drn : drgGap(n))) return;
+  var kinds = ["inf", "oce", "mon", "nua", "hex", "chem"].filter(function(x){ return x !== d.lastk; }), kind = eld ? "eld" : kinds[Math.floor(Math.random() * kinds.length)];
+  patch.dr = {i: open[Math.floor(Math.random() * open.length)], k: kind, o: nxt, open: false}; patch.lastk = kind; patch.drq = q + 1;
+  if (eld) patch.eld = 1;
+}
 function dragonMove(d, i, pi, filled, entry, reuse){
   if (!docOpt(d).drg) return {};
   var n = d.cfg.size, bf = (d.bf || []).map(function(o){ return Object.assign({}, o || {}); });
@@ -1520,22 +1537,7 @@ function dragonMove(d, i, pi, filled, entry, reuse){
     else if (k === "nua") b.nua = 2; else if (k === "hex") b.hex = 1; else if (k === "chem") b.chem = 1;
     var dk = (d.dk || []).map(function(x){ return (x || []).slice(); }); while (dk.length < d.p.length) dk.push([]);
     dk[VS.slot].push(k); out.dk = dk;
-    out.dr = null; out.drn = filled.filter(function(x){ return x >= 0; }).length + 6;
-  }
-  else out.dr = d.dr || null;
-  if (out.dr && !cellOpen(d, out.dr.i, filled)) out.dr = null;   /* its cell has no answer left: it flies away */
-  /* a new dragon */
-  if (!out.dr && !d.eld) {
-    var cnt = filled.filter(function(x){ return x >= 0; }).length, open = [];
-    for (var c = 0; c < n * n; c++) if (cellOpen(d, c, filled) && !(d.mys && d.mys.i === c)) open.push(c);
-    var eld = open.length <= baronN(n), at = out.drn != null ? out.drn : (d.drn != null ? d.drn : 4);
-    if (open.length && (eld || cnt >= at)) {
-      var kinds = ["inf", "oce", "mon", "nua", "hex", "chem"].filter(function(x){ return x !== d.lastk; });
-      var kind = eld ? "eld" : kinds[Math.floor(Math.random() * kinds.length)];
-      var act = d.p.map(function(p, s){ return p && !p.out ? s : -1; }).filter(function(s){ return s >= 0; }), q = d.drq || 0;
-      out.dr = {i: open[Math.floor(Math.random() * open.length)], k: kind, o: act[q % act.length], open: false}; out.lastk = kind; out.drq = q + 1;
-      if (eld) out.eld = 1;
-    }
+    out.dr = null; out.drn = filled.filter(function(x){ return x >= 0; }).length + drgGap(n);
   }
   return out;
 }
@@ -1884,6 +1886,7 @@ function vsNext(d, filled, own, entry, ok){
   var log = (d.log || []).concat([entry]).slice(-400);
   var patch = {filled: filled, own: own, log: log, turn: nxt, n: d.n + 1, fails: fails, dl: vsDeadline(d, nxt)};
   if (docOpt(d).drg && d.dr && !d.dr.open && d.dr.o === entry.s) patch.dr = Object.assign({}, d.dr, {open: true});
+  if (docOpt(d).drg && !patch.st) drgSpawn(d, patch, filled, nxt);
   if (!playable(filled) || fails >= 3 * act) { patch.st = "end"; patch.dl = 0; }
   else if (docOpt(d).drg && patch.dl && myBuffs(d, nxt).nua > 0) {   /* cloud dragon: +20 s */
     var bf = (d.bf || []).map(function(o){ return Object.assign({}, o || {}); }); bf[nxt].nua--; patch.bf = bf; patch.dl += 20000;
@@ -1914,11 +1917,7 @@ function vsMove(i, pi, ok){
   else toast((isMys(i) ? "Ce n’est pas le joueur mystère." : whyNot(P[pi], cellCrit(i))) + " Ton tour passe.");
   var entry = {s: VS.slot, i: i, p: pi, k: ok ? "ok" : "bad", t: Date.now()};
   var extra = ok ? dragonMove(d, i, pi, filled, entry, reuse) : {};
-  var d2 = Object.assign({}, d, extra.bf ? {bf: extra.bf} : {}, "dr" in extra ? {dr: extra.dr} : {});
-  var patch = vsNext(d2, filled, own, entry, ok), bf2 = patch.bf, dr2 = patch.dr;
-  Object.assign(patch, extra); if (bf2) patch.bf = bf2;
-  var fresh = extra.dr && (!d.dr || d.dr.i !== extra.dr.i || d.dr.k !== extra.dr.k);   /* a dragon born on this move stays reserved */
-  if (dr2 && !fresh) patch.dr = dr2;
+  var patch = Object.assign({}, extra, vsNext(Object.assign({}, d, extra), filled, own, entry, ok));
   vsWrite(d, patch);
   if (entry.hex) hexHint(i, filled);
 }
