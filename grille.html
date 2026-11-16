@@ -1369,7 +1369,7 @@ function sfxLoad(k){
 function sfxPlay(buf, k, vol){
   var A = actx(), s = A.createBufferSource(), g = A.createGain(), t = A.currentTime + 0.01, L = Math.min(buf.duration, SFXL[k] || buf.duration), v = SFXV * (vol == null ? 1 : vol) * (buf.__g || 1);
   g.gain.setValueAtTime(v, t); g.gain.setValueAtTime(v, t + Math.max(0, L - 0.3)); g.gain.linearRampToValueAtTime(0.0001, t + L);
-  s.buffer = buf; s.connect(g); g.connect(A.destination); s.start(t); s.stop(t + L + 0.05);
+  s.buffer = buf; s.connect(g); g.connect(MST); s.start(t); s.stop(t + L + 0.05);
 }
 function playS(k, vol, fallback){
   if (!SND.on) return;
@@ -1379,14 +1379,16 @@ function playS(k, vol, fallback){
 }
 function sfxWarm(){ Object.keys(SFXF).forEach(function(k){ sfxLoad(k).catch(function(){}); }); }
 ["pointerdown", "keydown"].forEach(function(ev){ document.addEventListener(ev, function warm(){ if (SND.on) try { actx(); sfxWarm(); } catch(e){} document.removeEventListener(ev, warm, true); }, true); });
+var MST = null;
 function actx(){
   ACX = ACX || new (window.AudioContext || window.webkitAudioContext)();
   if (ACX.state === "suspended") ACX.resume();
   if (!BUS) {   /* shared echo: dry + short feedback delay */
-    BUS = ACX.createGain(); BUS.connect(ACX.destination);
+    MST = MST || ACX.createGain(); MST.gain.value = 0.55; MST.connect(ACX.destination);   /* master volume: everything goes through it */
+    BUS = ACX.createGain(); BUS.connect(MST);
     var dl = ACX.createDelay(0.5), fb = ACX.createGain(), wet = ACX.createGain(), lp = ACX.createBiquadFilter();
     dl.delayTime.value = 0.13; fb.gain.value = 0.28; wet.gain.value = 0.32; lp.type = "lowpass"; lp.frequency.value = 3200;
-    BUS.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(wet); wet.connect(ACX.destination);
+    BUS.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(wet); wet.connect(MST);
   }
   return ACX;
 }
@@ -1404,7 +1406,7 @@ function synth(notes){
         o.frequency.setValueAtTime(n.f, st); if (n.f2) o.frequency.exponentialRampToValueAtTime(n.f2, en);
         o.connect(lp); o.start(st); o.stop(en + 0.03);
       });
-      lp.connect(g); g.connect(n.dry ? A.destination : BUS);
+      lp.connect(g); g.connect(n.dry ? MST : BUS);
     });
   } catch(e){}
 }
@@ -1413,7 +1415,7 @@ function noise(t, d, v, hp){
   try { var A = actx(), st = A.currentTime + 0.01 + t, len = Math.floor(A.sampleRate * d), buf = A.createBuffer(1, len, A.sampleRate), ch = buf.getChannelData(0);
     for (var i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
     var s = A.createBufferSource(), f = A.createBiquadFilter(), g = A.createGain(); s.buffer = buf; f.type = "highpass"; f.frequency.value = hp || 2500; g.gain.value = v;
-    s.connect(f); f.connect(g); g.connect(A.destination); s.start(st);
+    s.connect(f); f.connect(g); g.connect(MST); s.start(st);
   } catch(e){}
 }
 var SFX = {
