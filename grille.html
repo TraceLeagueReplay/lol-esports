@@ -1463,7 +1463,7 @@ function baronOn(d){
   d.filled.forEach(function(x, i){ if (x < 0 && (isMys(i) ? [d.mys.t] : cellCands(i)).some(function(c){ return !used.has(c); })) left++; });
   return left > 0 && left <= baronN(n);
 }
-function scoreOf(d, s, pat){ return baronExtra(d, s) + (d.st === "end" ? secBonus(d, s) : 0) + d.own.filter(function(o){ return o === s; }).length + (d.mys && d.own[d.mys.i] === s ? MYS_PTS : 0) + (docOpt(d).rare ? d.own.reduce(function(a, o, i){ return a + (o === s && !(d.mys && d.mys.i === i) ? rareBonus(i) : 0); }, 0) : 0) + pat[s].reduce(function(a, x){ return a + x.pts; }, 0) - ((d.hp || [])[s] || 0); }
+function scoreOf(d, s, pat){ return baronExtra(d, s) + d.own.filter(function(o){ return o === s; }).length + (d.mys && d.own[d.mys.i] === s ? MYS_PTS : 0) + (docOpt(d).rare ? d.own.reduce(function(a, o, i){ return a + (o === s && !(d.mys && d.mys.i === i) ? rareBonus(i) : 0); }, 0) : 0) + pat[s].reduce(function(a, x){ return a + x.pts; }, 0) - ((d.hp || [])[s] || 0); }
 function playable(filled){
   var used = new Set(filled.filter(function(x){ return x >= 0; }));
   return filled.some(function(x, i){ return x < 0 && (isMys(i) ? [game.mys.t] : cellCands(i)).some(function(c){ return !used.has(c); }); });
@@ -1504,7 +1504,6 @@ function vsLobby(){
         '<label title="Décoché : tu peux te tromper et réessayer tant que ton chrono tourne"><input type="checkbox" id="vo-err"'+(vsOpt().err ? " checked" : "")+'>Une erreur fait passer le tour</label>' +
         '<label title="Une case à un seul joueur précis, avec des indices débloqués par les cases voisines : +' + MYS_PTS + ' pour qui le trouve"><input type="checkbox" id="vo-mys"'+(vsOpt().mys ? " checked" : "")+'>Joueur mystère ?</label>' +
         '<label title="Une ligne ou une colonne affiche « ? » : son critère se révèle à la 1re bonne réponse placée dedans"><input type="checkbox" id="vo-hid"'+(vsOpt().hid ? " checked" : "")+'>Critère caché</label>' +
-        '<label title="Chaque joueur reçoit une mission connue de lui seul, adaptée à la taille de la grille : réussie, elle rapporte un bonus révélé à la fin"><input type="checkbox" id="vo-sec"'+(vsOpt().sec ? " checked" : "")+'>Objectif secret</label>' +
         '<label title="Quand il ne reste qu’environ 20 % des cases jouables, chaque coup rapporte le double"><input type="checkbox" id="vo-baron"'+(vsOpt().baron ? " checked" : "")+'>Phase Baron</label>' +
       '</div></div>' +
       '<div class="f"><span class="lb">' + (HOST ? "Connectés sur le site" : "Connectés sur la page") + '</span><div id="vs-peers" class="peers"></div><small id="np-hint">' + (np > 2 ? "Tu pourras inviter les autres joueurs dans le salon." : "") + '</small></div>' +
@@ -1512,7 +1511,7 @@ function vsLobby(){
       '<details class="f"><summary class="lb" style="cursor:pointer">Barème des points</summary>' + rulesHTML() + '</details></form>';
     dlg.showModal(); drawPeers();
     function nm(){ var v = $("#vs-name").value.trim().slice(0, 16); if (!v) { toast("Choisis d’abord un pseudo."); $("#vs-name").focus(); return null; } vsSetName(v); vsPresence(); return v; }
-    function T(){ var t = +dlg.querySelector('[name=tm]:checked').value; ls("grille.vs.T", t); ls("grille.vs.opt", {rare: $("#vo-rare").checked ? 1 : 0, err: $("#vo-err").checked ? 1 : 0, mys: $("#vo-mys").checked ? 1 : 0, hid: $("#vo-hid").checked ? 1 : 0, sec: $("#vo-sec").checked ? 1 : 0, baron: $("#vo-baron").checked ? 1 : 0}); return t; }
+    function T(){ var t = +dlg.querySelector('[name=tm]:checked').value; ls("grille.vs.T", t); ls("grille.vs.opt", {rare: $("#vo-rare").checked ? 1 : 0, err: $("#vo-err").checked ? 1 : 0, mys: $("#vo-mys").checked ? 1 : 0, hid: $("#vo-hid").checked ? 1 : 0, baron: $("#vo-baron").checked ? 1 : 0}); return t; }
     dlg.querySelectorAll("[name=np]").forEach(function(r){ r.onchange = function(){ ls("grille.vs.np", +this.value); $("#np-hint").textContent = +this.value > 2 ? "Tu pourras inviter les autres joueurs dans le salon." : ""; drawPeers(); }; });
     $("#vs-name").addEventListener("change", function(){ if (this.value.trim()) { vsSetName(this.value.trim().slice(0, 16)); vsPresence(); } });
     $("#vs-peers").onclick = function(e){
@@ -1552,7 +1551,6 @@ function rulesHTML(d){
   var rows = RULES.slice();
   if (d && docOpt(d).rare) rows.splice(1, 0, ["Case très rare ★★ (1 seule réponse possible)", "+2"], ["Case rare ★ (2 réponses possibles)", "+1"]);
   if (d && d.mys) rows.splice(1, 0, ["Joueur mystère trouvé (case ?)", "+" + MYS_PTS]);
-  if (d && d.sec) rows.push(["Objectif secret réussi (révélé à la fin)", "+" + secPts(d.cfg.size)]);
   if (d && docOpt(d).baron) rows.push(["Phase Baron : les " + baronN(d.cfg.size) + " dernières cases jouables", "×2"]);
   return '<table class="rules">' + rows.map(function(r){ return '<tr><td>'+esc(r[0])+'</td><td>'+r[1]+'</td></tr>'; }).join("") + '</table>'; }
 function nps(d){ return d.np || 2; }
@@ -1576,7 +1574,6 @@ function vsCreate(db, name, T, target, opt){
     p: [me], np: np, invs: target.invite || [], turn: 0, first: 0, n: 0, T: T, st: "wait", fails: 0, log: [], created: Date.now(), dl: 0, opt: opt, hp: [], hu: []};
   if (opt.mys) { var my = pickMystery(g); if (my) d.mys = {i: my.i, t: my.t}; }
   if (opt.hid) d.hid = pickHidden(g);
-  if (opt.sec) d.sec = makeSecrets(g, np);
   if (target.bot) Object.assign(d, startPatch(d, [me, {name: "Claude", id: "claude", bot: 1}]));
   else if (target.self) { var ps = [me]; for (var s = 2; s <= np; s++) ps.push({name: name + " (" + s + ")", id: vsTok()}); Object.assign(d, startPatch(d, ps)); }
   vsCreating = true; document.querySelectorAll("#vs-peers button, #vs-create, #vs-again, #vs-rematch").forEach(function(b){ b.disabled = true; });
@@ -1687,7 +1684,7 @@ function vsPanel(){
     var bon = pat[s].reduce(function(m, x){ m[x.k] = (m[x.k] || 0) + x.pts; return m; }, {});
     var nc = d.own.filter(function(o){ return o === s; }).length;
     return '<div class="pc-card p'+s+(on ? " on" : "")+(out ? " out" : "")+'"><div class="pc-top"><span class="dot"></span><b>'+esc(pname(d, s))+'</b>'+(me ? '<span class="you">toi</span>' : "")+(out ? '<span class="you">abandon</span>' : "")+'<span class="sc">'+sc[s]+'</span></div>' +
-      '<div class="pc-det">'+nc+' case'+(nc > 1 ? "s" : "")+(Object.keys(bon).length ? " · " + Object.keys(bon).map(function(k){ return esc(k) + " +" + bon[k]; }).join(" · ") : "")+((d.hp || [])[s] ? " · indices −" + d.hp[s] : "")+'</div>' + secLine(d, s, me) + '</div>';
+      '<div class="pc-det">'+nc+' case'+(nc > 1 ? "s" : "")+(Object.keys(bon).length ? " · " + Object.keys(bon).map(function(k){ return esc(k) + " +" + bon[k]; }).join(" · ") : "")+((d.hp || [])[s] ? " · indices −" + d.hp[s] : "")+'</div></div>';
   };
   var mid;
   if (d.st === "wait") mid = '<div class="vs-mid">Salon · ' + d.p.length + '/' + np + ' joueurs<br><span class="code">'+esc(d.code)+'</span><small>code à donner pour rejoindre</small></div>';
