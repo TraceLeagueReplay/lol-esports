@@ -1517,7 +1517,7 @@ function vsSounds(d, pat){
     } else if (l.k === "bad" && mine) SFX.bad();
   });
   if (docOpt(d).grub) {
-    fresh.forEach(function(l){ if (l.k === "ok" && l.gr) { setTimeout(function(){ playS("grub_t", 0.9, SFX.grub); }, 200); toast("🪱 " + pname(d, l.s) + " prend une Larve du Néant (" + l.gr + "/3)" + (l.gr === 2 ? " : +2 !" : "")); } });
+    fresh.forEach(function(l){ if (l.k === "ok" && l.gr) { setTimeout(function(){ playS("grub_t", 0.9, SFX.grub); }, 200); toast("🪱 " + pname(d, l.s) + " prend une Larve du Néant (" + l.gr + "/3)" + (l.gr === 3 ? " : +4 au total !" : l.gr === 2 ? " : +2 !" : "")); } });
     if ((d.gr || []).length && (d.grq || 0) > (VS.prev.grq || 0)) { var ng = d.gr[d.gr.length - 1]; setTimeout(function(){ playS("grub", 0.9, SFX.grub); }, wait + 100); wait += 500; toast("🪱 3 Larves du Néant apparaissent (une sur une case très difficile)" + (ng.o === VS.slot && !VS.self ? " : elles sont pour toi ce tour-ci !" : " : priorité à " + pname(d, ng.o) + " ce tour-ci")); }
   }
   if (docOpt(d).her) {
@@ -1628,7 +1628,7 @@ function moveGains(d){
       if (baron) { e.gain *= 2; e.bon.push("Baron ×2"); }
       e.extra = e.gain - base;
       if (l.her) e.bon.push("Héraut de la Faille");
-      if (l.gr) { e.bon.push("Larve du Néant " + l.gr + "/3"); if (l.gr === 2) { e.gain += 2; e.bon.push("2 larves sur 3 +2"); } }
+      if (l.gr) { e.bon.push("Larve du Néant " + l.gr + "/3"); if (l.gr === 2) { e.gain += 2; e.bon.push("2 larves sur 3 +2"); } if (l.gr === 3) { e.gain += 2; e.bon.push("3 larves sur 3 : +4 au total"); } }
     }
     else if (l.k === "sp" && l.sp === "fla") {   /* Flash: the player moves; a pattern made by the move counts */
       rep[l.a] = -1; rep[l.i] = l.s;
@@ -1732,7 +1732,7 @@ var GRUBI = "data:image/webp;base64,UklGRnoIAABXRUJQVlA4WAoAAAAgAAAAPwAAPwAASUND
 function grubAt(d, i){ return !!(d && docOpt(d).grub && (d.gr || []).some(function(g){ return g.i === i; })); }
 function grubRot(d){ var ord = [], s = d.first || 0; for (var k = 0; k < d.p.length; k++) { if (active(d, s)) ord.push(s); s = (s + 1) % d.p.length; } return ord.reverse(); }
 function grubCount(d, s){ return ((d.gk || {})[s]) || 0; }
-function grubBonus(d, s){ return docOpt(d).grub && grubCount(d, s) >= 2 ? 2 : 0; }
+function grubBonus(d, s){ var c = docOpt(d).grub ? grubCount(d, s) : 0; return c >= 3 ? 4 : c >= 2 ? 2 : 0; }   /* 2 grubs: +2, all 3: +4 */
 function grubSpawn(d, patch, filled, nxt){
   var n = d.cfg.size, gr = ("gr" in patch ? patch.gr : d.gr) || [];
   var keep = gr.filter(function(g){ return cellOpen(d, g.i, filled); }); if (keep.length !== gr.length) { gr = keep; patch.gr = gr; }
@@ -1746,8 +1746,8 @@ function grubSpawn(d, patch, filled, nxt){
   var h = hard[Math.floor(Math.random() * hard.length)], rest = shuffle(open.filter(function(c){ return c !== h; })).slice(0, 2);
   patch.gr = gr.concat([{i: rest[0], o: nxt, open: false, h: 0}, {i: rest[1], o: nxt, open: false, h: 0}, {i: h, o: nxt, open: false, h: 1}]); patch.grq = 3;
 }
-function grubLine(d, s){ var c = grubCount(d, s); if (!docOpt(d).grub || !c) return ""; return '<div class="pc-drg"><span class="bchip" title="Larves du Néant : 2 sur 3 = +2"><img src="' + GRUBI + '" alt="">' + c + '/3' + (c >= 2 ? ' · +2' : '') + '</span></div>'; }
-function grubBanner(d){ if (!docOpt(d).grub || d.st !== "play" || !(d.gr || []).length) return ""; return '<small class="drgb"><img src="' + GRUBI + '" alt="">Larve du Néant : 2 larves sur 3 = +2</small>'; }
+function grubLine(d, s){ var c = grubCount(d, s); if (!docOpt(d).grub || !c) return ""; return '<div class="pc-drg"><span class="bchip" title="Larves du Néant : 2 sur 3 = +2, les 3 = +4"><img src="' + GRUBI + '" alt="">' + c + '/3' + (c >= 3 ? ' · +4' : c >= 2 ? ' · +2' : '') + '</span></div>'; }
+function grubBanner(d){ if (!docOpt(d).grub || d.st !== "play" || !(d.gr || []).length) return ""; return '<small class="drgb"><img src="' + GRUBI + '" alt="">Larves du Néant : 2 sur 3 = +2 · les 3 = +4</small>'; }
 /* ---------- Héraut de la Faille (option Match): apparaît une fois, à un moment au hasard avant le premier dragon (après les 3 larves
    si elles sont activées) ; celui qui le prend choisit tout de suite une case vide, bloquée pour les autres pendant 2 tours ---------- */
 var HERI = "data:image/webp;base64,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";
@@ -2053,7 +2053,7 @@ function vsLobby(){
         '<label title="Une ligne ou une colonne affiche « ? » : son critère se révèle à la 1re bonne réponse placée dedans"><input type="checkbox" id="vo-hid"'+(vsOpt().hid ? " checked" : "")+'>Critère caché</label>' +
         '<label title="Quand il ne reste qu’environ 20 % des cases jouables, chaque coup rapporte le double"><input type="checkbox" id="vo-baron"'+(vsOpt().baron ? " checked" : "")+'>Phase Baron</label>' +
         '<label title="Des dragons apparaissent sur la grille : celui qui remplit leur case gagne leur effet"><input type="checkbox" id="vo-drg"'+(vsOpt().drg ? " checked" : "")+'>Dragons</label>' +
-        '<label title="3 larves apparaissent ensemble au début du tour du joueur qui joue en second (priorité pour lui ce tour-là, puis ouvertes à tous), dont une sur une case très difficile : 2 larves sur 3 = +2"><input type="checkbox" id="vo-grub"'+(vsOpt().grub ? " checked" : "")+'>Larves du Néant</label>' +
+        '<label title="3 larves apparaissent ensemble au début du tour du joueur qui joue en second (priorité pour lui ce tour-là, puis ouvertes à tous), dont une sur une case très difficile : 2 larves sur 3 = +2, les 3 = +4"><input type="checkbox" id="vo-grub"'+(vsOpt().grub ? " checked" : "")+'>Larves du Néant</label>' +
         '<label title="Apparaît une fois avant le premier dragon (après les 3 larves si elles sont activées) : celui qui le prend bloque une case pour les autres pendant 2 tours"><input type="checkbox" id="vo-her"'+(vsOpt().her ? " checked" : "")+'>Héraut de la Faille</label>' +
         '<label title="Toutes les quelques cases, chaque joueur tire au sort un sort d’invocateur (jamais deux fois le même) : chaque sort sert une fois, un sort par tour"><input type="checkbox" id="vo-sum"'+(vsOpt().sum ? " checked" : "")+'>Sorts d’invocateur</label>' +
       '</div></div>' +
@@ -2104,7 +2104,7 @@ function rulesHTML(d){
   if (d && docOpt(d).rare) rows.push(["Case rare ★ / très rare ★★", "+1 / +2"]);
   if (d && d.mys) rows.push(["Joueur mystère trouvé", "+" + MYS_PTS]);
   if (d && docOpt(d).drg) rows.push(["Dragon ancestral (fin de partie)", "+5"]);
-  if (d && docOpt(d).grub) rows.push(["2 Larves du Néant sur 3", "+2"]);
+  if (d && docOpt(d).grub) { rows.push(["2 Larves du Néant sur 3", "+2"]); rows.push(["Les 3 Larves du Néant", "+4"]); }
   if (d && docOpt(d).her) rows.push(["Héraut de la Faille : une case bloquée pour les autres", "2 tours"]);
   if (d && docOpt(d).sum) rows.push(["Piège déclenché (Téléportation, Fantôme)", "+1"]);
   if (d && docOpt(d).baron) rows.push(["Phase Baron : les " + baronN(n) + " dernières cases", "×2"]);
