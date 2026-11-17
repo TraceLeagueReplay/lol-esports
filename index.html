@@ -363,7 +363,7 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 <script>
 /* Accès privé : tant que le bon code n'est pas entré, Firebase n'est même pas chargé (zéro lecture/écriture). */
 (function(){
-  var H = "f1a9e408a46fbf25fde5bca666fdf01f2898e23b63df67f8ffda4942ce91d9b0", K = "lolGate";
+  var H = "3f6e70f0c429f3974f55a435526b13340ef8a5c20eb0e2f73e2b41c1e51a6036", K = "lolGate";
   function sha(t){ return crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)).then(function(b){ return Array.from(new Uint8Array(b)).map(function(x){ return x.toString(16).padStart(2,"0"); }).join(""); }); }
   var ok = false; try { ok = localStorage.getItem(K) === H; } catch(e){}
   window.__gate = new Promise(function(res){
