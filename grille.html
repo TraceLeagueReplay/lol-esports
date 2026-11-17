@@ -1505,7 +1505,7 @@ function vsSounds(d, pat){
   if (docOpt(d).sum) fresh.forEach(function(l){
     var mine = VS.self || l.s === VS.slot;
     if (l.k === "sp" && !mine) { toast(SPX[l.sp] + " " + pname(d, l.s) + " lance " + SPN[l.sp] + " : " + spText(d, l)); setTimeout(function(){ playS(l.sp, 0.75, SFX.opp); }, 60); }
-    if (l.tr) l.tr.forEach(function(t){ setTimeout(function(){ toast(SPX[t[1]] + " Piège " + SPN[t[1]] + " de " + pname(d, t[0]) + " déclenché : +1 pour " + pname(d, t[0])); }, 900); });
+    if (l.tr) l.tr.forEach(function(t){ setTimeout(function(){ toast(SPX[t.k] + " Piège " + SPN[t.k] + " de " + pname(d, t.s) + " déclenché : +1 pour " + pname(d, t.s)); }, 900); });
   });
   if (docOpt(d).drg) {
     fresh.forEach(function(l){ if (l.k === "ok" && l.dr) setTimeout(function(){ playS("d_" + l.dr, 0.9); }, 250); });
@@ -1607,7 +1607,7 @@ function moveGains(d){
       rep[l.a] = -1; rep[l.i] = l.s;
       patterns(rep, n)[l.s].forEach(function(x){ var k2 = x.k + x.cells.join(); if (!seen[l.s][k2]) { seen[l.s][k2] = 1; e.gain += x.pts; e.bon.push(x.k + " +" + x.pts); } });
     }
-    if (l.tr) l.tr.forEach(function(t){ e.bon.push("Piège " + SPN[t[1]] + " de " + pname(d, t[0]) + " +1"); });
+    if (l.tr) l.tr.forEach(function(t){ e.bon.push("Piège " + SPN[t.k] + " de " + pname(d, t.s) + " +1"); });
     out.push(e);
   });
   MG = {key: key, v: out}; return out;
@@ -1625,6 +1625,7 @@ var DRGI = {inf:"data:image/webp;base64,UklGRqIJAABXRUJQVlA4TJYJAAAvJ8AJEA0obNu2
 var DRGN = {inf: "Dragon infernal", oce: "Dragon de l’océan", mon: "Dragon de la montagne", nua: "Dragon des nuages", hex: "Dragon hextech", chem: "Dragon chimtech", eld: "Dragon ancestral"};
 var DRGE = {inf: "ta prochaine case rare (★ ou ★★) rapporte double", oce: "ton prochain indice est gratuit", mon: "tu choisis une de tes cases : elle ne pourra pas être brûlée",
   nua: "+20 s à chacun de tes 2 prochains tours", hex: "ta prochaine bonne réponse te donne un indice gratuit sur une case voisine", chem: "tu peux poser une fois un joueur déjà utilisé", eld: "+5 pour qui le prend"};
+function smap(x){ var o = {}; if (x) Object.keys(x).forEach(function(k){ if (x[k]) o[k] = x[k].map(function(y){ return y && typeof y === "object" ? Object.assign({}, y) : y; }); }); return o; }   /* seat -> list, never an array of arrays (Firestore) */
 function myBuffs(d, s){ return ((d && d.bf) || [])[s] || {}; }
 function chemOK(){ return !!(game && game.own && VS && VS.doc && docOpt(VS.doc).drg && myBuffs(VS.doc, VS.slot).chem); }
 function drgAt(i){ var d = VS && VS.doc; return game && game.own && d && docOpt(d).drg && d.dr && d.dr.i === i ? d.dr.k : null; }
@@ -1665,8 +1666,7 @@ function dragonMove(d, i, pi, filled, entry, reuse){
     var k = d.dr.k; entry.dr = k;
     if (k === "inf") b.inf = 1; else if (k === "oce") b.oce = 1; else if (k === "mon") b.mon = (b.mon || 0) + 1;
     else if (k === "nua") b.nua = 2; else if (k === "hex") b.hex = 1; else if (k === "chem") b.chem = 1;
-    var dk = (d.dk || []).map(function(x){ return (x || []).slice(); }); while (dk.length < d.p.length) dk.push([]);
-    dk[VS.slot].push(k); out.dk = dk;
+    var dk = smap(d.dk); (dk[VS.slot] = dk[VS.slot] || []).push(k); out.dk = dk;
     out.dr = null; out.drn = filled.filter(function(x){ return x >= 0; }).length + drgGap(n);
   }
   return out;
@@ -1727,18 +1727,17 @@ function spPool(d, s){ var o = docOpt(d), had = spOf(d, s).map(function(x){ retu
 function sumRoll(d, patch, filled){
   var n = d.cfg.size, cnt = filled.filter(function(x){ return x >= 0; }).length, at = d.spn != null ? d.spn : sumGap(n);
   if (cnt < at) return;
-  var sp = (d.sp || []).map(function(a){ return (a || []).map(function(o){ return Object.assign({}, o); }); }); while (sp.length < d.p.length) sp.push([]);
-  var got = [];
+  var sp = smap(d.sp), got = [];
   d.p.forEach(function(p, s){ if (!p || p.out || p.bot) return; var pool = spPool(d, s); if (!pool.length) return;
-    var k = pool[Math.floor(Math.random() * pool.length)]; sp[s].push({k: k}); got.push([s, k]); });
+    var k = pool[Math.floor(Math.random() * pool.length)]; (sp[s] = sp[s] || []).push({k: k}); got.push({s: s, k: k}); });
   patch.spn = cnt + sumGap(n);
   if (got.length) { patch.sp = sp; patch.roll = {n: d.n + 1, g: got}; }
 }
 /* traps set off by a cell placed (Téléportation on the cell, Fantôme on the player) */
 function sumTrig(d, i, pi, me, entry, out){
-  var tp = d.tp || [], gh = d.gh || [], bp = (d.bp || []).slice(), hit = [];
-  var tp2 = tp.filter(function(t){ if (t.i !== i) return true; if (t.s !== me) { bp[t.s] = (bp[t.s] || 0) + 1; hit.push([t.s, "tp"]); } return false; });
-  var gh2 = gh.filter(function(g){ if (pi < 0 || g.p !== pi) return true; if (g.s !== me) { bp[g.s] = (bp[g.s] || 0) + 1; hit.push([g.s, "gho"]); } return false; });
+  var tp = d.tp || [], gh = d.gh || [], bp = d.p.map(function(_, s){ return (d.bp || [])[s] || 0; }), hit = [];
+  var tp2 = tp.filter(function(t){ if (t.i !== i) return true; if (t.s !== me) { bp[t.s] = (bp[t.s] || 0) + 1; hit.push({s: t.s, k: "tp"}); } return false; });
+  var gh2 = gh.filter(function(g){ if (pi < 0 || g.p !== pi) return true; if (g.s !== me) { bp[g.s] = (bp[g.s] || 0) + 1; hit.push({s: g.s, k: "gho"}); } return false; });
   if (tp2.length !== tp.length || gh2.length !== gh.length) { out.tp = tp2; out.gh = gh2; out.bp = bp; }
   if (hit.length) entry.tr = hit;
   return out;
@@ -1798,9 +1797,9 @@ function castBanner(d){
   return '<small class="castb"><img src="' + SPI[c.k] + '" alt=""><span><b>' + SPN[c.k] + '</b> : ' + t + '</span><button type="button" class="sp-cancel">Annuler</button></small>';
 }
 function spWrite(d, k, patch, info){
-  var me = spMe(), sp = (d.sp || []).map(function(a){ return (a || []).map(function(o){ return Object.assign({}, o); }); });
+  var me = spMe(), sp = smap(d.sp);
   var o = (sp[me] || []).filter(function(x){ return x.k === k && !x.u; })[0]; if (!o) return; o.u = 1;
-  var sut = (d.sut || []).slice(); sut[me] = d.n;
+  var sut = d.p.map(function(_, s){ var v = (d.sut || [])[s]; return v == null ? -1 : v; }); sut[me] = d.n;
   var entry = Object.assign({s: me, i: -1, p: -1, k: "sp", sp: k, t: Date.now()}, info || {});
   patch = Object.assign({sp: sp, sut: sut, log: (d.log || []).concat([entry]).slice(-400)}, patch);
   VS.cast = null; vsWrite(d, patch); vsSync(Object.assign({}, d, patch));
@@ -1889,15 +1888,15 @@ document.addEventListener("keydown", function(e){ if (e.key === "Escape" && VS &
 function rollShow(d){
   var g = d.roll.g, H = 96, box = document.createElement("div"); box.className = "rollov";
   box.innerHTML = '<div class="rollbox"><div class="rtitle">Sorts d’invocateur</div><div class="rsub">nouveau tirage</div><div class="reels">' + g.map(function(x){
-    var me = x[0] === VS.slot && !VS.self;
-    return '<div class="reel' + (me ? " me" : "") + '"><span class="rn">' + esc(pname(d, x[0])) + (me ? ' <i>toi</i>' : "") + '</span><div class="rwrap"><div class="rays"></div><div class="rw"><div class="strip"></div></div></div><span class="rl"></span><span class="re"></span></div>'; }).join("") + '</div></div>';
+    var me = x.s === VS.slot && !VS.self;
+    return '<div class="reel' + (me ? " me" : "") + '"><span class="rn">' + esc(pname(d, x.s)) + (me ? ' <i>toi</i>' : "") + '</span><div class="rwrap"><div class="rays"></div><div class="rw"><div class="strip"></div></div></div><span class="rl"></span><span class="re"></span></div>'; }).join("") + '</div></div>';
   document.body.appendChild(box);
   noise(0, 0.35, 0.02, 1200);
   var reels = box.querySelectorAll(".reel"), lastTick = 0, end = 0;
   g.forEach(function(x, j){
-    var el = reels[j], strip = el.querySelector(".strip"), N = 26 + j * 7, keys = [], prev = x[1];
-    for (var z = 0; z < N - 1; z++) { var c = SPK.filter(function(y){ return y !== prev && (z < N - 2 || y !== x[1]); }); prev = c[Math.floor(Math.random() * c.length)]; keys.push(prev); }
-    keys.push(x[1]);
+    var el = reels[j], strip = el.querySelector(".strip"), N = 26 + j * 7, keys = [], prev = x.k;
+    for (var z = 0; z < N - 1; z++) { var c = SPK.filter(function(y){ return y !== prev && (z < N - 2 || y !== x.k); }); prev = c[Math.floor(Math.random() * c.length)]; keys.push(prev); }
+    keys.push(x.k);
     strip.innerHTML = keys.map(function(k){ return '<img src="' + SPI[k] + '" alt="">'; }).join("");
     var dur = 2400 + j * 800, last = 0; end = Math.max(end, dur);
     requestAnimationFrame(function(){ requestAnimationFrame(function(){
@@ -1914,7 +1913,7 @@ function rollShow(d){
     setTimeout(function(){
       if (!box.isConnected) return;
       el.classList.remove("spin"); el.classList.add("land");
-      el.querySelector(".rl").textContent = SPN[x[1]]; el.querySelector(".re").textContent = SPE[x[1]];
+      el.querySelector(".rl").textContent = SPN[x.k]; el.querySelector(".re").textContent = SPE[x.k];
       var w = el.querySelector(".rwrap");
       for (var s = 0; s < 14; s++) { var sp = document.createElement("span"); sp.className = "spk"; sp.style.setProperty("--a", (s * 360 / 14 + Math.random() * 12) + "deg"); sp.style.setProperty("--r", (62 + Math.random() * 30) + "px"); w.appendChild(sp); }
       var mine = el.classList.contains("me") || VS.self;
