@@ -380,6 +380,7 @@ button.cell:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
 .cell.tgt{outline:3px solid var(--accent);outline-offset:-3px;cursor:pointer;animation:tgtp 1s ease-in-out infinite;opacity:1;filter:none}
 @keyframes tgtp{50%{outline-color:transparent}}
 .cell.notgt{opacity:.35;pointer-events:none}
+.cell.nopick{pointer-events:none}
 .pc-sum{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .spmini{width:24px;height:24px;border-radius:6px;box-shadow:0 0 0 1px rgba(0,0,0,.25)} .spmini.used{opacity:.3;filter:grayscale(1)}
 .vs-spells{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:12px 14px;margin-top:12px;display:grid;gap:6px}
@@ -1102,6 +1103,7 @@ function render(){ renderGrid(); drawHintBar(); }
 function setHTML(el, html){ if (!el) return; if (el.__h !== html || el.innerHTML === "") { el.innerHTML = html; el.__h = html; } }
 function tpMark(i){ var d = game && game.own && VS && VS.doc; return d && (d.tp || []).some(function(t){ return t.s === VS.slot && t.i === i; }) ? '<img class="tpmark" src="' + SPI.tp + '" alt="" title="Ton piège Téléportation : +1 si un adversaire remplit cette case">' : ""; }
 function castOn(){ return !!(game && game.own && VS && VS.cast && vsMyTurn()); }
+function castDim(){ return castOn() && VS.cast.k !== "hr"; }   /* Herald: the whole grid stays readable while choosing */
 function castTg(i){ return castOn() && spTargets(VS.doc, VS.cast.k, VS.cast.a).indexOf(i) >= 0; }
 /* the hints already bought stay visible under the grid (and a 💡 on their cell): no need to reopen the cell */
 function hintMark(i){ var hh = hintStore()[i]; return hh && hh.k > 0 && hh.t >= 0 && game.filled.indexOf(hh.t) < 0 ? '<span class="hmark" title="' + esc(hintLines(i, hh).join(" · ")) + '">💡</span>' : ""; }
@@ -1134,8 +1136,8 @@ function renderGrid(){
         var p = P[pi], oc = (game.own ? " own" + game.own[i] + (vsPat[i] ? " pat" : "") : "") + (isMys(i) ? " mysok" : "");
         var brn = !!(game.own && VS.doc && burnt(VS.doc, i)), tg = castTg(i);
         if (tg) { h += '<button class="cell ok tgt'+oc+(brn ? " burn" : "")+'" data-i="'+i+'" data-cast="1">'+(brn ? '<span class="fire">🔥</span>' : "")+flag(p.c)+'<span class="pn">'+esc(p.n)+'</span><span class="pt">'+esc(ROLE[p.r] || "")+'</span></button>'; continue; }
-        if (brn) oc += " burn" + (VS.cast ? " notgt" : "");
-        else if (castOn()) oc += " notgt";
+        if (brn) oc += " burn" + (castDim() ? " notgt" : "");
+        else if (castDim()) oc += " notgt";
         var prot = !!(game.own && VS.doc && (VS.doc.prot || []).indexOf(i) >= 0), canProt = !!(game.own && !game.gaveUp && VS.doc && docOpt(VS.doc).drg && game.own[i] === VS.slot && !prot && myBuffs(VS.doc, VS.slot).mon > 0);
         h += '<button class="cell ok'+oc+(canProt ? " protpick" : "")+'" data-i="'+i+'"'+(canProt ? ' data-prot="1" title="Protéger cette case"' : game.gaveUp ? ' title="Voir toutes les réponses possibles"' : " disabled")+'>'+(prot ? '<span class="shield" title="Protégée">🛡️</span>' : "")+(brn ? '<span class="fire" title="Brûlée : ne rapporte plus rien">🔥</span>' : "")+flag(p.c)+'<span class="pn">'+esc(p.n)+'</span><span class="pt">'+esc(ROLE[p.r] || "")+'</span></button>';
       } else {
@@ -1158,7 +1160,7 @@ function renderGrid(){
           h += '<div class="cell wait'+(grubAt(VS.doc, i) ? " grub" : heraldAt(VS.doc, i) ? " herald" : "")+'" data-i="'+i+'">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+tpMark(i)+hbMark(i)+'</div>';
           remaining.push(opts); remIdx.push(i);
         } else {
-          h += '<button class="cell'+(game.own && VS && grubAt(VS.doc, i) ? " grub" : game.own && VS && heraldAt(VS.doc, i) ? " herald" : "")+(castTg(i) ? " tgt" : castOn() ? " notgt" : "")+'" data-i="'+i+'"'+(castTg(i) ? ' data-cast="1"' : "")+' aria-label="Choisir un joueur">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+tpMark(i)+hbMark(i)+'</button>';
+          h += '<button class="cell'+(game.own && VS && grubAt(VS.doc, i) ? " grub" : game.own && VS && heraldAt(VS.doc, i) ? " herald" : "")+(castTg(i) ? " tgt" : castDim() ? " notgt" : castOn() ? " nopick" : "")+'" data-i="'+i+'"'+(castTg(i) ? ' data-cast="1"' : "")+' aria-label="Choisir un joueur">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+tpMark(i)+hbMark(i)+'</button>';
           remaining.push(opts); remIdx.push(i);
         }
       }
