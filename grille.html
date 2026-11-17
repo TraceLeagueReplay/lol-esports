@@ -1762,7 +1762,7 @@ function spOppBuffs(d){ var me = spMe(), out = []; if (!docOpt(d).drg) return ou
   d.p.forEach(function(p, s){ if (s === me || !p) return; var b = myBuffs(d, s); ["inf", "oce", "mon", "nua", "hex", "chem"].forEach(function(k){ if (b[k] > 0) out.push([s, k]); }); }); return out; }
 /* why a spell can't be cast now ("" = it can) */
 function spWhy(d, k){
-  if (!vsMyTurn() || VS.busy) return "Pas ton tour.";
+  if (!vsMyTurn()) return "Pas ton tour.";   /* (not VS.busy: Firestore shows our own write before it is saved, the panel would stay greyed) */
   if ((d.sut || [])[spMe()] === d.n) return "Un seul sort par tour.";
   if (k === "exh") { var nx = nextTurn(d, spMe()); return !d.T || (d.p[nx] && d.p[nx].bot) ? "Pas de chrono à réduire." : ""; }
   if (k === "smi") return d.dr ? "" : "Aucun dragon sur la grille.";
@@ -2249,7 +2249,7 @@ function vsWrite(base, patch){
     var cur = s.exists ? s.data() : null;
     if (!cur || cur.n !== base.n || cur.st !== "play") { if (cur && VS && VS.code === code) vsSync(cur); return; }   /* someone already played this turn: back to the real state */
     return ref.update(patch);
-  }).catch(function(e){ toast("Coup non enregistré (" + (e && e.code || "erreur") + ")."); ref.get().then(function(s){ if (s.exists && VS && VS.code === code) vsSync(s.data()); }).catch(function(){}); }).then(function(){ if (VS && VS.code === code) VS.busy = false; });
+  }).catch(function(e){ toast("Coup non enregistré (" + (e && e.code || "erreur") + ")."); ref.get().then(function(s){ if (s.exists && VS && VS.code === code) vsSync(s.data()); }).catch(function(){}); }).then(function(){ if (VS && VS.code === code) { VS.busy = false; if (VS.doc) render(); } });
   return vsWQ;
 }
 function vsNext(d, filled, own, entry, ok){
