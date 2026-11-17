@@ -1628,7 +1628,7 @@ function moveGains(d){
       if (baron) { e.gain *= 2; e.bon.push("Baron ×2"); }
       e.extra = e.gain - base;
       if (l.her) e.bon.push("Héraut de la Faille");
-      if (l.gr) { e.bon.push("Larve du Néant " + l.gr + "/3"); if (l.gr === 2) { e.gain += 2; e.bon.push("2 larves sur 3 +2"); } if (l.gr === 3) { e.gain += 2; e.bon.push("3 larves sur 3 : +4 au total"); } }
+      if (l.gr) { e.bon.push("Larve du Néant " + l.gr + "/3"); if (l.gr === 2) { e.gain += 2; e.bon.push("2 larves sur 3 +2"); } if (l.gr === 3) { e.gain += 2; e.bon.push("3 larves sur 3 +2 (+4 en tout)"); } }
     }
     else if (l.k === "sp" && l.sp === "fla") {   /* Flash: the player moves; a pattern made by the move counts */
       rep[l.a] = -1; rep[l.i] = l.s;
