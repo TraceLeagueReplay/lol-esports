@@ -1433,6 +1433,7 @@ var SFX = {
   turn: function(){ synth([{f: 880, t: 0, d: 0.07, w: "square", v: 0.028, cut: 5000, cut2: 2500}, {f: 1760, t: 0.09, d: 0.12, w: "square", v: 0.028, cut: 6000, cut2: 2000}]); },   /* your turn */
   tick: function(){ noise(0, 0.025, 0.06, 5000); synth([{f: 2200, t: 0, d: 0.03, w: "square", v: 0.012, cut: 8000, cut2: 4000, dry: 1}]); }   /* last 5 seconds */,
   drg: function(){ synth([{f: 110, f2: 62, t: 0, d: 0.45, w: "sawtooth", v: 0.05, cut: 1600, cut2: 300, dry: 1}]); noise(0, 0.25, 0.03, 1200); synth([{f: 392, t: 0.3, d: 0.25, v: 0.03, cut: 3000, cut2: 900}, {f: 587, t: 0.38, d: 0.35, v: 0.03, cut: 3000, cut2: 900}]); },
+  grub: function(){ synth([{f: 190, f2: 85, t: 0, d: 0.26, w: "sawtooth", v: 0.04, cut: 900, cut2: 200, dry: 1}, {f: 540, f2: 270, t: 0.05, d: 0.18, w: "square", v: 0.014, cut: 2200, cut2: 500}]); noise(0, 0.12, 0.03, 900); },
   baron: function(){   /* Baron phase starts: low growl rising, then a dark chord */
     synth([{f: 55, f2: 110, t: 0, d: 0.9, w: "sawtooth", v: 0.06, cut: 300, cut2: 1400, dry: 1}, {f: 82, f2: 165, t: 0, d: 0.9, w: "square", v: 0.03, cut: 250, cut2: 1100, dry: 1}]);
     noise(0, 0.5, 0.025, 800);
@@ -1504,6 +1505,10 @@ function vsSounds(d, pat){
       if (gain) { wait = 450; setTimeout(function(){ SFX.shape(gain, mine); }, 200); }
     } else if (l.k === "bad" && mine) SFX.bad();
   });
+  if (docOpt(d).grub) {
+    fresh.forEach(function(l){ if (l.k === "ok" && l.gr) { setTimeout(SFX.grub, 200); toast("🪱 " + pname(d, l.s) + " prend une Larve du Néant (" + l.gr + "/3)" + (l.gr === 2 ? " : +2 !" : "")); } });
+    if ((d.gr || []).length && (d.grq || 0) > (VS.prev.grq || 0)) { var ng = d.gr[d.gr.length - 1]; setTimeout(SFX.grub, wait + 100); wait += 500; toast("🪱 Une Larve du Néant apparaît" + (ng.h ? " sur une case très difficile" : "") + (ng.o === VS.slot && !VS.self ? " : elle est pour toi ce tour-ci !" : " pour " + pname(d, ng.o))); }
+  }
   if (docOpt(d).sum) fresh.forEach(function(l){
     var mine = VS.self || l.s === VS.slot;
     if (l.k === "sp" && !mine) { toast(SPX[l.sp] + " " + pname(d, l.s) + " lance " + SPN[l.sp] + " : " + spText(d, l)); setTimeout(function(){ playS(l.sp, 0.75, SFX.opp); }, 60); }
@@ -1604,6 +1609,7 @@ function moveGains(d){
       if (l.inf) { e.gain *= 2; e.bon.push("Infernal ×2"); }
       if (baron) { e.gain *= 2; e.bon.push("Baron ×2"); }
       e.extra = e.gain - base;
+      if (l.gr) { e.bon.push("Larve du Néant " + l.gr + "/3"); if (l.gr === 2) { e.gain += 2; e.bon.push("2 larves sur 3 +2"); } }
     }
     else if (l.k === "sp" && l.sp === "fla") {   /* Flash: the player moves; a pattern made by the move counts */
       rep[l.a] = -1; rep[l.i] = l.s;
@@ -1631,7 +1637,7 @@ function smap(x){ var o = {}; if (x) Object.keys(x).forEach(function(k){ if (x[k
 function myBuffs(d, s){ return ((d && d.bf) || [])[s] || {}; }
 function chemOK(){ return !!(game && game.own && VS && VS.doc && docOpt(VS.doc).drg && myBuffs(VS.doc, VS.slot).chem); }
 function drgAt(i){ var d = VS && VS.doc; return game && game.own && d && docOpt(d).drg && d.dr && d.dr.i === i ? d.dr.k : null; }
-function plusOrDrg(i){ var k = drgAt(i); return k ? '<img class="drg-ic" src="' + DRGI[k] + '" alt="' + DRGN[k] + '" title="' + DRGN[k] + ' : ' + DRGE[k] + '">' : '<span class="plus">+</span>'; }
+function plusOrDrg(i){ var k = drgAt(i); if (!k && game && game.own && VS && VS.doc && grubAt(VS.doc, i)) return '<img class="drg-ic" src="' + GRUBI + '" alt="Larve du Néant" title="Larve du Néant : 2 larves sur 3 = +2">'; return k ? '<img class="drg-ic" src="' + DRGI[k] + '" alt="' + DRGN[k] + '" title="' + DRGN[k] + ' : ' + DRGE[k] + '">' : '<span class="plus">+</span>'; }
 function cellOpen(d, c, filled){
   if (filled[c] >= 0) return false;
   var used = new Set(filled.filter(function(x){ return x >= 0; }));
@@ -1644,7 +1650,7 @@ function drgSpawn(d, patch, filled, nxt){
   if (cur && !cellOpen(d, cur.i, filled)) { cur = null; patch.dr = null; }   /* its cell has no answer left: it flies away */
   if (cur || d.eld) return;
   var open = [];
-  for (var c = 0; c < n * n; c++) if (cellOpen(d, c, filled) && !(d.mys && d.mys.i === c)) open.push(c);
+  for (var c = 0; c < n * n; c++) if (cellOpen(d, c, filled) && !(d.mys && d.mys.i === c) && !(d.gr || []).some(function(g){ return g.i === c; })) open.push(c);
   if (!open.length) return;
   var act = d.p.map(function(p, s){ return p && !p.out ? s : -1; }).filter(function(s){ return s >= 0; }), q = d.drq || 0;
   if (act[q % act.length] !== nxt) return;   /* not this player's dragon: wait for his turn */
@@ -1701,6 +1707,30 @@ function buffLine(d, s){
   var taken = dk.map(function(k){ return '<img class="dk" src="' + DRGI[k] + '" alt="' + DRGN[k] + '" title="' + DRGN[k] + '">'; }).join("");
   return taken || out.length ? '<div class="pc-drg">' + (taken ? '<span class="dks">' + taken + '</span>' : "") + out.join("") + '</div>' : "";
 }
+/* ---------- Larves du Néant (option Match): 3 larves en début de partie, chacune d'abord pour un joueur en partant du dernier
+   à jouer (le joueur qui commence a déjà le premier coup) ; 2 larves sur 3 = +2 ; la 3e apparaît sur la case la plus difficile ---------- */
+var GRUBI = "data:image/webp;base64,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";
+function grubAt(d, i){ return !!(d && docOpt(d).grub && (d.gr || []).some(function(g){ return g.i === i; })); }
+function grubRot(d){ var ord = [], s = d.first || 0; for (var k = 0; k < d.p.length; k++) { if (active(d, s)) ord.push(s); s = (s + 1) % d.p.length; } return ord.reverse(); }
+function grubCount(d, s){ return ((d.gk || {})[s]) || 0; }
+function grubBonus(d, s){ return docOpt(d).grub && grubCount(d, s) >= 2 ? 2 : 0; }
+function grubSpawn(d, patch, filled, nxt){
+  var n = d.cfg.size, gr = ("gr" in patch ? patch.gr : d.gr) || [];
+  var keep = gr.filter(function(g){ return cellOpen(d, g.i, filled); }); if (keep.length !== gr.length) { gr = keep; patch.gr = gr; }
+  var q = d.grq || 0; if (q >= 3) return;
+  var rot = grubRot(d); if (!rot.length || rot[q % rot.length] !== nxt) return;
+  var dr = "dr" in patch ? patch.dr : d.dr, used = new Set(filled.filter(function(x){ return x >= 0; })), open = [];
+  for (var c = 0; c < n * n; c++) if (cellOpen(d, c, filled) && !(d.mys && d.mys.i === c) && !(dr && dr.i === c) && !gr.some(function(g){ return g.i === c; })) open.push(c);
+  if (!open.length) return;
+  var pickC = open;
+  if (q === 2) {   /* the last one on the hardest cell left (fewest answers still possible) */
+    var best = 1e9; pickC = [];
+    open.forEach(function(c){ var k = cellCands(c).filter(function(p){ return !used.has(p); }).length; if (k < best) { best = k; pickC = [c]; } else if (k === best) pickC.push(c); });
+  }
+  patch.gr = gr.concat([{i: pickC[Math.floor(Math.random() * pickC.length)], o: nxt, open: false, h: q === 2 ? 1 : 0}]); patch.grq = q + 1;
+}
+function grubLine(d, s){ var c = grubCount(d, s); if (!docOpt(d).grub || !c) return ""; return '<div class="pc-drg"><span class="bchip" title="Larves du Néant : 2 sur 3 = +2"><img src="' + GRUBI + '" alt="">' + c + '/3' + (c >= 2 ? ' · +2' : '') + '</span></div>'; }
+function grubBanner(d){ if (!docOpt(d).grub || d.st !== "play" || !(d.gr || []).length) return ""; return '<small class="drgb"><img src="' + GRUBI + '" alt="">Larve du Néant : 2 larves sur 3 = +2</small>'; }
 function drgBanner(d){
   if (!docOpt(d).drg || d.st !== "play") return "";
   var me = myBuffs(d, VS.slot);
@@ -1754,7 +1784,7 @@ function spTargets(d, k, a){
     else if (k === "hea" && f >= 0 && o === me && burnt(d, i)) out.push(i);
     else if (k === "tp" && f < 0 && !isMys(i) && cellOpen(d, i, d.filled) && !(d.tp || []).some(function(t){ return t.s === me && t.i === i; })) out.push(i);
     else if (k === "fla" && a == null && f >= 0 && o === me && !burnt(d, i) && !isMys(i) && spTargets(d, "fla", i).length) out.push(i);
-    else if (k === "fla" && a != null && f < 0 && !isMys(i) && !(d.dr && d.dr.i === i) && cellCands(i).indexOf(d.filled[a]) >= 0) out.push(i);
+    else if (k === "fla" && a != null && f < 0 && !isMys(i) && !(d.dr && d.dr.i === i) && !grubAt(d, i) && cellCands(i).indexOf(d.filled[a]) >= 0) out.push(i);
   }
   return out;
 }
@@ -1927,7 +1957,7 @@ function rollShow(d){
   box.addEventListener("click", function(){ if (Date.now() - t0 > 700) close(); });
   setTimeout(close, end + 2800);
 }
-function scoreOf(d, s, pat){ var eo = effOwn(d); return logExtra(d, s) + ((d.bp || [])[s] || 0) + eo.filter(function(o){ return o === s; }).length + (d.mys && eo[d.mys.i] === s ? MYS_PTS : 0) + (docOpt(d).rare ? eo.reduce(function(a, o, i){ return a + (o === s && !(d.mys && d.mys.i === i) ? rareBonus(i) : 0); }, 0) : 0) + pat[s].reduce(function(a, x){ return a + x.pts; }, 0) - ((d.hp || [])[s] || 0); }
+function scoreOf(d, s, pat){ var eo = effOwn(d); return logExtra(d, s) + grubBonus(d, s) + ((d.bp || [])[s] || 0) + eo.filter(function(o){ return o === s; }).length + (d.mys && eo[d.mys.i] === s ? MYS_PTS : 0) + (docOpt(d).rare ? eo.reduce(function(a, o, i){ return a + (o === s && !(d.mys && d.mys.i === i) ? rareBonus(i) : 0); }, 0) : 0) + pat[s].reduce(function(a, x){ return a + x.pts; }, 0) - ((d.hp || [])[s] || 0); }
 function playable(filled){
   var used = new Set(filled.filter(function(x){ return x >= 0; }));
   return filled.some(function(x, i){ return x < 0 && (isMys(i) ? [game.mys.t] : cellCands(i)).some(function(c){ return !used.has(c); }); });
@@ -1970,6 +2000,7 @@ function vsLobby(){
         '<label title="Une ligne ou une colonne affiche « ? » : son critère se révèle à la 1re bonne réponse placée dedans"><input type="checkbox" id="vo-hid"'+(vsOpt().hid ? " checked" : "")+'>Critère caché</label>' +
         '<label title="Quand il ne reste qu’environ 20 % des cases jouables, chaque coup rapporte le double"><input type="checkbox" id="vo-baron"'+(vsOpt().baron ? " checked" : "")+'>Phase Baron</label>' +
         '<label title="Des dragons apparaissent sur la grille : celui qui remplit leur case gagne leur effet"><input type="checkbox" id="vo-drg"'+(vsOpt().drg ? " checked" : "")+'>Dragons</label>' +
+        '<label title="3 larves en début de partie, chacune d’abord pour un joueur en commençant par le dernier à jouer : 2 larves sur 3 = +2"><input type="checkbox" id="vo-grub"'+(vsOpt().grub ? " checked" : "")+'>Larves du Néant</label>' +
         '<label title="Toutes les quelques cases, chaque joueur tire au sort un sort d’invocateur (jamais deux fois le même) : chaque sort sert une fois, un sort par tour"><input type="checkbox" id="vo-sum"'+(vsOpt().sum ? " checked" : "")+'>Sorts d’invocateur</label>' +
       '</div></div>' +
       '<div class="f"><span class="lb">' + (HOST ? "Connectés sur le site" : "Connectés sur la page") + '</span><div id="vs-peers" class="peers"></div><small id="np-hint">' + (np > 2 ? "Tu pourras inviter les autres joueurs dans le salon." : "") + '</small></div>' +
@@ -1977,7 +2008,7 @@ function vsLobby(){
       '<details class="f"><summary class="lb" style="cursor:pointer">Barème des points</summary>' + rulesHTML() + '</details></form>';
     dlg.showModal(); drawPeers();
     function nm(){ var v = $("#vs-name").value.trim().slice(0, 16); if (!v) { toast("Choisis d’abord un pseudo."); $("#vs-name").focus(); return null; } vsSetName(v); vsPresence(); return v; }
-    function T(){ var t = +dlg.querySelector('[name=tm]:checked').value; ls("grille.vs.T", t); ls("grille.vs.opt", {rare: $("#vo-rare").checked ? 1 : 0, err: $("#vo-err").checked ? 1 : 0, mys: $("#vo-mys").checked ? 1 : 0, hid: $("#vo-hid").checked ? 1 : 0, baron: $("#vo-baron").checked ? 1 : 0, drg: $("#vo-drg").checked ? 1 : 0, sum: $("#vo-sum").checked ? 1 : 0}); return t; }
+    function T(){ var t = +dlg.querySelector('[name=tm]:checked').value; ls("grille.vs.T", t); ls("grille.vs.opt", {rare: $("#vo-rare").checked ? 1 : 0, err: $("#vo-err").checked ? 1 : 0, mys: $("#vo-mys").checked ? 1 : 0, hid: $("#vo-hid").checked ? 1 : 0, baron: $("#vo-baron").checked ? 1 : 0, drg: $("#vo-drg").checked ? 1 : 0, sum: $("#vo-sum").checked ? 1 : 0, grub: $("#vo-grub").checked ? 1 : 0}); return t; }
     dlg.querySelectorAll("[name=np]").forEach(function(r){ r.onchange = function(){ ls("grille.vs.np", +this.value); $("#np-hint").textContent = +this.value > 2 ? "Tu pourras inviter les autres joueurs dans le salon." : ""; drawPeers(); }; });
     $("#vs-name").addEventListener("change", function(){ if (this.value.trim()) { vsSetName(this.value.trim().slice(0, 16)); vsPresence(); } });
     $("#vs-peers").onclick = function(e){
@@ -2010,8 +2041,8 @@ function vsUninvite(db, code, tok){
   db.doc("vs/" + code).get().then(function(s){ if (!s.exists) return; var d = s.data(); db.doc("vs/" + code).update({invs: (d.invs || []).filter(function(x){ return x !== tok; })}); }).catch(function(){});
 }
 /* options: rarity bonus, does a wrong answer pass the turn */
-function vsOpt(){ var o = ls("grille.vs.opt") || {}; return {rare: o.rare ? 1 : 0, err: o.err === 0 ? 0 : 1, mys: o.mys ? 1 : 0, hid: o.hid ? 1 : 0, sec: o.sec ? 1 : 0, baron: o.baron ? 1 : 0, drg: o.drg ? 1 : 0, sum: o.sum ? 1 : 0}; }
-function docOpt(d){ var o = d.opt || {}; return {rare: o.rare ? 1 : 0, err: o.err === 0 ? 0 : 1, mys: o.mys ? 1 : 0, hid: o.hid ? 1 : 0, sec: o.sec ? 1 : 0, baron: o.baron ? 1 : 0, drg: o.drg ? 1 : 0, sum: o.sum ? 1 : 0}; }
+function vsOpt(){ var o = ls("grille.vs.opt") || {}; return {rare: o.rare ? 1 : 0, err: o.err === 0 ? 0 : 1, mys: o.mys ? 1 : 0, hid: o.hid ? 1 : 0, sec: o.sec ? 1 : 0, baron: o.baron ? 1 : 0, drg: o.drg ? 1 : 0, sum: o.sum ? 1 : 0, grub: o.grub ? 1 : 0}; }
+function docOpt(d){ var o = d.opt || {}; return {rare: o.rare ? 1 : 0, err: o.err === 0 ? 0 : 1, mys: o.mys ? 1 : 0, hid: o.hid ? 1 : 0, sec: o.sec ? 1 : 0, baron: o.baron ? 1 : 0, drg: o.drg ? 1 : 0, sum: o.sum ? 1 : 0, grub: o.grub ? 1 : 0}; }
 function rareBonus(i){ var k = cellCands(i).length; return k <= 1 ? 2 : k === 2 ? 1 : 0; }   /* 1 answer: very rare, 2 answers: rare */
 function rulesHTML(d){
   var n = d ? d.cfg.size : 8, al = PTS.filter(function(x){ return x[0] <= n; }).map(function(x){ return x[0] + " → +" + x[1]; }).join(" · ");
@@ -2019,6 +2050,7 @@ function rulesHTML(d){
   if (d && docOpt(d).rare) rows.push(["Case rare ★ / très rare ★★", "+1 / +2"]);
   if (d && d.mys) rows.push(["Joueur mystère trouvé", "+" + MYS_PTS]);
   if (d && docOpt(d).drg) rows.push(["Dragon ancestral (fin de partie)", "+5"]);
+  if (d && docOpt(d).grub) rows.push(["2 Larves du Néant sur 3", "+2"]);
   if (d && docOpt(d).sum) rows.push(["Piège déclenché (Téléportation, Fantôme)", "+1"]);
   if (d && docOpt(d).baron) rows.push(["Phase Baron : les " + baronN(n) + " dernières cases", "×2"]);
   rows.push(["Indice demandé (1 par tour)", "−2"]);
@@ -2167,7 +2199,7 @@ function vsPanel(){
     var bon = pat[s].reduce(function(m, x){ m[x.k] = (m[x.k] || 0) + x.pts; return m; }, {});
     var nc = effOwn(d).filter(function(o){ return o === s; }).length;
     return '<div class="pc-card p'+s+(on ? " on" : "")+(out ? " out" : "")+'"><div class="pc-top"><span class="dot"></span><b>'+esc(pname(d, s))+'</b>'+(me ? '<span class="you">toi</span>' : "")+(out ? '<span class="you">abandon</span>' : "")+'<span class="sc">'+sc[s]+'</span></div>' +
-      '<div class="pc-det">'+nc+' case'+(nc > 1 ? "s" : "")+(Object.keys(bon).length ? " · " + Object.keys(bon).map(function(k){ return esc(k) + " +" + bon[k]; }).join(" · ") : "")+((d.hp || [])[s] ? " · indices −" + d.hp[s] : "")+((d.bp || [])[s] ? " · pièges +" + d.bp[s] : "")+'</div>' + buffLine(d, s) + sumLine(d, s) + '</div>';
+      '<div class="pc-det">'+nc+' case'+(nc > 1 ? "s" : "")+(Object.keys(bon).length ? " · " + Object.keys(bon).map(function(k){ return esc(k) + " +" + bon[k]; }).join(" · ") : "")+((d.hp || [])[s] ? " · indices −" + d.hp[s] : "")+((d.bp || [])[s] ? " · pièges +" + d.bp[s] : "")+'</div>' + buffLine(d, s) + grubLine(d, s) + sumLine(d, s) + '</div>';
   };
   var mid;
   if (d.st === "wait") mid = '<div class="vs-mid">Salon · ' + d.p.length + '/' + np + ' joueurs<br><span class="code">'+esc(d.code)+'</span><small>code à donner pour rejoindre</small></div>';
@@ -2176,7 +2208,7 @@ function vsPanel(){
     var rk = ranking(d, sc), top = rk[0], tie = rk.length > 1 && active(d, rk[1]) && sc[rk[1]] === sc[top];
     mid = '<div class="vs-mid end">Fin<br><b>' + (tie ? "Égalité" : esc(pname(d, top)) + " gagne") + '</b></div>';
   }
-  else mid = '<div class="vs-mid">'+(d.turn === VS.slot ? "<b>À toi !</b>" : "Au tour de " + esc(pname(d, d.turn)))+'<div class="clock" id="vs-clock"></div>'+(baronOn(d) ? '<small class="baron">🐉 Phase Baron : chaque coup ×2</small>' : '')+drgBanner(d)+castBanner(d)+'<small>Partie '+esc(d.code)+'</small></div>';
+  else mid = '<div class="vs-mid">'+(d.turn === VS.slot ? "<b>À toi !</b>" : "Au tour de " + esc(pname(d, d.turn)))+'<div class="clock" id="vs-clock"></div>'+(baronOn(d) ? '<small class="baron">🐉 Phase Baron : chaque coup ×2</small>' : '')+grubBanner(d)+drgBanner(d)+castBanner(d)+'<small>Partie '+esc(d.code)+'</small></div>';
   var cards = []; for (var s = 0; s < np; s++) cards.push(card(s));
   setHTML($("#vsbar"), (np === 2 ? '<div class="vsb">' + cards[0] + mid + cards[1] + '</div>' : '<div class="vsb multi" style="--np:' + np + '">' + mid + cards.join("") + '</div>') + '<div class="tbar" id="vs-tbar"><i></i></div>');
   var st = $("#status"), isHost = VS.slot === 0 && !VS.self;
@@ -2215,7 +2247,7 @@ function vsPanel(){
   if ($("#vs-start")) $("#vs-start").onclick = function(){ this.disabled = true; VS.ref.update(startPatch(d, d.p.slice())).catch(function(){ toast("Impossible de lancer la partie."); }); };
   document.querySelectorAll("[data-inv]").forEach(function(b){ b.onclick = function(){ var t = b.dataset.inv, inv = (VS.doc.invs || []).slice(); if (inv.indexOf(t) < 0) inv.push(t); b.disabled = true; VS.ref.update({invs: inv}).catch(function(){}); }; });
   $("#giveup").hidden = true;
-  $("#cfgsum").textContent = summary(d.cfg) + " · " + "match à " + np + (d.T ? " · " + d.T + " s par tour" : "") + (docOpt(d).rare ? " · rareté ★" : "") + (d.mys ? " · joueur mystère" : "") + (d.hid ? " · critère caché" : "")+(docOpt(d).sum ? " · sorts d’invocateur" : "") + (docOpt(d).err ? "" : " · erreurs sans perdre le tour");
+  $("#cfgsum").textContent = summary(d.cfg) + " · " + "match à " + np + (d.T ? " · " + d.T + " s par tour" : "") + (docOpt(d).rare ? " · rareté ★" : "") + (d.mys ? " · joueur mystère" : "") + (d.hid ? " · critère caché" : "")+(docOpt(d).sum ? " · sorts d’invocateur" : "")+(docOpt(d).grub ? " · larves du Néant" : "") + (docOpt(d).err ? "" : " · erreurs sans perdre le tour");
   /* history: replay the moves to know what each one earned */
   var n = d.cfg.size, hist = moveGains(d).map(function(e, t){ return {l: e.l, t: t + 1, gain: e.gain, bon: e.bon}; });
   var items = hist.reverse().map(function(e){
@@ -2258,6 +2290,8 @@ function vsNext(d, filled, own, entry, ok){
   var patch = {filled: filled, own: own, log: log, turn: nxt, n: d.n + 1, fails: fails, dl: vsDeadline(d, nxt)};
   if (docOpt(d).drg && d.dr && !d.dr.open && d.dr.o === entry.s) patch.dr = Object.assign({}, d.dr, {open: true});
   if (docOpt(d).drg && !patch.st) drgSpawn(d, patch, filled, nxt);
+  if (docOpt(d).grub && (d.gr || []).some(function(g){ return !g.open && g.o === entry.s; })) patch.gr = d.gr.map(function(g){ return g.o === entry.s ? Object.assign({}, g, {open: true}) : g; });
+  if (docOpt(d).grub && !patch.st) grubSpawn(d, patch, filled, nxt);
   if (d.exh != null && d.exh === nxt) { if (patch.dl) patch.dl = Date.now() + Math.round((patch.dl - Date.now()) / 2); patch.exh = null; }
   if (docOpt(d).sum && !patch.st) sumRoll(d, patch, filled);
   if (!playable(filled) || fails >= 3 * act) { patch.st = "end"; patch.dl = 0; }
@@ -2291,6 +2325,7 @@ function vsMove(i, pi, ok){
   var entry = {s: VS.slot, i: i, p: pi, k: ok ? "ok" : "bad", t: Date.now()};
   var extra = ok ? dragonMove(d, i, pi, filled, entry, reuse) : {};
   if (ok && docOpt(d).sum) sumTrig(d, i, pi, VS.slot, entry, extra);
+  if (ok && grubAt(d, i)) { var gk = Object.assign({}, d.gk || {}); gk[VS.slot] = (gk[VS.slot] || 0) + 1; extra.gr = d.gr.filter(function(g){ return g.i !== i; }); extra.gk = gk; entry.gr = gk[VS.slot]; }
   var patch = Object.assign({}, extra, vsNext(Object.assign({}, d, extra), filled, own, entry, ok));
   vsWrite(d, patch); vsSync(Object.assign({}, d, patch));   /* shown (and heard) right away */
   if (entry.hex) hexHint(i, filled);
