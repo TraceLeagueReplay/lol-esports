@@ -1628,6 +1628,7 @@ function moveGains(d){
       patterns(rep, n)[l.s].forEach(function(x){ var k2 = x.k + x.cells.join(); if (!seen[l.s][k2]) { seen[l.s][k2] = 1; e.gain += x.pts; e.bon.push(x.k + " +" + x.pts); } });
       var base = e.gain;
       if (l.dr === "eld") { e.gain += 5; e.bon.push("Dragon ancestral +5"); }
+      if (l.mof) { e.gain += 2; e.bon.push("Montagne +2"); }
       else if (l.dr) e.bon.push(DRGN[l.dr]);
       if (l.inf) { e.gain *= 2; e.bon.push("Infernal ×2"); }
       if (baron) { e.gain *= 2; e.bon.push("Baron ×2"); }
@@ -1696,7 +1697,7 @@ function dragonMove(d, i, pi, filled, entry, reuse){
   /* the dragon taken */
   if (d.dr && d.dr.i === i) {
     var k = d.dr.k; entry.dr = k;
-    if (k === "inf") b.inf = 1; else if (k === "oce") b.oce = 1; else if (k === "mon") b.mon = (b.mon || 0) + 1;
+    if (k === "inf") b.inf = 1; else if (k === "oce") b.oce = 1; else if (k === "mon") { if (docOpt(d).sum) b.mon = (b.mon || 0) + 1; else b.mof = 1; }
     else if (k === "nua") b.nua = 2; else if (k === "hex") b.hex = 1; else if (k === "chem") b.chem = 1;
     var dk = smap(d.dk); (dk[VS.slot] = dk[VS.slot] || []).push(k); out.dk = dk;
     out.dr = null; out.drn = filled.filter(function(x){ return x >= 0; }).length + drgGap(n);
@@ -1726,7 +1727,7 @@ function buffLine(d, s){
   if (!docOpt(d).drg) return "";
   var b = myBuffs(d, s), dk = ((d.dk || [])[s] || []), out = [];
   var chip = function(k, t){ out.push('<span class="bchip" title="' + DRGN[k] + ' : ' + DRGE[k] + '"><img src="' + DRGI[k] + '" alt="">' + t + '</span>'); };
-  if (b.inf) chip("inf", "case rare ×2"); if (b.oce) chip("oce", "indice gratuit"); if (b.mon) chip("mon", "choisis une case à protéger");
+  if (b.inf) chip("inf", "case rare ×2"); if (b.oce) chip("oce", "indice gratuit"); if (b.mon) chip("mon", "choisis une case à protéger"); if (b.mof) chip("mon", "prochaine forme +2");
   if (b.nua) chip("nua", "+20 s ×" + b.nua); if (b.hex) chip("hex", "indice voisin"); if (b.chem) chip("chem", "joueur déjà utilisé OK");
   var taken = dk.map(function(k){ return '<img class="dk" src="' + DRGI[k] + '" alt="' + DRGN[k] + '" title="' + DRGN[k] + '">'; }).join("");
   return taken || out.length ? '<div class="pc-drg">' + (taken ? '<span class="dks">' + taken + '</span>' : "") + out.join("") + '</div>' : "";
@@ -2211,6 +2212,8 @@ function vsLeave(silent){
   vsPresence(); vsOnlineCount();
 }
 function vsSync(d){
+  DRGE.mon = docOpt(d).sum ? "tu choisis une de tes cases : elle ne pourra pas être brûlée" : "ta prochaine forme rapporte +2";
+  DRGS.mon = docOpt(d).sum ? "protège une case de l’Embrasement" : "prochaine forme +2";
   if (d.v && d.v !== GD.v) { toast("Cette partie a été créée avec une ancienne version des données : elle ne peut pas continuer."); vsLeave(true); if (game) { prepare(); render(); } else startNew(); return; }
   var first = !VS.doc; VS.doc = d;
   var tok = vsTok(), ids = (d.p || []).map(function(x){ return x && x.id; });
@@ -2404,6 +2407,12 @@ function vsMove(i, pi, ok){
   else toast((isMys(i) ? "Ce n’est pas le joueur mystère." : whyNot(P[pi], cellCrit(i))) + " Ton tour passe.");
   var entry = {s: VS.slot, i: i, p: pi, k: ok ? "ok" : "bad", t: Date.now()};
   var extra = ok ? dragonMove(d, i, pi, filled, entry, reuse) : {};
+  if (ok && docOpt(d).drg && myBuffs(d, VS.slot).mof) {   /* Mountain (without spells): +2 on the next move that makes a new pattern */
+    var pb = patterns(effOwn(d), d.cfg.size)[VS.slot].map(function(x){ return x.k + x.cells.join(); }), eo2 = effOwn(Object.assign({}, d, {own: own}));
+    if (patterns(eo2, d.cfg.size)[VS.slot].some(function(x){ return pb.indexOf(x.k + x.cells.join()) < 0; })) {
+      var bfm = (extra.bf || d.bf || []).map(function(o){ return Object.assign({}, o || {}); }); bfm[VS.slot].mof = 0; extra.bf = bfm; entry.mof = 1;
+    }
+  }
   if (ok && docOpt(d).sum) sumTrig(d, i, pi, VS.slot, entry, extra);
   if (ok && heraldAt(d, i)) {
     entry.her = 1;
