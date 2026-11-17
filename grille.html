@@ -451,6 +451,9 @@ button.spchip{cursor:pointer;border-color:var(--accent)} button.spchip:hover{bac
 @keyframes objcell{0%{filter:brightness(1.6) saturate(1.4)}100%{filter:none}}
 .cell.grub{background:radial-gradient(circle at 50% 45%,rgba(168,85,247,.38),rgba(88,28,135,.22));border-color:#a855f7;box-shadow:inset 0 0 14px rgba(168,85,247,.45),0 0 10px rgba(168,85,247,.35)}
 .cell.grub:hover{border-color:#c084fc}
+.cell.herald{background:radial-gradient(circle at 50% 45%,rgba(107,33,168,.55),rgba(46,16,101,.45));border-color:#6b21a8;box-shadow:inset 0 0 16px rgba(76,29,149,.6),0 0 12px rgba(107,33,168,.45)}
+.cell.herald:hover{border-color:#9333ea}
+.cell.spawn.herald{--objc:#7e22ce}
 .cell .tpmark{position:absolute;bottom:5px;left:6px;width:clamp(14px,16cqi,22px);height:clamp(14px,16cqi,22px);border-radius:5px;box-shadow:0 0 0 2px var(--accent);animation:tgtp 2s ease-in-out infinite}
 .sptrap{display:flex;align-items:center;gap:7px;font-size:12px} .sptrap img{width:22px;height:22px;border-radius:5px;flex:none}
 .cell .hmark{position:absolute;top:4px;left:6px;font-size:clamp(12px,12cqi,18px);line-height:1}
@@ -1152,10 +1155,10 @@ function renderGrid(){
         } else if (game.own && vsLocked(i)) {
           var hb0 = (VS.doc.hb || []).filter(function(b){ return b.i === i; })[0] || {}; h += '<div class="cell lock drglock" data-i="'+i+'" title="Bloquée par le Héraut de '+esc(pname(VS.doc, hb0.s))+'"><img class="drg-ic" src="'+HERI+'" alt=""><span class="pt">bloquée</span></div>';
         } else if (game.own && !vsMyTurn()) {
-          h += '<div class="cell wait'+(grubAt(VS.doc, i) ? " grub" : "")+'" data-i="'+i+'">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+tpMark(i)+hbMark(i)+'</div>';
+          h += '<div class="cell wait'+(grubAt(VS.doc, i) ? " grub" : heraldAt(VS.doc, i) ? " herald" : "")+'" data-i="'+i+'">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+tpMark(i)+hbMark(i)+'</div>';
           remaining.push(opts); remIdx.push(i);
         } else {
-          h += '<button class="cell'+(game.own && VS && grubAt(VS.doc, i) ? " grub" : "")+(castTg(i) ? " tgt" : castOn() ? " notgt" : "")+'" data-i="'+i+'"'+(castTg(i) ? ' data-cast="1"' : "")+' aria-label="Choisir un joueur">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+tpMark(i)+hbMark(i)+'</button>';
+          h += '<button class="cell'+(game.own && VS && grubAt(VS.doc, i) ? " grub" : game.own && VS && heraldAt(VS.doc, i) ? " herald" : "")+(castTg(i) ? " tgt" : castOn() ? " notgt" : "")+'" data-i="'+i+'"'+(castTg(i) ? ' data-cast="1"' : "")+' aria-label="Choisir un joueur">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+tpMark(i)+hbMark(i)+'</button>';
           remaining.push(opts); remIdx.push(i);
         }
       }
