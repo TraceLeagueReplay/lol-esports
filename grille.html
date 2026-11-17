@@ -230,7 +230,7 @@ body.vsmode #vshist ol{max-height:calc(100vh - 90px)}
 .peer .ps{flex:1;font-size:12.5px;color:var(--muted);min-width:0}
 .peer .btn{padding:6px 12px}
 .pdot{width:10px;height:10px;border-radius:50%;background:var(--ok);flex:none}
-.pdot.busy{background:var(--faint)} .pdot.claude{background:var(--accent)}
+.pdot.busy{background:var(--faint)} .pdot.claude{background:var(--accent)}.pdot.ai{background:linear-gradient(135deg,var(--accent),var(--p1))}.peer.ai{flex-wrap:wrap}.ailv{display:flex;gap:6px;flex-wrap:wrap;width:100%}.ailv .btn{flex:1;min-width:70px}.aithink i{animation:aidot 1.2s infinite;font-style:normal}.aithink i:nth-child(2){animation-delay:.2s}.aithink i:nth-child(3){animation-delay:.4s}@keyframes aidot{0%,60%,100%{opacity:.2}30%{opacity:1}}
 .invite{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:10;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel);border:2px solid var(--accent);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);max-width:calc(100vw - 32px)}
 .invite[hidden]{display:none}
 .invite .inv-t{flex:1;min-width:180px;font-size:15px}
@@ -1817,7 +1817,7 @@ function sumRoll(d, patch, filled){
   var n = d.cfg.size, cnt = filled.filter(function(x){ return x >= 0; }).length, at = d.spn != null ? d.spn : sumGap(n);
   if (cnt < at) return;
   var sp = smap(d.sp), got = [];
-  d.p.forEach(function(p, s){ if (!p || p.out || p.bot) return; var pool = spPool(d, s); if (!pool.length) return;
+  d.p.forEach(function(p, s){ if (!p || p.out || (p.bot && !p.ai)) return; var pool = spPool(d, s); if (!pool.length) return;
     var k = pool[Math.floor(Math.random() * pool.length)]; (sp[s] = sp[s] || []).push({k: k}); got.push({s: s, k: k}); });
   patch.spn = cnt + sumGap(n);
   if (got.length) { patch.sp = sp; patch.roll = {n: d.n + 1, g: got}; }
@@ -2041,6 +2041,7 @@ function drawPeers(){
   var list = onlinePeers(), np = lobbyNp();
   box.innerHTML = (list.length ? list.map(function(p){ return '<div class="peer"><span class="pdot'+(p.busy ? " busy" : "")+'"></span><b>'+esc(p.nm)+'</b><span class="ps">'+(p.busy ? "en partie" : "disponible")+'</span><button type="button" class="btn primary" data-tok="'+esc(p.tok)+'"'+(p.busy ? " disabled" : "")+'>'+(np > 2 ? "Inviter" : "Défier")+'</button></div>'; }).join("")
       : '<p class="hint">' + (ROOM ? "Personne d’autre n’est connecté pour l’instant." : "La liste des connectés n’est pas disponible ici.") + '</p>') +
+    (np === 2 ? '<div class="peer bot ai"><span class="pdot ai"></span><b>IA</b><span class="ps">elle joue toute seule, sans chrono pour elle</span><span class="ailv">' + [1, 2, 3, 4].map(function(lv){ return '<button type="button" class="btn' + (lv === aiLvl() ? " primary" : "") + '" data-ai="' + lv + '">' + AIN[lv] + '</button>'; }).join("") + '</span></div>' : "") +
     '<div class="peer bot"><span class="pdot self"></span><b>Moi-même</b><span class="ps">pour tester : tu joues les ' + np + ' camps à tour de rôle</span><button type="button" class="btn" data-tok="self">Jouer</button></div>' +
     (HOST || np > 2 ? "" : '<div class="peer bot"><span class="pdot claude"></span><b>Claude</b><span class="ps">joue depuis le chat · sans chrono pour lui</span><button type="button" class="btn" data-tok="claude">Défier</button></div>');
 }
@@ -2072,7 +2073,8 @@ function vsLobby(){
     dlg.querySelectorAll("[name=np]").forEach(function(r){ r.onchange = function(){ ls("grille.vs.np", +this.value); $("#np-hint").textContent = +this.value > 2 ? "Tu pourras inviter les autres joueurs dans le salon." : ""; drawPeers(); }; });
     $("#vs-name").addEventListener("change", function(){ if (this.value.trim()) { vsSetName(this.value.trim().slice(0, 16)); vsPresence(); } });
     $("#vs-peers").onclick = function(e){
-      var b = e.target.closest("[data-tok]"); if (!b || b.disabled) return; var n = nm(); if (!n) return;
+      var b = e.target.closest("[data-tok],[data-ai]"); if (!b || b.disabled) return; var n = nm(); if (!n) return;
+      if (b.dataset.ai) { ls("grille.vs.ai", +b.dataset.ai); return vsCreate(db, n, T(), {np: 2, bot: 1, ai: +b.dataset.ai}); }
       if (b.dataset.tok === "claude") return vsCreate(db, n, T(), {np: 2, bot: 1});
       if (b.dataset.tok === "self") return vsCreate(db, n, T(), {np: lobbyNp(), self: 1});
       var p = onlinePeers().filter(function(x){ return x.tok === b.dataset.tok; })[0];
@@ -2148,7 +2150,7 @@ function vsCreate(db, name, T, target, opt){
     p: [me], np: np, invs: target.invite || [], turn: 0, first: 0, n: 0, T: T, st: "wait", fails: 0, log: [], created: Date.now(), dl: 0, opt: opt, hp: [], hu: []};
   if (opt.mys) { var my = pickMystery(g); if (my) d.mys = {i: my.i, t: my.t}; }
   if (opt.hid) d.hid = pickHidden(g);
-  if (target.bot) Object.assign(d, startPatch(d, [me, {name: "Claude", id: "claude", bot: 1}]));
+  if (target.bot) Object.assign(d, startPatch(d, [me, target.ai ? {name: "IA " + AIN[target.ai], id: "ai", bot: 1, ai: target.ai} : {name: "Claude", id: "claude", bot: 1}]));
   else if (target.self) { var ps = [me]; for (var s = 2; s <= np; s++) ps.push({name: name + " (" + s + ")", id: vsTok()}); Object.assign(d, startPatch(d, ps)); }
   vsCreating = true; document.querySelectorAll("#vs-peers button, #vs-create, #vs-again, #vs-rematch").forEach(function(b){ b.disabled = true; });
   db.doc("vs/" + code).set(d).then(function(){
@@ -2202,7 +2204,7 @@ function vsLeave(silent){
     if (VS.slot === 0) VS.ref.update({st: "declined", invs: []}).catch(function(){});
     else { var tok = vsTok(); VS.ref.update({p: d.p.filter(function(x){ return x.id !== tok; })}).catch(function(){}); }
   }
-  if (VS.unsub) VS.unsub(); clearInterval(vsTick);
+  if (VS.unsub) VS.unsub(); clearInterval(vsTick); clearTimeout(AI.timer); AI.key = "";
   cfg = VS.keepCfg; game = VS.keepGame; VS = null; vsPat = [];
   ls("grille.vs.cur", null);
   document.body.classList.remove("vsmode");
@@ -2248,6 +2250,7 @@ function vsSync(d){
   VS.prev = d;
   render(); vsPresence();
   objAnim(born);
+  aiSched();
 }
 /* objectives that just appeared (dragon, grubs, Herald): their cells get a short pop + ring */
 function objBorn(a, b){
@@ -2306,7 +2309,7 @@ function vsPanel(){
       : d.st === "declined" ? 'La partie a été annulée. <button class="btn primary" id="vs-again" type="button">Nouvelle partie</button>'
       : VS.slot < 0 ? "Tu regardes cette partie (tu n’y joues pas)."
       : d.p[VS.slot] && d.p[VS.slot].out ? "Tu as abandonné : tu regardes la fin de la partie."
-      : (d.turn === VS.slot ? "Choisis une case et trouve un joueur." : (d.p[d.turn].bot ? "Claude réfléchit… écris « à toi » dans le chat pour qu’il joue." : "Attends ton tour.")) + ' <button class="btn quiet" id="vs-ff" type="button">Abandonner</button>';
+      : (d.turn === VS.slot ? "Choisis une case et trouve un joueur." : (d.p[d.turn].ai ? '<span class="aithink">' + esc(pname(d, d.turn)) + " réfléchit<i>.</i><i>.</i><i>.</i></span>" : d.p[d.turn].bot ? "Claude réfléchit… écris « à toi » dans le chat pour qu’il joue." : "Attends ton tour.")) + ' <button class="btn quiet" id="vs-ff" type="button">Abandonner</button>';
   }
   $("#vsrules").onclick = function(e){ var b = e.target.closest("[data-sp]"); if (b) spClick(b.dataset.sp); };
   document.querySelectorAll(".sp-cancel").forEach(function(b){ b.onclick = function(){ VS.cast = null; render(); }; });
@@ -2317,7 +2320,7 @@ function vsPanel(){
   };
   if ($("#vs-rematch")) $("#vs-rematch").onclick = function(){
     var me = vsName() || d.p[VS.slot].name;
-    if (d.p.some(function(x){ return x.bot; })) return vsCreate(VS.db, me, d.T, {np: 2, bot: 1}, docOpt(d));
+    var bt = d.p.filter(function(x){ return x.bot; })[0]; if (bt) return vsCreate(VS.db, me, d.T, {np: 2, bot: 1, ai: bt.ai}, docOpt(d));
     if (VS.self) return vsCreate(VS.db, d.p[0].name, d.T, {np: d.p.length, self: 1}, docOpt(d));
     var others = d.p.filter(function(x, s){ return s !== VS.slot; }).map(function(x){ return x.id; });
     vsCreate(VS.db, me, d.T, {np: d.p.length, invite: others}, docOpt(d));
@@ -2475,6 +2478,255 @@ window.__grilleCands = function(d){
   var out = d.filled.map(function(x, i){ var cc = cellCrit(i); return {i: i, crit: [cc[0].label, cc[1].label], cands: x >= 0 || (d.mys && d.mys.i === i) ? [] : cellCands(i).filter(function(c){ return !used.has(c); }).map(function(c){ return [c, P[c].n, P[c].s.length]; })}; });
   game = g0; cfg = keep; prepare(); return out;
 };
+
+/* ---------- IA (Match contre l'ordinateur, 4 niveaux). Elle « connaît » une partie des joueurs (les plus connus d'abord, toujours
+   les mêmes pendant une partie), choisit sa case selon les points (formes, rareté, objectifs) et ce qu'elle t'enlève, se trompe
+   parfois, lance ses sorts d'invocateur et prend Héraut, dragons et larves. C'est la page du joueur humain qui la fait jouer. ---------- */
+var AIN = {1: "Facile", 2: "Moyen", 3: "Difficile", 4: "Pro"};
+var AIL = {   /* connaît un joueur avec a + b × notoriété^e · slip : se trompe alors qu'elle sait · deny : poids de ce qu'elle t'enlève · best : chance de jouer le meilleur coup */
+  1: {a: .04, b: .70, e: 2,   slip: .12, deny: 0,   best: .35, think: [6000, 11000], spell: .35, cast: 0},
+  2: {a: .10, b: .80, e: 1.5, slip: .06, deny: .3,  best: .65, think: [4500, 9000],  spell: .6,  cast: 1},
+  3: {a: .28, b: .68, e: 1,   slip: .03, deny: .6,  best: .9,  think: [3500, 7000],  spell: .9,  cast: 1},
+  4: {a: .62, b: .37, e: 1,   slip: .01, deny: .8,  best: 1,   think: [2500, 5000],  spell: 1,   cast: 1}
+};
+var AI = {key: "", timer: null, lastN: "", tries: {}, noSp: "", fame: null};
+function aiFame(){
+  if (AI.fame) return AI.fame;
+  var sc = P.map(function(p){ return (p.s || []).length + 1.5 * (p.wp || []).length + 2 * (p.ch || []).length + 3 * (p.w || []).length + 2 * (p.m || []).length + (STARS.indexOf(p.n) >= 0 ? 15 : 0); });
+  var ord = sc.map(function(v, i){ return i; }).sort(function(a, b){ return sc[a] - sc[b]; }), r = new Array(P.length);
+  ord.forEach(function(pi, k){ r[pi] = k / Math.max(1, ord.length - 1); });
+  return (AI.fame = r);
+}
+function aiHash(s){ var h = 2166136261; for (var k = 0; k < s.length; k++) { h ^= s.charCodeAt(k); h = Math.imul(h, 16777619); } return ((h >>> 0) % 100000) / 100000; }
+function aiKnows(d, lv, pi){ var L = AIL[lv] || AIL[2], r = aiFame()[pi] || 0; return aiHash(d.code + "|" + (d.created || 0) + "|" + pi) < L.a + L.b * Math.pow(r, L.e); }
+function aiSeat(d){ var p = d && d.st === "play" && d.p[d.turn]; return p && p.ai ? d.turn : -1; }
+function aiOpp(d, b){ for (var s = 0; s < d.p.length; s++) if (s !== b && active(d, s)) return s; return -1; }
+function withSlot(s, fn){ var k = VS.slot; VS.slot = s; try { return fn(); } finally { VS.slot = k; } }
+function aiUsed(d){ return new Set(d.filled.filter(function(x){ return x >= 0; })); }
+function aiScore(d, s){ return scoreOf(d, s, patterns(effOwn(d), d.cfg.size)); }
+/* what placing a player on cell i is worth for player s (same rules as the scoring) */
+function aiGain(d, s, i){
+  var n = d.cfg.size, o = docOpt(d), eo = effOwn(d), b = myBuffs(d, s);
+  var sum = function(a){ return a.reduce(function(t, x){ return t + x.pts; }, 0); };
+  var before = sum(patterns(eo, n)[s]); eo[i] = s; var pd = sum(patterns(eo, n)[s]) - before;
+  var rb = isMys(i) ? 0 : (o.rare ? rareBonus(i) : 0), g = 1 + rb + (isMys(i) ? MYS_PTS : 0) + pd;
+  if (o.drg && d.dr && d.dr.i === i && d.dr.k === "eld") g += 5;
+  if (o.drg && b.mof && pd > 0) g += 2;
+  if (o.drg && b.inf && rb > 0) g *= 2;
+  if (baronOn(d)) g *= 2;
+  if (o.grub && grubAt(d, i)) g += grubCount(d, s) >= 1 ? 2 : 0.8;
+  if (o.drg && d.dr && d.dr.i === i && d.dr.k !== "eld") g += ({inf: 1.5, oce: .3, mon: 1, nua: d.p[s] && d.p[s].bot ? 0 : .5, hex: .3, chem: .8})[d.dr.k] || 0;
+  if (heraldAt(d, i)) g += 1.5;
+  return g;
+}
+/* what owning cell c is worth to its owner right now (for Embrasement / Barrière) */
+function aiCellVal(d, c){
+  var s = d.own[c]; if (s < 0) return 0;
+  var d2 = Object.assign({}, d, {brn: (d.brn || []).concat([c])});
+  return aiScore(d, s) - aiScore(d2, s);
+}
+function aiOpenCells(d, b){
+  var n = d.cfg.size, out = [];
+  for (var i = 0; i < n * n; i++) if (d.filled[i] < 0 && cellOpen(d, i, d.filled) && !heraldLockedFor(d, i, b)) out.push(i);
+  return out;
+}
+/* the move: {i, p, ok}, or null when it has nothing to try (it passes) */
+function aiPickMove(d, b){
+  var lv = d.p[b].ai, L = AIL[lv] || AIL[2], h = aiOpp(d, b), used = aiUsed(d), n = d.cfg.size, chem = docOpt(d).drg && myBuffs(d, b).chem;
+  var tried = (d.log || []).filter(function(l){ return l.k === "bad" && l.s === b && l.n === d.n; }).map(function(l){ return l.i; });
+  var mineTp = (d.tp || []).filter(function(t){ return t.s === b; }).map(function(t){ return t.i; });
+  var opts = [];
+  aiOpenCells(d, b).forEach(function(i){
+    if (tried.indexOf(i) >= 0) return;
+    var known, cand = isMys(i) ? [d.mys.t] : cellCands(i);
+    if (isMys(i)) known = lv >= 3 && aiKnows(d, lv, d.mys.t) && Math.random() < (lv === 4 ? .6 : .3) ? [d.mys.t] : [];
+    else {
+      known = cand.filter(function(pi){ return !used.has(pi) && aiKnows(d, lv, pi); });
+      if (!known.length && chem) known = cand.filter(function(pi){ return used.has(pi) && aiKnows(d, lv, pi); });
+    }
+    var k = cand.filter(function(pi){ return !used.has(pi); }).length;
+    var v = aiGain(d, b, i), deny = h >= 0 ? aiGain(d, h, i) * Math.min(1, .35 + .1 * k) : 0, nb = 0;
+    if (lv >= 3) { var r = Math.floor(i / n), c = i % n; [[-1,0],[1,0],[0,-1],[0,1]].forEach(function(x){ var rr = r + x[0], cc = c + x[1]; if (rr >= 0 && cc >= 0 && rr < n && cc < n && d.own[rr * n + cc] === b) nb++; }); }
+    opts.push({i: i, known: known, val: v * (1 - L.slip) + L.deny * deny + .3 * nb - (mineTp.indexOf(i) >= 0 ? .6 : 0), raw: v});
+  });
+  var good = opts.filter(function(o){ return o.known.length; }).sort(function(x, y){ return y.val - x.val; });
+  if (good.length) {
+    var o = Math.random() < L.best ? good[0] : good[Math.floor(Math.random() * Math.min(good.length, lv <= 1 ? good.length : 3))];
+    if (!isMys(o.i) && Math.random() < L.slip) { var w = aiWrong(d, lv, o.i, false); if (w) return w; }
+    return {i: o.i, p: aiAnswer(d, lv, o.i, o.known), ok: true};
+  }
+  /* no answer it is sure of: a guess on the cell worth the most */
+  var g = opts.filter(function(o){ return !isMys(o.i); }).sort(function(x, y){ return y.raw - x.raw; });
+  for (var z = 0; z < g.length; z++) { var gw = aiWrong(d, lv, g[z].i, true); if (gw) return gw; }
+  return null;
+}
+function aiAnswer(d, lv, i, known){
+  if (isMys(i)) return d.mys.t;
+  var fr = aiFame();
+  if (lv >= 3) {   /* the answer that uses up the fewest of its other options */
+    var open = aiOpenCells(d, -1).filter(function(c){ return c !== i && !isMys(c); }), cnt = {};
+    known.forEach(function(pi){ cnt[pi] = open.filter(function(c){ return cellCands(c).indexOf(pi) >= 0; }).length; });
+    return known.slice().sort(function(a, b){ return cnt[a] - cnt[b] || fr[b] - fr[a]; })[0];
+  }
+  return known.slice().sort(function(a, b){ return fr[b] - fr[a]; })[0];
+}
+/* a wrong answer that looks like one (a player it knows who fits one of the two criteria); a guess can be right by luck */
+function aiWrong(d, lv, i, guess){
+  var cc = cellCrit(i), used = aiUsed(d), pool = [];
+  [cc[0], cc[1]].forEach(function(c){ c.set.forEach(function(pi){ if (!used.has(pi) && poolSet.has(pi) && aiKnows(d, lv, pi)) pool.push(pi); }); });
+  if (!guess) pool = pool.filter(function(x){ return !(cc[0].test(P[x]) && cc[1].test(P[x])); });
+  if (!pool.length) return null;
+  var pi = pool[Math.floor(Math.random() * pool.length)];
+  return {i: i, p: pi, ok: cc[0].test(P[pi]) && cc[1].test(P[pi])};
+}
+/* same as vsMove, for the AI's seat */
+function aiMove(d, b, m){
+  var i = m.i, pi = m.p, ok = m.ok, o = docOpt(d);
+  var reuse = ok && d.filled.indexOf(pi) >= 0, filled = d.filled.slice(), own = d.own.slice();
+  if (ok) { filled[i] = pi; own[i] = b; }
+  else if (!o.err) { var lp = {log: (d.log || []).concat([{s: b, i: i, p: pi, k: "bad", t: Date.now(), n: d.n}]).slice(-400)}; vsWrite(d, lp); vsSync(Object.assign({}, d, lp)); toast(pname(d, b) + " s’est trompé (" + P[pi].n + ") et réessaie"); return; }
+  var entry = {s: b, i: i, p: pi, k: ok ? "ok" : "bad", t: Date.now()};
+  var extra = ok ? withSlot(b, function(){ return dragonMove(d, i, pi, filled, entry, reuse); }) : {};
+  if (ok && o.drg && myBuffs(d, b).mof) {
+    var pb = patterns(effOwn(d), d.cfg.size)[b].map(function(x){ return x.k + x.cells.join(); }), eo2 = effOwn(Object.assign({}, d, {own: own}));
+    if (patterns(eo2, d.cfg.size)[b].some(function(x){ return pb.indexOf(x.k + x.cells.join()) < 0; })) {
+      var bfm = (extra.bf || d.bf || []).map(function(x){ return Object.assign({}, x || {}); }); bfm[b].mof = 0; extra.bf = bfm; entry.mof = 1;
+    }
+  }
+  if (ok && o.sum) sumTrig(d, i, pi, b, entry, extra);
+  if (ok && heraldAt(d, i)) {
+    entry.her = 1;
+    var hp = Object.assign({}, extra, {filled: filled, own: own, log: (d.log || []).concat([entry]).slice(-400), n: d.n + 1, fails: 0, hr: null, hpend: {s: b}});
+    vsWrite(d, hp); vsSync(Object.assign({}, d, hp)); return;
+  }
+  if (ok && grubAt(d, i)) { var gk = Object.assign({}, d.gk || {}); gk[b] = (gk[b] || 0) + 1; extra.gr = d.gr.filter(function(g){ return g.i !== i; }); extra.gk = gk; entry.gr = gk[b]; }
+  var patch = Object.assign({}, extra, vsNext(Object.assign({}, d, extra), filled, own, entry, ok));
+  vsWrite(d, patch); vsSync(Object.assign({}, d, patch));
+}
+/* Héraut taken: it blocks the cell you would want most */
+function aiHerald(d, b){
+  var h = aiOpp(d, b), t = heraldTargets(d); if (!t.length) return vsPass(d);
+  var lv = d.p[b].ai, best = t[Math.floor(Math.random() * t.length)];
+  if (lv >= 2 && h >= 0) best = t.slice().sort(function(x, y){ return aiGain(d, h, y) - aiGain(d, h, x); })[0];
+  heraldPick(best, b, d);
+}
+/* Mountain dragon (with spells): protects its most valuable cell */
+function aiProtect(d, b){
+  var mine = d.own.map(function(o, i){ return o === b && !burnt(d, i) && (d.prot || []).indexOf(i) < 0 ? i : -1; }).filter(function(x){ return x >= 0; });
+  if (!mine.length) return false;
+  var best = mine.sort(function(x, y){ return aiCellVal(d, y) - aiCellVal(d, x); })[0];
+  var bf = (d.bf || []).map(function(x){ return Object.assign({}, x || {}); }); bf[b].mon--;
+  var patch = {bf: bf, prot: (d.prot || []).concat([best])};
+  vsWrite(d, patch); vsSync(Object.assign({}, d, patch));
+  toast("⛰️ " + pname(d, b) + " protège " + P[d.filled[best]].n + " contre Embrasement");
+  return true;
+}
+/* summoner spells: the best one worth casting this turn (one per turn) */
+function aiSpell(d, b){
+  if (!docOpt(d).sum || (d.sut || [])[b] === d.n) return false;
+  var lv = d.p[b].ai, L = AIL[lv] || AIL[2], h = aiOpp(d, b), mine = spOf(d, b).filter(function(x){ return !x.u; }).map(function(x){ return x.k; });
+  if (!mine.length || Math.random() > L.spell) return false;
+  var n = d.cfg.size, open = aiOpenCells(d, b), late = open.length <= n * n * .4, used = aiUsed(d), fr = aiFame(), opts = [];
+  var rnd = function(a){ return a[Math.floor(Math.random() * a.length)]; };
+  var best = function(a, f){ var m = null, mv = -1e9; a.forEach(function(x){ var v = f(x); if (v > mv) { mv = v; m = x; } }); return {x: m, v: mv}; };
+  withSlot(b, function(){
+    mine.forEach(function(k){
+      if (spWhy(d, k)) return;
+      var t, r;
+      if (k === "hea") { t = spTargets(d, "hea"); r = best(t, function(c){ var d2 = Object.assign({}, d, {brn: (d.brn || []).filter(function(x){ return x !== c; })}); return aiScore(d2, b) - aiScore(d, b); });
+        if (r.x != null) opts.push({k: k, v: r.v + .5, c: lv <= 1 ? rnd(t) : r.x}); }
+      else if (k === "ign") { t = spTargets(d, "ign"); r = best(t, function(c){ return aiCellVal(d, c); });
+        if (r.x != null) opts.push({k: k, v: r.v >= 3 || (late && r.v >= 2) ? r.v - 1 : 0, c: lv <= 1 ? rnd(t) : r.x}); }
+      else if (k === "bar") { t = spTargets(d, "bar"); r = best(t, function(c){ return aiCellVal(d, c); });
+        var threat = h >= 0 && (spOf(d, h).some(function(x){ return x.k === "ign" && !x.u; }) || spPool(d, h).indexOf("ign") >= 0);
+        if (r.x != null) opts.push({k: k, v: threat && r.v >= 4 ? r.v / 3 : 0, c: lv <= 1 ? rnd(t) : r.x}); }
+      else if (k === "fla") {
+        var fm = null, fv = -1e9, all = [];
+        spTargets(d, "fla").forEach(function(a){ spTargets(d, "fla", a).forEach(function(i){
+          var f2 = d.filled.slice(), o2 = d.own.slice(); f2[i] = f2[a]; o2[i] = b; f2[a] = -1; o2[a] = -1;
+          var v = aiScore(Object.assign({}, d, {filled: f2, own: o2}), b) - aiScore(d, b); all.push({a: a, i: i});
+          if (v > fv) { fv = v; fm = {a: a, i: i}; } }); });
+        if (fm) opts.push({k: k, v: fv >= 2 ? fv - .5 : 0, m: lv <= 1 ? rnd(all) : fm});
+      }
+      else if (k === "exh") { var behind = h >= 0 && aiScore(d, b) <= aiScore(d, h); opts.push({k: k, v: behind || Math.random() < .25 ? 1.1 : .3}); }
+      else if (k === "tp") { t = spTargets(d, "tp"); r = best(t, function(c){ return h >= 0 ? aiGain(d, h, c) * Math.min(1, .35 + .1 * cellCands(c).filter(function(p){ return !used.has(p); }).length) : 0; });
+        if (r.x != null) opts.push({k: k, v: open.length >= n * n * .3 && Math.random() < .5 ? 1.05 : .2, c: lv <= 1 ? rnd(t) : r.x}); }
+      else if (k === "gho") {
+        var cnt = {}; open.forEach(function(c){ if (!isMys(c)) cellCands(c).forEach(function(p){ if (!used.has(p)) cnt[p] = (cnt[p] || 0) + 1; }); });
+        var ps = Object.keys(cnt).map(Number), pr = best(ps, function(p){ return cnt[p] * (.5 + fr[p]); });
+        if (pr.x != null) opts.push({k: k, v: Math.random() < .45 ? 1.05 : .2, p: lv <= 1 ? rnd(ps) : pr.x}); }
+      else if (k === "smi") {
+        var canTake = d.dr && cellCands(d.dr.i).some(function(p){ return !used.has(p) && aiKnows(d, lv, p); });
+        opts.push({k: k, v: canTake ? 0 : d.dr.k === "eld" ? 5 : (d.dr.o === h && !d.dr.open ? 1.5 : .6)}); }
+      else if (k === "pur") { var W = {inf: 2, mon: 1, chem: 1, nua: .5, hex: .4, oce: .4}, pr2 = best(spOppBuffs(d), function(x){ return W[x[1]] || 0; });
+        if (pr2.x) opts.push({k: k, v: pr2.v, s: pr2.x[0], b: pr2.x[1]}); }
+    });
+  });
+  if (!opts.length) return false;
+  var pickd = lv <= 1 ? rnd(opts) : opts.sort(function(x, y){ return y.v - x.v; })[0];
+  if (lv > 1 && pickd.v < L.cast) return false;
+  return aiCast(d, b, pickd);
+}
+function aiSpWrite(d, b, k, patch, info){
+  var sp = smap(d.sp), o = (sp[b] || []).filter(function(x){ return x.k === k && !x.u; })[0]; if (!o) return false; o.u = 1;
+  var sut = d.p.map(function(_, s){ var v = (d.sut || [])[s]; return v == null ? -1 : v; }); sut[b] = d.n;
+  var entry = Object.assign({s: b, i: -1, p: -1, k: "sp", sp: k, t: Date.now()}, info || {});
+  patch = Object.assign({sp: sp, sut: sut, log: (d.log || []).concat([entry]).slice(-400)}, patch);
+  vsWrite(d, patch); vsSync(Object.assign({}, d, patch));
+  playS(k, 0.9, function(){ SFX.shape(3, true); });
+  var dd = VS.doc || d, txt = spText(dd, entry);
+  toast(SPX[k] + " " + pname(d, b) + " lance " + SPN[k] + (txt ? " : " + txt : ""));
+  return true;
+}
+function aiCast(d, b, o){
+  var k = o.k, n = d.cfg.size;
+  if (k === "hea") return aiSpWrite(d, b, k, {brn: (d.brn || []).filter(function(x){ return x !== o.c; })}, {i: o.c});
+  if (k === "ign") return aiSpWrite(d, b, k, {brn: (d.brn || []).concat([o.c])}, {i: o.c, tgt: d.own[o.c]});
+  if (k === "bar") return aiSpWrite(d, b, k, {prot: (d.prot || []).concat([o.c])}, {i: o.c});
+  if (k === "tp") return aiSpWrite(d, b, k, {tp: (d.tp || []).concat([{s: b, i: o.c}])}, {i: o.c});
+  if (k === "gho") return aiSpWrite(d, b, k, {gh: (d.gh || []).concat([{s: b, p: o.p}])}, {p: o.p});
+  if (k === "exh") { var nx = nextTurn(d, b); return aiSpWrite(d, b, k, {exh: nx}, {tgt: nx}); }
+  if (k === "smi") return aiSpWrite(d, b, k, {dr: null, drn: d.filled.filter(function(x){ return x >= 0; }).length + drgGap(n)}, {dk: d.dr.k});
+  if (k === "pur") { var bf = (d.bf || []).map(function(x){ return Object.assign({}, x || {}); }); bf[o.s][o.b] = 0; return aiSpWrite(d, b, k, {bf: bf}, {tgt: o.s, b: o.b}); }
+  if (k === "fla") {
+    var a = o.m.a, i = o.m.i, pi = d.filled[a], filled = d.filled.slice(), own = d.own.slice();
+    filled[i] = pi; own[i] = b; filled[a] = -1; own[a] = -1;
+    var patch = {filled: filled, own: own, prot: (d.prot || []).map(function(x){ return x === a ? i : x; })}, info = {i: i, a: a, p: pi};
+    sumTrig(d, i, -1, b, info, patch);
+    return aiSpWrite(d, b, k, patch, info);
+  }
+  return false;
+}
+/* one step of the AI's turn; each step writes, the new state schedules the next one */
+function aiStep(){
+  var d = VS && VS.doc, b = aiSeat(d); if (b < 0 || VS.slot < 0) return;
+  if (VS.busy) { AI.key = ""; clearTimeout(AI.timer); AI.timer = setTimeout(aiSched, 400); return; }
+  AI.key = "";
+  var tag = d.code + ":" + d.n;
+  try {
+    if (d.hpend && d.hpend.s === b) return aiHerald(d, b);
+    if (docOpt(d).drg && docOpt(d).sum && myBuffs(d, b).mon > 0 && aiProtect(d, b)) return;
+    if (AI.noSp !== tag) { AI.noSp = tag; if (aiSpell(d, b)) return; }
+    var t = AI.tries[tag] = (AI.tries[tag] || 0) + 1;
+    var m = t <= 3 ? aiPickMove(d, b) : null;
+    if (!m) { toast(pname(d, b) + " passe son tour"); return vsPass(d); }
+    aiMove(d, b, m);
+  } catch (e) { console.error(e); vsPass(d); }
+}
+function aiSched(){
+  var d = VS && VS.doc, b = aiSeat(d);
+  if (b < 0 || VS.slot < 0 || VS.self) { clearTimeout(AI.timer); AI.key = ""; return; }
+  var key = [d.code, d.n, (d.log || []).length, d.hpend ? 1 : 0, (d.sut || [])[b], myBuffs(d, b).mon || 0, (d.prot || []).length].join("|");
+  if (key === AI.key) return;
+  AI.key = key; clearTimeout(AI.timer);
+  var L = AIL[d.p[b].ai] || AIL[2], tag = d.code + ":" + d.n, ms;
+  if (d.hpend) ms = 1500 + Math.random() * 1000;
+  else if (AI.lastN !== tag) ms = L.think[0] + Math.random() * (L.think[1] - L.think[0]);
+  else ms = 1100 + Math.random() * 900;
+  AI.lastN = tag;
+  AI.timer = setTimeout(aiStep, window.__aiFast ? 60 : ms);
+}
+function aiLvl(){ var x = +(ls("grille.vs.ai") || 2); return x >= 1 && x <= 4 ? x : 2; }
 
 /* ---------- misc ---------- */
 var toastT = null;
