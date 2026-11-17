@@ -442,6 +442,15 @@ button.spchip{cursor:pointer;border-color:var(--accent)} button.spchip:hover{bac
 .hintrow{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;text-align:left;border:1px solid var(--accent);background:var(--accent-soft);border-radius:10px;padding:8px 12px;cursor:pointer;font:inherit;color:var(--fg)}
 .hintrow b{font-size:13.5px} .hintrow b i{color:var(--accent);font-style:normal;padding:0 2px}
 .hintrow span{font-size:14px}
+.cell.spawn{animation:objcell 1.1s ease-out var(--objd,0s) both}
+.cell.spawn .drg-ic{animation:objpop .9s cubic-bezier(.2,1.5,.4,1) var(--objd,0s) both}
+.cell.spawn::after{content:"";position:absolute;inset:-3px;border-radius:inherit;border:3px solid var(--objc,var(--accent));animation:objring 1.1s ease-out var(--objd,0s) both;pointer-events:none}
+.cell.spawn.grub{--objc:#a855f7}
+@keyframes objpop{0%{transform:scale(0) rotate(-25deg);opacity:0;filter:brightness(2.5)}60%{transform:scale(1.25) rotate(6deg);opacity:1}100%{transform:scale(1) rotate(0);filter:none}}
+@keyframes objring{0%{transform:scale(.7);opacity:0}30%{opacity:1}100%{transform:scale(1.18);opacity:0}}
+@keyframes objcell{0%{filter:brightness(1.6) saturate(1.4)}100%{filter:none}}
+.cell.grub{background:radial-gradient(circle at 50% 45%,rgba(168,85,247,.38),rgba(88,28,135,.22));border-color:#a855f7;box-shadow:inset 0 0 14px rgba(168,85,247,.45),0 0 10px rgba(168,85,247,.35)}
+.cell.grub:hover{border-color:#c084fc}
 .cell .tpmark{position:absolute;bottom:5px;left:6px;width:clamp(14px,16cqi,22px);height:clamp(14px,16cqi,22px);border-radius:5px;box-shadow:0 0 0 2px var(--accent);animation:tgtp 2s ease-in-out infinite}
 .sptrap{display:flex;align-items:center;gap:7px;font-size:12px} .sptrap img{width:22px;height:22px;border-radius:5px;flex:none}
 .cell .hmark{position:absolute;top:4px;left:6px;font-size:clamp(12px,12cqi,18px);line-height:1}
@@ -1143,10 +1152,10 @@ function renderGrid(){
         } else if (game.own && vsLocked(i)) {
           var hb0 = (VS.doc.hb || []).filter(function(b){ return b.i === i; })[0] || {}; h += '<div class="cell lock drglock" data-i="'+i+'" title="Bloquée par le Héraut de '+esc(pname(VS.doc, hb0.s))+'"><img class="drg-ic" src="'+HERI+'" alt=""><span class="pt">bloquée</span></div>';
         } else if (game.own && !vsMyTurn()) {
-          h += '<div class="cell wait" data-i="'+i+'">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+tpMark(i)+hbMark(i)+'</div>';
+          h += '<div class="cell wait'+(grubAt(VS.doc, i) ? " grub" : "")+'" data-i="'+i+'">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+tpMark(i)+hbMark(i)+'</div>';
           remaining.push(opts); remIdx.push(i);
         } else {
-          h += '<button class="cell'+(castTg(i) ? " tgt" : castOn() ? " notgt" : "")+'" data-i="'+i+'"'+(castTg(i) ? ' data-cast="1"' : "")+' aria-label="Choisir un joueur">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+tpMark(i)+hbMark(i)+'</button>';
+          h += '<button class="cell'+(game.own && VS && grubAt(VS.doc, i) ? " grub" : "")+(castTg(i) ? " tgt" : castOn() ? " notgt" : "")+'" data-i="'+i+'"'+(castTg(i) ? ' data-cast="1"' : "")+' aria-label="Choisir un joueur">'+plusOrDrg(i)+rareStar(i)+hintMark(i)+tpMark(i)+hbMark(i)+'</button>';
           remaining.push(opts); remIdx.push(i);
         }
       }
@@ -1509,7 +1518,7 @@ function vsSounds(d, pat){
   });
   if (docOpt(d).grub) {
     fresh.forEach(function(l){ if (l.k === "ok" && l.gr) { setTimeout(function(){ playS("grub_t", 0.9, SFX.grub); }, 200); toast("🪱 " + pname(d, l.s) + " prend une Larve du Néant (" + l.gr + "/3)" + (l.gr === 2 ? " : +2 !" : "")); } });
-    if ((d.gr || []).length && (d.grq || 0) > (VS.prev.grq || 0)) { var ng = d.gr[d.gr.length - 1]; setTimeout(function(){ playS("grub", 0.9, SFX.grub); }, wait + 100); wait += 500; toast("🪱 Une Larve du Néant apparaît" + (ng.h ? " sur une case très difficile" : "") + (ng.o === VS.slot && !VS.self ? " : elle est pour toi ce tour-ci !" : " pour " + pname(d, ng.o))); }
+    if ((d.gr || []).length && (d.grq || 0) > (VS.prev.grq || 0)) { var ng = d.gr[d.gr.length - 1]; setTimeout(function(){ playS("grub", 0.9, SFX.grub); }, wait + 100); wait += 500; toast("🪱 3 Larves du Néant apparaissent (une sur une case très difficile)" + (ng.o === VS.slot && !VS.self ? " : elles sont pour toi ce tour-ci !" : " : priorité à " + pname(d, ng.o) + " ce tour-ci")); }
   }
   if (docOpt(d).her) {
     if (d.hr && (!VS.prev.hr || VS.prev.hr.i !== d.hr.i)) { setTimeout(function(){ playS("herald", 0.9, SFX.drg); }, wait + 100); wait += 600; toast("👁 Le Héraut de la Faille apparaît !"); }
@@ -1727,17 +1736,15 @@ function grubBonus(d, s){ return docOpt(d).grub && grubCount(d, s) >= 2 ? 2 : 0;
 function grubSpawn(d, patch, filled, nxt){
   var n = d.cfg.size, gr = ("gr" in patch ? patch.gr : d.gr) || [];
   var keep = gr.filter(function(g){ return cellOpen(d, g.i, filled); }); if (keep.length !== gr.length) { gr = keep; patch.gr = gr; }
-  var q = d.grq || 0; if (q >= 3) return;
-  var rot = grubRot(d); if (!rot.length || rot[q % rot.length] !== nxt) return;
+  if ((d.grq || 0) >= 3) return;
+  var rot = grubRot(d); if (!rot.length || rot[0] !== nxt) return;   /* the 3 together, at the start of the turn of the player who plays last */
   var dr = "dr" in patch ? patch.dr : d.dr, used = new Set(filled.filter(function(x){ return x >= 0; })), open = [];
   for (var c = 0; c < n * n; c++) if (cellOpen(d, c, filled) && !(d.mys && d.mys.i === c) && !(dr && dr.i === c) && !gr.some(function(g){ return g.i === c; })) open.push(c);
-  if (!open.length) return;
-  var pickC = open;
-  if (q === 2) {   /* the last one on the hardest cell left (fewest answers still possible) */
-    var best = 1e9; pickC = [];
-    open.forEach(function(c){ var k = cellCands(c).filter(function(p){ return !used.has(p); }).length; if (k < best) { best = k; pickC = [c]; } else if (k === best) pickC.push(c); });
-  }
-  patch.gr = gr.concat([{i: pickC[Math.floor(Math.random() * pickC.length)], o: nxt, open: false, h: q === 2 ? 1 : 0}]); patch.grq = q + 1;
+  if (open.length < 3) return;
+  var best = 1e9, hard = [];   /* one of them on the hardest cell left (fewest answers still possible) */
+  open.forEach(function(c){ var k = cellCands(c).filter(function(p){ return !used.has(p); }).length; if (k < best) { best = k; hard = [c]; } else if (k === best) hard.push(c); });
+  var h = hard[Math.floor(Math.random() * hard.length)], rest = shuffle(open.filter(function(c){ return c !== h; })).slice(0, 2);
+  patch.gr = gr.concat([{i: rest[0], o: nxt, open: false, h: 0}, {i: rest[1], o: nxt, open: false, h: 0}, {i: h, o: nxt, open: false, h: 1}]); patch.grq = 3;
 }
 function grubLine(d, s){ var c = grubCount(d, s); if (!docOpt(d).grub || !c) return ""; return '<div class="pc-drg"><span class="bchip" title="Larves du Néant : 2 sur 3 = +2"><img src="' + GRUBI + '" alt="">' + c + '/3' + (c >= 2 ? ' · +2' : '') + '</span></div>'; }
 function grubBanner(d){ if (!docOpt(d).grub || d.st !== "play" || !(d.gr || []).length) return ""; return '<small class="drgb"><img src="' + GRUBI + '" alt="">Larve du Néant : 2 larves sur 3 = +2</small>'; }
@@ -2046,7 +2053,7 @@ function vsLobby(){
         '<label title="Une ligne ou une colonne affiche « ? » : son critère se révèle à la 1re bonne réponse placée dedans"><input type="checkbox" id="vo-hid"'+(vsOpt().hid ? " checked" : "")+'>Critère caché</label>' +
         '<label title="Quand il ne reste qu’environ 20 % des cases jouables, chaque coup rapporte le double"><input type="checkbox" id="vo-baron"'+(vsOpt().baron ? " checked" : "")+'>Phase Baron</label>' +
         '<label title="Des dragons apparaissent sur la grille : celui qui remplit leur case gagne leur effet"><input type="checkbox" id="vo-drg"'+(vsOpt().drg ? " checked" : "")+'>Dragons</label>' +
-        '<label title="3 larves en début de partie, chacune d’abord pour un joueur en commençant par le dernier à jouer : 2 larves sur 3 = +2"><input type="checkbox" id="vo-grub"'+(vsOpt().grub ? " checked" : "")+'>Larves du Néant</label>' +
+        '<label title="3 larves apparaissent ensemble au début du tour du joueur qui joue en second (priorité pour lui ce tour-là, puis ouvertes à tous), dont une sur une case très difficile : 2 larves sur 3 = +2"><input type="checkbox" id="vo-grub"'+(vsOpt().grub ? " checked" : "")+'>Larves du Néant</label>' +
         '<label title="Apparaît une fois avant le premier dragon (après les 3 larves si elles sont activées) : celui qui le prend bloque une case pour les autres pendant 2 tours"><input type="checkbox" id="vo-her"'+(vsOpt().her ? " checked" : "")+'>Héraut de la Faille</label>' +
         '<label title="Toutes les quelques cases, chaque joueur tire au sort un sort d’invocateur (jamais deux fois le même) : chaque sort sert une fois, un sort par tour"><input type="checkbox" id="vo-sum"'+(vsOpt().sum ? " checked" : "")+'>Sorts d’invocateur</label>' +
       '</div></div>' +
@@ -2229,8 +2236,25 @@ function vsSync(d){
     if (last && last.k === "ok") setTimeout(function(){ var el = document.querySelector('.cell[data-i="'+last.i+'"]'); if (el) el.classList.add("pop"); }, 0);
   }
   if (VS.prev && VS.prev.st === "wait" && d.st === "play") toast("La partie commence !");
+  var born = VS.prev ? objBorn(VS.prev, d) : [];
   VS.prev = d;
   render(); vsPresence();
+  objAnim(born);
+}
+/* objectives that just appeared (dragon, grubs, Herald): their cells get a short pop + ring */
+function objBorn(a, b){
+  var out = [];
+  if (b.dr && (!a.dr || a.dr.i !== b.dr.i || a.dr.k !== b.dr.k)) out.push(b.dr.i);
+  (b.gr || []).forEach(function(g){ if (!(a.gr || []).some(function(x){ return x.i === g.i; })) out.push(g.i); });
+  if (b.hr && (!a.hr || a.hr.i !== b.hr.i)) out.push(b.hr.i);
+  return out;
+}
+function objAnim(cells){
+  cells.forEach(function(i, k){
+    var el = document.querySelector('#grid .cell[data-i="' + i + '"]'); if (!el) return;
+    el.style.setProperty("--objd", (k * 0.18) + "s"); el.classList.remove("spawn"); void el.offsetWidth; el.classList.add("spawn");
+    setTimeout(function(){ if (el.isConnected) el.classList.remove("spawn"); }, 1600 + k * 180);
+  });
 }
 function ranking(d, sc){ return d.p.map(function(_, s){ return s; }).sort(function(a, b){ return (active(d, b) - active(d, a)) || sc[b] - sc[a]; }); }
 function secLine(d, s, me){
