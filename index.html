@@ -361,24 +361,21 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 <div id="gateE" style="color:#ff6b6b;margin-top:10px;min-height:20px"></div>
 </form></div>
 <script>
-/* Accès privé : tant que le bon code n'est pas entré, Firebase n'est même pas chargé (zéro lecture/écriture). */
+/* Accès privé : le code d'accès est le mot de passe d'un compte Firebase partagé.
+   Les règles Firestore refusent tout à qui n'est pas connecté avec ce compte. */
 (function(){
-  var H = "3f6e70f0c429f3974f55a435526b13340ef8a5c20eb0e2f73e2b41c1e51a6036", K = "lolGate";
-  function sha(t){ return crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)).then(function(b){ return Array.from(new Uint8Array(b)).map(function(x){ return x.toString(16).padStart(2,"0"); }).join(""); }); }
-  var ok = false; try { ok = localStorage.getItem(K) === H; } catch(e){}
-  window.__gate = new Promise(function(res){
-    if (ok) return res();
-    var g = document.getElementById("gate"); g.style.display = "flex";
-    document.documentElement.style.overflow = "hidden";
-    setTimeout(function(){ document.getElementById("gateI").focus(); }, 50);
-    document.getElementById("gateF").onsubmit = function(ev){ ev.preventDefault();
-      sha(document.getElementById("gateI").value.trim().toLowerCase()).then(function(h){
-        if (h !== H) { document.getElementById("gateE").textContent = "Code incorrect."; return; }
-        try { localStorage.setItem(K, H); } catch(e){}
-        g.remove(); document.documentElement.style.overflow = ""; res();
-      });
-    };
-  });
+  var g = document.getElementById("gate"), err = document.getElementById("gateE");
+  window.__gate = new Promise(function(r){ window.__gateOpen = function(){ try { localStorage.setItem("lolGate", "1"); } catch(e){} if (g.parentNode) g.remove(); document.documentElement.style.overflow = ""; r(); }; });
+  window.__gateShow = function(){ g.style.display = "flex"; document.documentElement.style.overflow = "hidden"; setTimeout(function(){ document.getElementById("gateI").focus(); }, 50); };
+  window.__gateErr = function(t){ err.textContent = t; };
+  document.getElementById("gateF").onsubmit = function(ev){ ev.preventDefault();
+    var code = document.getElementById("gateI").value.trim().toLowerCase();
+    if (!code) return;
+    if (!window.__gateTry) { err.textContent = "Chargement… réessaie dans une seconde."; return; }
+    err.textContent = ""; window.__gateTry(code);
+  };
+  var seen = false; try { seen = localStorage.getItem("lolGate") === "1"; } catch(e){}
+  if (!seen) window.__gateShow();
 })();
 </script>
 
@@ -2029,11 +2026,27 @@ window.__gate.then(function(){ setTimeout(function(){ if (fbBase == null && !F) 
 })();
 </script><script type="module">
 const cfg = {"apiKey": "AIzaSyD5N1uqr-hxwvrdd73bLi-IxUJHfMDquBQ", "authDomain": "lol-esports-2945b.firebaseapp.com", "projectId": "lol-esports-2945b", "storageBucket": "lol-esports-2945b.firebasestorage.app", "messagingSenderId": "73792628011", "appId": "1:73792628011:web:5b4e16b1366b11d8b0516e"};
+const GATE_EMAIL = "amis@lol-esports-gruik.app";
 try {
-  await window.__gate;
   const A = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+  const U = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+  const app = A.initializeApp(cfg), auth = U.getAuth(app);
+  await auth.authStateReady();
+  if (!auth.currentUser) {
+    window.__gateShow();
+    await new Promise(function(done){
+      window.__gateTry = function(code){
+        U.signInWithEmailAndPassword(auth, GATE_EMAIL, code).then(done, function(e){
+          var c = e && e.code || "";
+          window.__gateErr(c === "auth/too-many-requests" ? "Trop d'essais, réessaie dans quelques minutes."
+            : c === "auth/network-request-failed" ? "Connexion impossible, vérifie ton internet." : "Code incorrect.");
+        });
+      };
+    });
+  }
+  window.__gateOpen();
   const S = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-  const db = S.getFirestore(A.initializeApp(cfg));
+  const db = S.getFirestore(app);
   window.__fbBoot({db, doc:S.doc, collection:S.collection, onSnapshot:S.onSnapshot, setDoc:S.setDoc, deleteDoc:S.deleteDoc, runTransaction:S.runTransaction, getDoc:S.getDoc, getDocs:S.getDocs, query:S.query, where:S.where});
 } catch (e) { console.error(e); window.__fbFail && window.__fbFail(e); }
 </script>
