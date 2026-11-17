@@ -1896,7 +1896,7 @@ function presStart(){
 /* ---------- Grille (mini-game shown in an iframe, grille.html): this page lends it Firebase and the list of who is online ----------
    vs/<CODE>   one 1v1 game (see grille.html). Challenges are shown here, whatever tab is open. */
 var GTOK = ls("grille.vs.tok"); if (!GTOK) { GTOK = Math.random().toString(36).slice(2, 12); ls("grille.vs.tok", GTOK); }
-var gSt = "free", gPeerCbs = [], gReady = [], gFrame = null;
+var gSt = "free", gPeerCbs = [], gReady = [], gFrame = gFrame || null;   /* the first render may already have created the Grille iframe (page opened on the Grille tab) */
 function whenF(fn){ if (F) fn(); else gReady.push(fn); }
 function gSnap(s){ var ex = typeof s.exists === "function" ? s.exists() : !!s.exists; return {id: s.id, exists: ex, data: function(){ return ex ? s.data() : undefined; }}; }
 function gQuery(path, filters){
@@ -1942,6 +1942,7 @@ function grilleShow(on){
   var host = $("#grille-host"); if (!host) return;
   host.hidden = !on; $("#view").hidden = on;
   if (!on) return;
+  gFrame = gFrame || host.querySelector("iframe");   /* never a second Grille */
   if (!gFrame) { gFrame = document.createElement("iframe"); gFrame.src = "grille.html"; gFrame.title = "Grille"; gFrame.setAttribute("allow", "clipboard-write"); host.appendChild(gFrame); }
   grilleFit();
 }
