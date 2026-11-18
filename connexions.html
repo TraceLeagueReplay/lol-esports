@@ -105,6 +105,10 @@ dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
 .dist em.me{background:var(--accent);color:var(--accent-ink)}
 
 /* 1v1 */
+#hints{display:grid;gap:6px;margin-bottom:8px}
+#hints:empty{display:none}
+.hint{border:1px dashed var(--accent);background:var(--accent-soft);border-radius:10px;padding:8px 12px;font-size:14px;animation:pop .35s ease-out}
+.hint b{color:var(--fg)}
 .vsp{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:16px 18px;margin-bottom:12px}
 .vsp h3{margin:0 0 6px;font-family:var(--f-display);font-size:22px;text-transform:uppercase;letter-spacing:.02em}
 .vsp p{margin:0 0 10px;color:var(--muted)}
@@ -154,6 +158,7 @@ dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
   <div id="vs" hidden></div>
   <div id="game">
   <div id="solved"></div>
+  <div id="hints"></div>
   <div id="board" role="group" aria-label="Champions"></div>
   <div class="foot" id="foot">
     <div class="lives" id="lives"></div>
@@ -407,6 +412,9 @@ function render(){
     return '<div class="grp' + (missed ? " missed" : "") + (i === justSolved || (S.done && missed) ? " new" : "") + '" style="background:var(--g' + i + ')"><div class="gt"><b>' + esc(g.c.t) + '</b><small>' + (missed ? "Groupe non trouvé" : diffLabel(g.c.d)) + '</small></div><div class="gm">' +
       g.ids.map(function(id){ return '<span title="' + esc(NAMES[id] + " · " + TITLES[id]) + '">' + img(id) + esc(NAMES[id]) + '</span>'; }).join("") + '</div></div>';
   }).join("");
+  $("#hints").innerHTML = mode === "vs" && !S.done ? (S.hints || []).filter(function(g){ return S.solved.indexOf(g) < 0; }).map(function(g){
+    return '<div class="hint">💡 Indice : un des groupes est <b>« ' + esc(P.groups[g].c.t) + ' »</b></div>';
+  }).join("") : "";
   var left = S.order.filter(function(id){ return S.solved.indexOf(P.gOf[id]) < 0; });
   $("#board").hidden = S.done || !left.length;
   $("#board").innerHTML = S.done ? "" : left.map(function(id){
@@ -471,13 +479,15 @@ function submit(){
   }
   S.err++;
   var lost = S.err >= MAXERR;
-  toast(lost ? "Plus d’essais…" : best === 4 ? "Presque ! Il en manque un" : "Raté");
+  var hinted = !lost && vsHint();
+  toast(lost ? "Plus d’essais…" : hinted ? (best === 4 ? "Presque ! Et voici un indice" : "Raté… voici un indice") : best === 4 ? "Presque ! Il en manque un" : "Raté");
   busy = true; renderSel(); vsPush();
   document.querySelectorAll("#board .tile[aria-pressed='true']").forEach(function(b){ b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake"); });
   save();
   setTimeout(function(){
     busy = false;
     if (lost) { sel = []; finish(false); save(); render(); }
+    else if (hinted) render();
     else { renderSel(); $("#lives").querySelectorAll("i")[MAXERR - S.err].classList.add("off"); }
   }, 450);
 }
@@ -619,18 +629,33 @@ function vsSync(){
   if (!P || VS.pseed !== d.seed) {
     P = build(d.seed); VS.pseed = d.seed; sel = [];
     S = ls("cx.vs." + d.code);
-    if (!S || S.seed !== d.seed) S = {seed: d.seed, order: null, solved: [], guesses: [], err: 0, done: false};
+    if (!S || S.seed !== d.seed) S = {seed: d.seed, order: null, solved: [], guesses: [], err: 0, done: false, hints: []};
     if (!S.order || S.order.length !== P.tiles.length) S.order = P.tiles.slice();
   }
   var mine = vsR(d, TOK());
   if ((mine.s || []).length > S.solved.length) S.solved = mine.s.slice();
   if ((mine.e || 0) > S.err) S.err = mine.e;
+  vsHint();
   if (S.solved.length === 7 || S.err >= MAXERR || vsOutcome(d).over) S.done = true;
   save();
 }
+/* 1v1 hints: at the 2nd and the 4th error, the theme of the hardest group not found yet */
+var HINT_AT = [2, 4];
+function vsHint(){
+  if (mode !== "vs" || !S || !P) return false;
+  S.hints = S.hints || [];
+  var want = HINT_AT.filter(function(n){ return S.err >= n; }).length, added = false;
+  while (S.hints.length < want) {
+    var g = -1;
+    for (var i = P.groups.length - 1; i >= 0; i--) if (S.solved.indexOf(i) < 0 && S.hints.indexOf(i) < 0) { g = i; break; }
+    if (g < 0) break;
+    S.hints.push(g); added = true;
+  }
+  return added;
+}
 function vsPush(){
   if (mode !== "vs" || !VS || !VS.doc || !HOST) return;
-  var r = {}; r[TOK()] = {s: S.solved.slice(), e: S.err, n: S.guesses.length, lt: S.lt || 0, ft: S.ft || 0};
+  var r = {}; r[TOK()] = {s: S.solved.slice(), e: S.err, n: S.guesses.length, lt: S.lt || 0, ft: S.ft || 0, h: (S.hints || []).length};
   HOST.db.doc("vs/" + VS.code).update({r: r}).catch(function(){ toast("Envoi impossible, vérifie ta connexion"); });
 }
 function vsRecord(d, o){
@@ -686,7 +711,7 @@ function vsHTML(){
     var me = TOK(), seen = {}, nm = myName();
     var peers = PEERS.map(function(x){ return x && x.presence; }).filter(function(p){ if (!p || !p.tok || p.tok === me || seen[p.tok]) return false; seen[p.tok] = 1; return true; });
     var rec = ls("cx.vs.rec");
-    return '<div class="vsp"><h3>Défier un pote</h3><p>Vous recevez la même grille au même moment : le premier à trouver les 7 groupes gagne. Si vous êtes bloqués tous les deux (' + MAXERR + ' erreurs), celui qui a trouvé le plus de groupes l’emporte.</p>' +
+    return '<div class="vsp"><h3>Défier un pote</h3><p>Vous recevez la même grille au même moment : le premier à trouver les 7 groupes gagne. Si vous êtes bloqués tous les deux (' + MAXERR + ' erreurs), celui qui a trouvé le plus de groupes l’emporte. À ta 2e puis à ta 4e erreur, un indice te révèle le thème d’un groupe.</p>' +
       (nm ? "" : '<div class="row"><input id="vs-name" maxlength="20" placeholder="Ton pseudo" autocomplete="nickname"><button type="button" class="btn primary" data-act="name">OK</button></div>') +
       '<div class="row"><b>En ligne sur le site</b></div>' +
       (peers.length ? '<ul class="peers">' + peers.map(function(p){
@@ -713,7 +738,7 @@ function vsHTML(){
   function line(nm, r, tok, isMe){
     var e = r.e || 0;
     return '<div class="pl' + (isMe ? " me" : "") + '"><span class="nm">' + esc(nm) + (isMe ? " (toi)" : "") + '</span><span class="sq">' + vsSquares(d, tok) + '</span><span class="er">' +
-      (r.ab ? "abandon" : (r.s || []).length === 7 ? "7/7 ✓" : e >= MAXERR ? "plus d’essais" : (MAXERR - e) + " essai" + (MAXERR - e > 1 ? "s" : "") + " restant" + (MAXERR - e > 1 ? "s" : "")) + '</span></div>';
+      (r.h ? "💡×" + r.h + " · " : "") + (r.ab ? "abandon" : (r.s || []).length === 7 ? "7/7 ✓" : e >= MAXERR ? "plus d’essais" : (MAXERR - e) + " essai" + (MAXERR - e > 1 ? "s" : "") + " restant" + (MAXERR - e > 1 ? "s" : "")) + '</span></div>';
   }
   return '<div class="sb"><div class="top"><span>1v1 · code <b>' + esc(d.code) + '</b></span><span class="sp"></span><span>⏱ <b id="vs-clock">' + vsTime(d) + '</b></span>' +
     (o.over || (S && S.done) ? "" : '<button type="button" class="btn small danger" data-act="abandon">' + (abandonArm ? "Confirmer l’abandon" : "Abandonner") + '</button>') + '</div>' +
