@@ -28,7 +28,7 @@
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.4}
 button{font:inherit;color:inherit}
 .wrap{max-width:1100px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-header.top{display:flex;align-items:flex-end;gap:10px;margin-bottom:14px}
+header.top{display:flex;align-items:flex-end;gap:8px 10px;margin-bottom:14px;flex-wrap:wrap}
 header.top>div:first-child{min-width:0}
 header.top h1{margin:0;font-family:var(--f-display);font-size:34px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
 header.top h1 span{color:var(--accent)}
@@ -45,6 +45,24 @@ header.top .sp{flex:1}
 .bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;color:var(--muted);font-size:13.5px}
 .bar .sp{flex:1}
 .bar b{color:var(--fg)}
+#cfgsum{font-weight:600;color:var(--fg)}
+#giveup.arm{border-color:var(--bad);color:var(--bad)}
+/* settings window (same look as the Grille's) */
+dialog:has(form.cfg){width:min(820px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 16px);overflow:auto;padding:0}
+form.cfg{padding:16px 20px 14px;margin:0;display:grid;grid-template-columns:1fr 1fr;column-gap:28px;font-size:15px}
+form.cfg > .ph, form.cfg > .ft, form.cfg > .wide{grid-column:1/-1}
+.cfg .ph{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.cfg .ph .pc{flex:1;font-family:var(--f-display);font-size:26px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;line-height:1.1}
+.cfg .ph .x{border:0;background:none;font-size:18px;cursor:pointer;color:var(--muted)}
+.cfg .f{margin-bottom:18px}
+.cfg .lb{display:block;font-size:13.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.cfg .chips{display:flex;flex-wrap:wrap;gap:8px}
+.cfg .chips label{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);border-radius:999px;padding:8px 14px;font-size:15px;font-weight:600;cursor:pointer;color:var(--fg)}
+.cfg .chips label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.cfg .chips input{margin:0;width:16px;height:16px;accent-color:var(--accent)}
+.cfg small{display:block;color:var(--muted);font-size:13px;margin-top:7px;line-height:1.35}
+.cfg .ft{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--panel);padding:12px 0 4px;border-top:1px solid var(--line);z-index:1}
+@media (max-width:640px){ form.cfg{grid-template-columns:1fr} }
 .toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
 .toggle input{accent-color:var(--accent);width:16px;height:16px;margin:0}
 
@@ -153,10 +171,13 @@ dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
   <header class="top">
     <div><h1>Conne<span>x</span>ions</h1><div class="sub">Trouve les 7 groupes de 5 personnages qui ont un point commun.</div></div>
     <span class="sp"></span>
+    <button type="button" class="btn" id="b-vs">Match</button>
+    <button type="button" class="btn" id="b-cfg">Réglages</button>
+    <button type="button" class="btn primary" id="b-new">Nouvelle grille</button>
     <button type="button" class="btn icon" id="b-stats" title="Statistiques" aria-label="Statistiques">▥</button>
     <button type="button" class="btn icon" id="b-help" title="Règles" aria-label="Règles">?</button>
   </header>
-  <div class="bar"><div class="modes" role="group" aria-label="Mode"><button type="button" id="m-day" aria-pressed="true">Grille du jour</button><button type="button" id="m-free" aria-pressed="false">Partie libre</button><button type="button" id="m-vs" aria-pressed="false">1v1</button></div><div class="modes" id="unis" role="group" aria-label="Univers"><button type="button" data-uni="lol">LoL</button><button type="button" data-uni="smash">Smash</button><button type="button" data-uni="mix">Mix</button></div><span id="label"></span><span class="sp"></span><label class="toggle" title="Affiche le titre officiel de chaque champion (utile pour certains groupes)"><input type="checkbox" id="t-titles"> Afficher les titres</label></div>
+  <div class="bar"><span id="cfgsum"></span><span class="sp"></span><button type="button" class="btn" id="giveup">Voir les réponses</button></div>
   <div id="vs" hidden></div>
   <div id="game">
   <div id="solved"></div>
@@ -325,8 +346,13 @@ dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
    but the split into 7 groups must be unique; "debatable" champions (x) of a criterion are never shown elsewhere. */
 var CX_N = 7, CX_K = 5;
 var CX_FAMMAX = {ult:1, annee:1, titre:1, ressource:1, element:1, role:1, stat:1, groupe:2, worlds:2, region:2, nom:2, espece:2, arme:2, look:2, lore:2, kit:3, sserie:2, sjeu:1, slore:1, skit:1, lettre:1};
-/* difficulty mix of a grid (1 easy … 4 expert): mostly easy and medium groups, at most one expert */
-var CX_PATTERNS = [[1,1,1,2,2,2,3],[1,1,2,2,2,3,3],[1,1,1,2,2,3,4],[1,1,2,2,2,3,4],[1,1,2,2,3,3,4]];
+/* difficulty settings: the mixes of group difficulties (1 easy … 4 expert), the number of experts and of red herrings allowed */
+var CX_DIFFS = [
+  {pat: [[1,1,1,2,2,2,3],[1,1,2,2,2,3,3],[1,1,1,1,2,2,3],[1,1,1,2,2,3,3]], max4: 0, herrings: 1},   /* Facile */
+  {pat: [[1,1,1,2,2,2,3],[1,1,2,2,2,3,3],[1,1,1,2,2,3,4],[1,1,2,2,2,3,4],[1,1,2,2,3,3,4]], max4: 1, herrings: 2},   /* Normal */
+  {pat: [[1,2,2,3,3,3,4],[1,1,2,3,3,4,4],[1,2,2,3,3,4,4],[1,2,2,2,3,3,4],[1,1,2,3,3,3,4]], max4: 2, herrings: 4}   /* Difficile */
+];
+var CX_PATTERNS = CX_DIFFS[1].pat;
 /* kinds of criteria limited to one per grid: names (letters, length…) and dates (release years, Worlds years, Smash game of arrival) */
 function cxKind(c){ return c.f === "nom" || c.f === "lettre" ? "nom" : (c.f === "annee" || c.f === "sjeu" || /^w\d{4}$/.test(c.id)) ? "date" : ""; }
 function cxShuffle(a, rand){ for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rand() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -357,7 +383,8 @@ function cxGenerate(D, rand, opt){
   var byD = {1: [], 2: [], 3: [], 4: []}; crit.forEach(function(k){ byD[k.c.d].push(k); });
   function inter(a, b){ var n = 0; a.c.m.forEach(function(id){ if (b.mset[id]) n++; }); return n; }
   for (var attempt = 0; attempt < 600; attempt++) {
-    var pattern = CX_PATTERNS[Math.floor(rand() * CX_PATTERNS.length)].slice();
+    var DF = CX_DIFFS[opt.diff == null ? 1 : opt.diff] || CX_DIFFS[1];
+    var pattern = DF.pat[Math.floor(rand() * DF.pat.length)].slice();
     var chosen = [], fam = {}, ok = true;
     for (var p = 0; p < pattern.length && ok; p++) {
       /* the difficulty asked first, then the closest ones (a universe may have no "expert" criterion) */
@@ -378,10 +405,10 @@ function cxGenerate(D, rand, opt){
     if (!ok) continue;
     /* a real mix of difficulty: at least one easy, one medium, one hard group, at most one expert */
     var nd = [0, 0, 0, 0, 0]; chosen.forEach(function(k){ nd[k.c.d]++; });
-    if (!opt.relax && (!nd[1] || !nd[2] || !(nd[3] + nd[4]) || nd[4] > 1)) continue;
+    if (!opt.relax && (!nd[1] || !nd[2] || !(nd[3] + nd[4]) || nd[4] > DF.max4)) continue;
     /* champions shown: never a debatable one (x) of any criterion of the grid */
     function allowed(id){ return !chosen.some(function(k){ return k.xset[id]; }); }
-    var used = {}, groups = [], herrings = 0, maxH = opt.maxHerrings == null ? 2 : opt.maxHerrings;
+    var used = {}, groups = [], herrings = 0, maxH = opt.maxHerrings == null ? DF.herrings : opt.maxHerrings;
     var order = chosen.slice().sort(function(a, b){ return a.c.m.length - b.c.m.length; });
     for (var g = 0; g < order.length && ok; g++) {
       var k2 = order[g];
@@ -421,32 +448,52 @@ function cxHash(s){ var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^
 "use strict";
 var D = JSON.parse(document.getElementById("cx-data").textContent);
 var NAMES = D.names, TITLES = D.titles, VER = D.v;
-var MAXERR = 5, FIRST_DAY = "2026-11-18";
-/* errors allowed: 5 in solo, no limit in 1v1 (a race: only finding the 7 groups, or giving up, ends it) */
-function maxErr(){ return mode === "vs" ? Infinity : MAXERR; }
 var EMO = ["🟨","🟧","🟩","🟦","🟥","🟪","🟫"];
 function $(s){ return document.querySelector(s); }
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function ls(k, v){ try { if (arguments.length > 1) { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); return v; } var r = localStorage.getItem(k); return r == null ? null : JSON.parse(r); } catch(e){ return null; } }
 /* icons: Riot's Data Dragon for the champions; for the Smash fighters (ids "s-<slug>"), their stock icons from the game (SmashWiki) */
 function icon(id){ return id.slice(0, 2) === "s-" ? "https://ssb.wiki.gallery/images/" + D.si[id] : "https://ddragon.leagueoflegends.com/cdn/" + VER + "/img/champion/" + id + ".png"; }
-function img(id, cls){ return '<img' + (id.slice(0, 2) === "s-" ? ' class="si"' : "") + ' src="' + icon(id) + '" alt="" loading="lazy" decoding="async" onerror="this.outerHTML=\'<i class=&quot;ph&quot;>' + esc(NAMES[id].charAt(0)) + '</i>\'">'; }
-/* today in Paris (the same grid for everyone) */
-function today(){ try { return new Intl.DateTimeFormat("fr-CA", {timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit"}).format(new Date()); } catch(e){ return new Date().toISOString().slice(0, 10); } }
-function dayNum(d){ return Math.round((Date.parse(d + "T12:00:00Z") - Date.parse(FIRST_DAY + "T12:00:00Z")) / 864e5) + 1; }
+function img(id){ return '<img' + (id.slice(0, 2) === "s-" ? ' class="si"' : "") + ' src="' + icon(id) + '" alt="" loading="lazy" decoding="async" onerror="this.outerHTML=\'<i class=&quot;ph&quot;>' + esc(NAMES[id].charAt(0)) + '</i>\'">'; }
 
-var mode = ls("cx.mode"); if (mode !== "free" && mode !== "vs") mode = "day";
+/* ---------- settings (the "Réglages" window) ----------
+   u: universe "lol" | "smash" | "mix"; diff: 0 easy, 1 normal, 2 hard; err: errors allowed in solo (0 = no limit);
+   hints: a hint at the 2nd and the 4th error; vm: 1v1 "race" (each on his own board) | "shared" (one board for both); titles: show the titles */
+var UNI_NAME = {lol: "LoL", smash: "Smash", mix: "Mix LoL × Smash"};
+var DIFF_NAME = ["Facile", "Normal", "Difficile"];
+var VM_NAME = {race: "chacun sa grille", shared: "grille commune"};
+var cfg = (function(){
+  var c = ls("cx.cfg") || {};
+  if (c.u == null) c.u = ls("cx.uni") || "mix";            /* older settings */
+  if (c.titles == null) c.titles = ls("cx.titles") ? 1 : 0;
+  if (!UNI_NAME[c.u]) c.u = "mix";
+  if ([0, 1, 2].indexOf(c.diff) < 0) c.diff = 1;
+  if ([0, 3, 5, 7].indexOf(c.err) < 0) c.err = 5;
+  if (c.hints == null) c.hints = 1;
+  if (!VM_NAME[c.vm]) c.vm = "race";
+  return c;
+})();
+function saveCfg(){ ls("cx.cfg", cfg); }
+function errText(n){ return n ? n + " erreurs" : "erreurs illimitées"; }
+function summary(){
+  if (mode === "vs") {
+    var d = VS && VS.doc;
+    if (d && d.st !== "wait") return "Match · " + UNI_NAME[d.u || "lol"] + " · " + DIFF_NAME[d.diff == null ? 1 : d.diff] + " · " + VM_NAME[d.vm || "race"] + (d.hints === false ? " · sans indices" : " · indices");
+    return "Match · " + UNI_NAME[cfg.u] + " · " + DIFF_NAME[cfg.diff] + " · " + VM_NAME[cfg.vm] + (cfg.hints ? " · indices" : " · sans indices");
+  }
+  var s = S || {};
+  return UNI_NAME[s.uni || cfg.u] + " · " + DIFF_NAME[s.diff == null ? cfg.diff : s.diff] + " · " + errText(s.me == null ? cfg.err : s.me) + ((s.hn == null ? cfg.hints : s.hn) ? " · indices" : " · sans indices");
+}
+
+var mode = ls("cx.mode") === "vs" ? "vs" : "free";   /* "free" = solo, "vs" = 1v1 */
 var P = null, S = null;   /* P = puzzle, S = state of the current game */
 var sel = [], busy = false, justSolved = -1;
-/* universe of the free games and of the 1v1 you create: "lol", "smash" or "mix" (the daily grid is always "mix") */
-var UNI = ls("cx.uni"); if (UNI !== "lol" && UNI !== "smash" && UNI !== "mix") UNI = "mix";
-var UNI_NAME = {lol: "LoL", smash: "Smash", mix: "Mix LoL × Smash"};
 var POOLS = {lol: {}, smash: {}, mix: null};
 Object.keys(NAMES).forEach(function(id){ POOLS[id.slice(0, 2) === "s-" ? "smash" : "lol"][id] = 1; });
 
-function build(seedStr, uni){
+function build(seedStr, uni, diff){
   uni = POOLS.hasOwnProperty(uni) ? uni : "lol";
-  var opt = {pool: POOLS[uni], mix: uni === "mix"};
+  var opt = {pool: POOLS[uni], mix: uni === "mix", diff: diff == null ? 1 : diff};
   var r = cxGenerate(D, cxRng(cxHash(seedStr)), opt);
   if (!r) r = cxGenerate(D, cxRng(cxHash(seedStr + "+")), opt);
   if (!r) { opt.relax = true; r = cxGenerate(D, cxRng(cxHash(seedStr)), opt); }   /* never stuck: the variety rules give way first */
@@ -454,37 +501,30 @@ function build(seedStr, uni){
   r.groups.forEach(function(g, i){ g.ids.forEach(function(id){ gOf[id] = i; }); });
   return {groups: r.groups, tiles: r.tiles, gOf: gOf};
 }
-function stateKey(){ return mode === "day" ? "cx.day." + today() : mode === "vs" ? "cx.vs." + (VS ? VS.code : "none") : "cx.free"; }
+/* errors allowed in the current game: no limit in 1v1 */
+function maxErr(){ return mode === "vs" ? Infinity : (S && S.me) ? S.me : Infinity; }
+function stateKey(){ return mode === "vs" ? "cx.vs." + (VS ? VS.code : "none") : "cx.free"; }
 function load(){
   if (mode === "vs") { vsLoad(); return; }
-  var key = stateKey(), st = ls(key);
-  if (mode === "day") {
-    var d = today();
-    if (!st || st.seed !== "jour-mix-" + d) st = {seed: "jour-mix-" + d, uni: "mix", order: null, solved: [], guesses: [], err: 0, done: false};
-  } else {
-    if (!st || !st.seed || st.uni !== UNI) st = {seed: "libre-" + UNI + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uni: UNI, order: null, solved: [], guesses: [], err: 0, done: false};
-  }
-  S = st; P = build(S.seed, S.uni);
+  var st = ls("cx.free");
+  if (!st || !st.seed || st.uni == null || st.diff == null) st = newState();
+  S = st; P = build(S.seed, S.uni, S.diff);
   if (!S.order || S.order.length !== P.tiles.length) S.order = P.tiles.slice();
   sel = [];
   save();
-  /* tidy old daily saves */
-  try { Object.keys(localStorage).forEach(function(k){ if (/^cx\.day\./.test(k) && k !== "cx.day." + today()) localStorage.removeItem(k); }); } catch(e){}
+  try { Object.keys(localStorage).forEach(function(k){ if (/^cx\.day\./.test(k)) localStorage.removeItem(k); }); } catch(e){}   /* the daily grid is gone */
   render();
 }
+function newState(){ return {seed: "libre-" + cfg.u + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uni: cfg.u, diff: cfg.diff, me: cfg.err, hn: cfg.hints ? 1 : 0, order: null, solved: [], guesses: [], err: 0, done: false, hints: []}; }
 function save(){ if (S && (mode !== "vs" || VS)) ls(stateKey(), S); }
 
 function render(){
-  $("#m-day").setAttribute("aria-pressed", mode === "day");
-  $("#m-free").setAttribute("aria-pressed", mode === "free");
-  $("#m-vs").setAttribute("aria-pressed", mode === "vs");
-  /* universe picker: free games, and the 1v1 lobby (a 1v1 keeps the universe it was created with) */
-  $("#unis").hidden = !(mode === "free" || (mode === "vs" && !VS));
-  document.querySelectorAll("#unis button").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-uni") === UNI); });
-  var dl = ""; try { dl = new Intl.DateTimeFormat("fr-FR", {timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long"}).format(new Date()); } catch(e){}
-  $("#label").innerHTML = mode === "day" ? "<b>#" + dayNum(today()) + "</b> · " + esc(dl) + " · Mix LoL × Smash" : mode === "vs" ? (VS && VS.doc ? esc(UNI_NAME[VS.doc.u || "lol"]) + " · " : "") + "Même grille pour les deux, le premier à 7 groupes gagne" : "Grille aléatoire";
-  document.body.classList.toggle("titles", !!ls("cx.titles"));
-  $("#t-titles").checked = !!ls("cx.titles");
+  document.body.classList.toggle("titles", !!cfg.titles);
+  $("#b-vs").textContent = mode === "vs" ? "Solo" : "Match";
+  $("#b-vs").title = mode === "vs" ? "Revenir aux parties en solo" : "Défier un pote en 1v1";
+  $("#b-new").hidden = mode === "vs";
+  $("#cfgsum").textContent = summary();
+  $("#giveup").hidden = mode === "vs" || !S || S.done;
   /* 1v1: the panel (lobby, salon, countdown, scores) above the game; the game only once it has started */
   var vsOn = mode === "vs";
   $("#vs").hidden = !vsOn;
@@ -495,8 +535,8 @@ function render(){
   var shown = S.solved.slice();
   if (S.done) P.groups.forEach(function(g, i){ if (shown.indexOf(i) < 0) shown.push(i); });
   $("#solved").innerHTML = shown.map(function(i){
-    var g = P.groups[i], missed = S.solved.indexOf(i) < 0;
-    return '<div class="grp' + (missed ? " missed" : "") + (i === justSolved || (S.done && missed) ? " new" : "") + '" style="background:var(--g' + i + ')"><div class="gt"><b>' + esc(g.c.t) + '</b><small>' + (missed ? "Groupe non trouvé" : diffLabel(g.c.d)) + '</small></div><div class="gm">' +
+    var g = P.groups[i], missed = S.solved.indexOf(i) < 0, by = vsFoundBy(i);
+    return '<div class="grp' + (missed ? " missed" : "") + (i === justSolved || (S.done && missed) ? " new" : "") + '" style="background:var(--g' + i + ')"><div class="gt"><b>' + esc(g.c.t) + '</b><small>' + (missed ? "Groupe non trouvé" : by || diffLabel(g.c.d)) + '</small></div><div class="gm">' +
       g.ids.map(function(id){ return '<span title="' + esc(NAMES[id] + " · " + TITLES[id]) + '">' + img(id) + esc(NAMES[id]) + '</span>'; }).join("") + '</div></div>';
   }).join("");
   $("#hints").innerHTML = !S.done ? (S.hints || []).filter(function(g){ return S.solved.indexOf(g) < 0; }).map(function(g){
@@ -508,13 +548,16 @@ function render(){
     return '<button type="button" class="tile" data-id="' + id + '" aria-pressed="' + (sel.indexOf(id) >= 0) + '" title="' + esc(NAMES[id] + " · " + TITLES[id]) + '">' + img(id) + '<span class="nm">' + esc(NAMES[id]) + '</span><span class="ti">' + esc(TITLES[id]) + '</span></button>';
   }).join("");
   $("#foot").hidden = S.done;
-  var lv = "Erreurs restantes : ";
-  if (mode === "vs") lv = "Erreurs : <b>" + S.err + "</b>";
-  else for (var k = 0; k < MAXERR; k++) lv += '<i class="' + (k < MAXERR - S.err ? "" : "off") + '"></i>';
-  $("#lives").innerHTML = lv;
+  renderLives();
   renderSel();
   renderEnd();
   justSolved = -1;
+}
+function renderLives(){
+  var m = maxErr(), lv;
+  if (m === Infinity) lv = "Erreurs : <b>" + S.err + "</b>";
+  else { lv = "Erreurs restantes : "; for (var k = 0; k < m; k++) lv += '<i class="' + (k < m - S.err ? "" : "off") + '"></i>'; }
+  $("#lives").innerHTML = lv;
 }
 function diffLabel(d){ return ["", "Facile", "Moyen", "Difficile", "Expert"][d] || ""; }
 function renderSel(){
@@ -525,7 +568,8 @@ function renderSel(){
   $("#b-clear").disabled = !sel.length || busy;
 }
 function shareText(){
-  var head = "Connexions " + (mode === "day" ? "#" + dayNum(today()) + " (Mix)" : mode === "vs" ? "1v1" + (VS && VS.doc && vsOpp(VS.doc) ? " contre " + vsOpp(VS.doc).name : "") + (VS && VS.doc ? " (" + UNI_NAME[VS.doc.u || "lol"] + ")" : "") : "(partie libre, " + UNI_NAME[(S && S.uni) || "lol"] + ")") + " · " + S.solved.length + "/7" + (S.err ? " · " + S.err + " erreur" + (S.err > 1 ? "s" : "") : " · sans faute");
+  var head = "Connexions " + (mode === "vs" ? "1v1" + (VS && VS.doc && vsOpp(VS.doc) ? " contre " + vsOpp(VS.doc).name : "") + " (" + summary().replace(/^Match · /, "") + ")" : "(" + UNI_NAME[S.uni || "lol"] + " · " + DIFF_NAME[S.diff == null ? 1 : S.diff] + ")") +
+    " · " + S.solved.length + "/7" + (S.err ? " · " + S.err + " erreur" + (S.err > 1 ? "s" : "") : " · sans faute");
   return head + "\n" + S.guesses.map(function(g){ return g.map(function(id){ return EMO[P.gOf[id]]; }).join(""); }).join("\n");
 }
 function renderEnd(){
@@ -533,12 +577,12 @@ function renderEnd(){
   if (!S.done) { box.innerHTML = ""; return; }
   if (mode === "vs") { box.innerHTML = vsEndHTML(); return; }
   var win = S.solved.length === P.groups.length;
-  box.innerHTML = '<div class="end"><h2>' + (win ? (S.err ? "Bravo !" : "Parfait !") : "Perdu…") + '</h2><p>' +
+  box.innerHTML = '<div class="end"><h2>' + (win ? (S.err ? "Bravo !" : "Parfait !") : S.gaveUp ? "Réponses" : "Perdu…") + '</h2><p>' +
     (win ? "Les 7 groupes trouvés" + (S.err ? " avec " + S.err + " erreur" + (S.err > 1 ? "s" : "") : " sans la moindre erreur") + "." : S.solved.length + " groupe" + (S.solved.length > 1 ? "s" : "") + " sur 7. Les groupes manquants sont affichés en pointillés.") +
-    (mode === "day" ? " Nouvelle grille demain." : "") + '</p><div class="rows">' + S.guesses.map(function(g){ return g.map(function(id){ return EMO[P.gOf[id]]; }).join(""); }).join("<br>") + '</div>' +
-    '<div class="actions"><button type="button" class="btn primary" id="b-share">Copier le résultat</button><button type="button" class="btn" id="b-new">' + (mode === "day" ? "Jouer une partie libre" : "Nouvelle grille") + '</button></div></div>';
+    '</p><div class="rows">' + S.guesses.map(function(g){ return g.map(function(id){ return EMO[P.gOf[id]]; }).join(""); }).join("<br>") + '</div>' +
+    '<div class="actions"><button type="button" class="btn primary" id="b-new2">Nouvelle grille</button><button type="button" class="btn" id="b-share">Copier le résultat</button></div></div>';
   $("#b-share").onclick = copyShare;
-  $("#b-new").onclick = function(){ if (mode === "day") setMode("free"); else newFree(); };
+  $("#b-new2").onclick = newFree;
 }
 function copyShare(){
   var t = shareText();
@@ -562,7 +606,7 @@ function submit(){
   if (best === 5) {
     S.solved.push(bestG); sel = []; justSolved = bestG; S.lt = Date.now();
     if (S.solved.length === P.groups.length) { S.ft = S.lt; finish(true); }
-    save(); vsPush(); render();
+    save(); vsFound(bestG); vsPush(); render();
     return;
   }
   S.err++;
@@ -576,61 +620,85 @@ function submit(){
     busy = false;
     if (lost) { sel = []; finish(false); save(); render(); }
     else if (hinted) render();
-    else if (mode === "vs") { renderSel(); $("#lives").innerHTML = "Erreurs : <b>" + S.err + "</b>"; }
-    else { renderSel(); $("#lives").querySelectorAll("i")[MAXERR - S.err].classList.add("off"); }
+    else { renderSel(); renderLives(); }
   }, 450);
 }
+/* solo stats: every solo game counts (the 1v1 keeps its own record) */
 function finish(win){
   S.done = true;
-  if (mode !== "day") return;   /* stats: daily grids only (the 1v1 keeps its own record) */
-  var st = ls("cx.stats") || {played: 0, won: 0, streak: 0, best: 0, last: null, dist: {}};
-  var d = today();
-  if (st.last === d) return;
+  if (mode !== "free" || S.counted) return;
+  S.counted = 1;
+  var st = ls("cx.stats.solo") || {played: 0, won: 0, streak: 0, best: 0, dist: {}};
   st.played++;
-  if (win) {
-    st.won++;
-    var y = new Date(Date.parse(d + "T12:00:00Z") - 864e5).toISOString().slice(0, 10);
-    st.streak = st.lastWin === y ? st.streak + 1 : 1; st.lastWin = d;
-    st.best = Math.max(st.best, st.streak);
-    st.dist[S.err] = (st.dist[S.err] || 0) + 1;
-  } else { st.streak = 0; st.dist.x = (st.dist.x || 0) + 1; }
-  st.last = d;
-  ls("cx.stats", st);
+  if (win) { st.won++; st.streak++; st.best = Math.max(st.best, st.streak); var k = S.err > 7 ? "8" : String(S.err); st.dist[k] = (st.dist[k] || 0) + 1; }
+  else { st.streak = 0; st.dist.x = (st.dist.x || 0) + 1; }
+  ls("cx.stats.solo", st);
+}
+function giveUp(){
+  if (!S || S.done || mode === "vs") return;
+  var b = $("#giveup");
+  if (!b.classList.contains("arm")) { b.classList.add("arm"); b.textContent = "Sûr ? Voir les réponses"; setTimeout(function(){ b.classList.remove("arm"); b.textContent = "Voir les réponses"; }, 3000); return; }
+  b.classList.remove("arm"); b.textContent = "Voir les réponses";
+  S.gaveUp = true; sel = []; finish(false); save(); render();
 }
 function showStats(){
-  var st = ls("cx.stats") || {played: 0, won: 0, streak: 0, best: 0, dist: {}};
-  var mine = S && S.done && mode === "day" ? (S.solved.length === 7 ? String(S.err) : "x") : null;
+  var st = ls("cx.stats.solo") || {played: 0, won: 0, streak: 0, best: 0, dist: {}};
   var rows = [];
-  for (var k = 0; k < MAXERR; k++) rows.push([String(k), k + (k > 1 ? " erreurs" : " erreur")]);
+  for (var k = 0; k <= 8; k++) rows.push([String(k), k === 8 ? "8 erreurs ou +" : k + (k > 1 ? " erreurs" : " erreur")]);
   rows.push(["x", "Perdu"]);
   var mx = 1; rows.forEach(function(r){ mx = Math.max(mx, st.dist[r[0]] || 0); });
-  dlg.innerHTML = '<h2>Statistiques</h2><p style="margin-top:0">Grilles du jour uniquement.</p><div class="stats"><div><b>' + st.played + '</b><small>Jouées</small></div><div><b>' + (st.played ? Math.round(st.won * 100 / st.played) : 0) + '%</b><small>Gagnées</small></div><div><b>' + st.streak + '</b><small>Série</small></div><div><b>' + st.best + '</b><small>Record</small></div></div><div class="dist">' +
-    rows.map(function(r){ var n = st.dist[r[0]] || 0; return '<div><span>' + r[1] + '</span><em class="' + (mine === r[0] ? "me" : "") + '" style="width:' + Math.max(8, Math.round(n * 100 / mx)) + '%">' + n + '</em></div>'; }).join("") +
-    '</div><div class="row"><button type="button" class="btn" id="dlg-x">Fermer</button></div>';
+  var rec = ls("cx.vs.rec");
+  dlg.innerHTML = '<h2>Statistiques</h2><p style="margin-top:0">Parties en solo.</p><div class="stats"><div><b>' + st.played + '</b><small>Jouées</small></div><div><b>' + (st.played ? Math.round(st.won * 100 / st.played) : 0) + '%</b><small>Gagnées</small></div><div><b>' + st.streak + '</b><small>Série</small></div><div><b>' + st.best + '</b><small>Record</small></div></div><div class="dist">' +
+    rows.filter(function(r){ return r[0] === "x" || +r[0] <= 7 || st.dist[r[0]]; }).map(function(r){ var n = st.dist[r[0]] || 0; return '<div><span>' + r[1] + '</span><em style="width:' + Math.max(8, Math.round(n * 100 / mx)) + '%">' + n + '</em></div>'; }).join("") +
+    '</div>' + (rec && (rec.w || rec.l || rec.d) ? '<p>En 1v1 : <b>' + rec.w + '</b> victoire' + (rec.w > 1 ? "s" : "") + ' · <b>' + rec.l + '</b> défaite' + (rec.l > 1 ? "s" : "") + (rec.d ? ' · <b>' + rec.d + '</b> nul' + (rec.d > 1 ? "s" : "") : "") + '</p>' : "") +
+    '<div class="row"><button type="button" class="btn" id="dlg-x">Fermer</button></div>';
   $("#dlg-x").onclick = function(){ dlg.close(); };
   dlg.showModal();
 }
 function showHelp(){
   dlg.innerHTML = '<h2>Comment jouer</h2><p style="margin-top:0">Les 35 personnages forment <b>7 groupes de 5</b> qui partagent un point commun : région, lore, kit, skins, série, date de sortie, nom…</p><ul>' +
-    '<li>Trois univers : <b>LoL</b> (champions), <b>Smash</b> (combattants de Smash Bros. Ultimate) ou <b>Mix</b> des deux, avec des critères communs (épée, feu, chapeau…). La grille du jour est en Mix.</li>' +
-    '<li>Sélectionne 5 champions puis <b>Valider</b>.</li><li>Un groupe juste se range en haut, avec sa couleur. Du jaune (le plus facile) au marron (le plus dur).</li>' +
-    '<li>Attention aux pièges : un champion peut sembler aller dans plusieurs groupes, mais il n’existe qu’une seule répartition qui marche.</li>' +
-    '<li>Tu as droit à <b>' + MAXERR + ' erreurs</b>. « Presque ! » veut dire que 4 des 5 personnages vont ensemble. À ta 2e puis à ta 4e erreur, un indice te révèle le thème d’un groupe.</li>' +
-    '<li>La <b>grille du jour</b> est la même pour tout le monde et change à minuit. La <b>partie libre</b> en génère autant que tu veux.</li>' +
-    '<li>En <b>1v1</b>, défie un pote en ligne sur le site : même grille au même moment, pas de limite d’erreurs, le premier à trouver les 7 groupes gagne.</li>' +
-    '<li>Survole un personnage (ou coche « Afficher les titres ») pour voir son titre officiel, ou sa série pour Smash.</li></ul><div class="row"><button type="button" class="btn primary" id="dlg-x">C’est parti</button></div>';
+    '<li>Sélectionne 5 personnages puis <b>Valider</b>. Un groupe juste se range en haut, avec sa couleur, du jaune (le plus facile) au marron (le plus dur).</li>' +
+    '<li>Attention aux pièges : un personnage peut sembler aller dans plusieurs groupes, mais il n’existe qu’une seule répartition qui marche.</li>' +
+    '<li>« Presque ! » veut dire que 4 des 5 personnages vont ensemble. Avec les indices, ta 2e puis ta 4e erreur te révèlent le thème d’un groupe.</li>' +
+    '<li><b>Réglages</b> : univers (LoL, Smash ou Mix des deux), difficulté, erreurs autorisées, indices, et le type de match en 1v1.</li>' +
+    '<li><b>Match</b> : défie un pote en ligne sur le site. Soit chacun sa grille (la même pour les deux, le premier à 7 groupes gagne), soit une grille commune (un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne). Pas de limite d’erreurs en match.</li>' +
+    '<li>Survole un personnage (ou active « Afficher les titres » dans les réglages) pour voir son titre officiel, ou sa série pour Smash.</li></ul><div class="row"><button type="button" class="btn primary" id="dlg-x">C’est parti</button></div>';
   $("#dlg-x").onclick = function(){ dlg.close(); };
   dlg.showModal();
 }
+function openCfg(){
+  function chips(name, list, cur){ return '<div class="chips">' + list.map(function(o){ return '<label><input type="radio" name="' + name + '" value="' + o[0] + '"' + (String(o[0]) === String(cur) ? " checked" : "") + '>' + o[1] + '</label>'; }).join("") + '</div>'; }
+  var solo = mode !== "vs";
+  dlg.innerHTML = '<form method="dialog" class="cfg"><div class="ph"><div class="pc">Réglages</div><button type="button" class="x" data-close aria-label="Fermer">✕</button></div>' +
+    '<div class="f"><span class="lb">Univers</span>' + chips("u", [["lol", "LoL"], ["smash", "Smash"], ["mix", "Mix LoL × Smash"]], cfg.u) + '<small>Champions de LoL, combattants de Smash Bros. Ultimate, ou les deux mélangés avec des critères communs.</small></div>' +
+    '<div class="f"><span class="lb">Difficulté</span>' + chips("df", [[0, "Facile"], [1, "Normal"], [2, "Difficile"]], cfg.diff) + '<small>Toujours un mélange de groupes faciles et durs. Facile : aucun critère expert, peu de pièges. Difficile : plus de critères pointus et de pièges.</small></div>' +
+    '<div class="f"><span class="lb">Erreurs autorisées (solo)</span>' + chips("er", [[3, "3"], [5, "5"], [7, "7"], [0, "Illimitées"]], cfg.err) + '<small>En match, il n’y a pas de limite.</small></div>' +
+    '<div class="f"><span class="lb">Aide</span><div class="chips"><label><input type="checkbox" id="c-hints"' + (cfg.hints ? " checked" : "") + '>Indices à la 2e et à la 4e erreur</label><label><input type="checkbox" id="c-titles"' + (cfg.titles ? " checked" : "") + '>Afficher les titres</label></div><small>L’indice révèle le thème du groupe le plus dur qu’il te reste. Les titres : titre officiel des champions, série des combattants Smash.</small></div>' +
+    '<div class="f wide"><span class="lb">Match 1v1</span>' + chips("vm", [["race", "Chacun sa grille"], ["shared", "Grille commune"]], cfg.vm) + '<small>Chacun sa grille : la même grille pour les deux, chacun avance de son côté, le premier à trouver les 7 groupes gagne. Grille commune : les deux joueurs sont sur la même grille, un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne.</small></div>' +
+    '<div class="ft"><button type="button" class="btn" data-close>Annuler</button><button type="submit" class="btn primary">' + (solo ? "Nouvelle grille" : "Enregistrer") + '</button></div></form>';
+  dlg.showModal();
+  dlg.querySelectorAll("[data-close]").forEach(function(b){ b.onclick = function(){ dlg.close(); }; });
+  dlg.querySelector("form").onsubmit = function(e){
+    e.preventDefault();
+    function v(n){ var x = dlg.querySelector('[name=' + n + ']:checked'); return x ? x.value : null; }
+    cfg.u = v("u") || cfg.u; cfg.diff = +v("df"); cfg.err = +v("er"); cfg.vm = v("vm") || cfg.vm;
+    cfg.hints = $("#c-hints").checked ? 1 : 0; cfg.titles = $("#c-titles").checked ? 1 : 0;
+    saveCfg(); dlg.close();
+    if (solo) newFree(); else render();
+  };
+}
 function setMode(m){ mode = m; ls("cx.mode", m); if (VS) VS.pseed = null; P = null; S = null; sel = []; load(); window.scrollTo(0, 0); }
-function newFree(){ ls("cx.free", null); load(); window.scrollTo(0, 0); }
+function newFree(){ if (mode !== "free") { setMode("free"); } ls("cx.free", newState()); load(); window.scrollTo(0, 0); }
 
 /* ---------- 1v1 (on the site only: the page lends Firebase through window.parent.__grilleHost) ----------
    vs/<CODE>, the same collection as the Grille's games, marked game: "cx" (the Grille ignores them):
-   {game: "cx", code, st: "wait" | "play" | "end" | "declined", created, np: 2, seed, p: [{id, name}], invs: [tok], inm: name invited,
-    start: ms, r: {<tok>: {s: [groups found, in order], e: errors, n: guesses, lt: ms of the last group found, ft: ms of the 7th, ab: true = gave up}}}
-   Both play the same grid at the same time. The first to find the 7 groups wins; if both run out of errors:
-   more groups found, then the one who found their last group first. */
+   {game: "cx", code, st: "wait" | "play" | "end" | "declined", created, np: 2, seed, u: universe, diff, hints: bool, vm: "race" | "shared",
+    p: [{id, name}], invs: [tok], inm: name invited, start: ms,
+    r: {<tok>: {s: [groups found, in order], e: errors, n: guesses, h: hints, lt: ms of the last group found, ft: ms of the 7th, ab: true = gave up}},
+    f: {<group>: {by: tok, t: ms}} (shared board only)}
+   "race": both play the same grid at the same time, each on his own board: the first to find the 7 groups wins.
+   "shared": one board for both, a group found disappears for both: the first to 4 groups wins.
+   No error limit in 1v1: only the end of the race, or giving up, ends a game. */
 var HOST = null;
 try { if (window.parent !== window && window.parent.__grilleHost) HOST = window.parent.__grilleHost; } catch(e){}
 var VS = null, PEERS = [], vsClock = null, abandonArm = false, vsBusy = false;
@@ -639,10 +707,23 @@ function myName(){ try { return (HOST && HOST.name && HOST.name()) || ""; } catc
 function vsNewCode(){ var A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", c = ""; for (var i = 0; i < 5; i++) c += A.charAt(Math.floor(Math.random() * A.length)); return c; }
 function vsOpp(d){ var me = TOK(); return ((d && d.p) || []).filter(function(x){ return x && x.id !== me; })[0] || null; }
 function vsR(d, tok){ return (d && d.r && d.r[tok]) || {}; }
+function vsShared(d){ return !!(d && d.vm === "shared"); }
+/* shared board: the groups each player found */
+function vsMine(d, tok){ var f = (d && d.f) || {}; return Object.keys(f).filter(function(g){ return f[g] && f[g].by === tok; }).sort(function(x, y){ return (f[x].t || 0) - (f[y].t || 0); }).map(Number); }
+function vsFoundBy(g){
+  var d = mode === "vs" && VS && VS.doc; if (!vsShared(d) || !d.f || !d.f[g]) return "";
+  var by = d.f[g].by; if (by === TOK()) return "Trouvé par toi";
+  var p = (d.p || []).filter(function(x){ return x && x.id === by; })[0]; return "Trouvé par " + (p ? p.name : "l’adversaire");
+}
 function vsOutcome(d){
   if (!d || !d.p || d.p.length < 2 || (d.st !== "play" && d.st !== "end")) return {over: false};
   var a = d.p[0].id, b = d.p[1].id, ra = vsR(d, a), rb = vsR(d, b), na = (ra.s || []).length, nb = (rb.s || []).length;
   if (ra.ab || rb.ab) return {over: true, winner: ra.ab && rb.ab ? "" : ra.ab ? b : a, why: "ab"};
+  if (vsShared(d)) {
+    var ka = vsMine(d, a).length, kb = vsMine(d, b).length;
+    if (ka >= 4 || kb >= 4) return {over: true, winner: ka >= 4 ? a : b, why: "4"};
+    return {over: false};
+  }
   if (na === 7 || nb === 7) return {over: true, winner: na === 7 && nb === 7 ? ((ra.ft || 0) <= (rb.ft || 0) ? a : b) : na === 7 ? a : b, why: "7"};
   return {over: false};   /* no error limit in 1v1: only the 7th group or giving up ends the game */
 }
@@ -714,13 +795,18 @@ function vsSync(){
   var d = VS && VS.doc;
   if (!d || (d.st !== "play" && d.st !== "end")) return;
   if (!P || VS.pseed !== d.seed) {
-    P = build(d.seed, d.u || "lol"); VS.pseed = d.seed; sel = [];
+    P = build(d.seed, d.u || "lol", d.diff == null ? 1 : d.diff); VS.pseed = d.seed; sel = [];
     S = ls("cx.vs." + d.code);
     if (!S || S.seed !== d.seed) S = {seed: d.seed, order: null, solved: [], guesses: [], err: 0, done: false, hints: []};
     if (!S.order || S.order.length !== P.tiles.length) S.order = P.tiles.slice();
   }
   var mine = vsR(d, TOK());
-  if ((mine.s || []).length > S.solved.length) S.solved = mine.s.slice();
+  if (vsShared(d)) {
+    /* shared board: every group found, by either player, leaves the board */
+    var f = d.f || {}, all = Object.keys(f).sort(function(x, y){ return (f[x].t || 0) - (f[y].t || 0); }).map(Number);
+    all.forEach(function(g){ if (S.solved.indexOf(g) < 0) { S.solved.push(g); justSolved = g; } });
+    sel = sel.filter(function(id){ return S.solved.indexOf(P.gOf[id]) < 0; });
+  } else if ((mine.s || []).length > S.solved.length) S.solved = mine.s.slice();
   if ((mine.e || 0) > S.err) S.err = mine.e;
   vsHint();
   if (S.solved.length === 7 || vsOutcome(d).over) S.done = true;
@@ -730,6 +816,7 @@ function vsSync(){
 var HINT_AT = [2, 4];
 function vsHint(){
   if (!S || !P) return false;
+  if (mode === "vs" ? (VS && VS.doc && VS.doc.hints === false) : !S.hn) return false;   /* hints switched off in the settings */
   S.hints = S.hints || [];
   var want = HINT_AT.filter(function(n){ return S.err >= n; }).length, added = false;
   while (S.hints.length < want) {
@@ -742,8 +829,17 @@ function vsHint(){
 }
 function vsPush(){
   if (mode !== "vs" || !VS || !VS.doc || !HOST) return;
-  var r = {}; r[TOK()] = {s: S.solved.slice(), e: S.err, n: S.guesses.length, lt: S.lt || 0, ft: S.ft || 0, h: (S.hints || []).length};
+  var shared = vsShared(VS.doc);
+  var r = {}; r[TOK()] = {s: shared ? vsMine(VS.doc, TOK()) : S.solved.slice(), e: S.err, n: S.guesses.length, lt: S.lt || 0, ft: S.ft || 0, h: (S.hints || []).length};
   HOST.db.doc("vs/" + VS.code).update({r: r}).catch(function(){ toast("Envoi impossible, vérifie ta connexion"); });
+}
+/* shared board: claim a group found (the board of the other player loses it too) */
+function vsFound(g){
+  if (mode !== "vs" || !VS || !VS.doc || !HOST || !vsShared(VS.doc)) return;
+  if (VS.doc.f && VS.doc.f[g]) return;
+  var f = {}; f[g] = {by: TOK(), t: Date.now()};
+  VS.doc.f = Object.assign({}, VS.doc.f || {}, f);
+  HOST.db.doc("vs/" + VS.code).update({f: f}).catch(function(){ toast("Envoi impossible, vérifie ta connexion"); });
 }
 function vsRecord(d, o){
   var rec = ls("cx.vs.rec") || {w: 0, l: 0, d: 0, seen: []};
@@ -752,12 +848,13 @@ function vsRecord(d, o){
   if (!o.winner) rec.d++; else if (o.winner === TOK()) rec.w++; else rec.l++;
   ls("cx.vs.rec", rec);
 }
-function vsCreate(peer){
+function vsCreate(peer, set){
+  set = set || {u: cfg.u, diff: cfg.diff, hints: !!cfg.hints, vm: cfg.vm};
   if (!HOST || vsBusy) return;
   var nm = myName(); if (!nm) { toast("Choisis d’abord ton pseudo"); return; }
   var code = vsNewCode();
-  var d = {game: "cx", code: code, st: "wait", created: Date.now(), np: 2, u: UNI, seed: "vs-" + code + "-" + Math.random().toString(36).slice(2, 8),
-    p: [{id: TOK(), name: nm}], invs: peer ? [peer.tok] : [], inm: peer ? peer.nm : "", r: {}};
+  var d = {game: "cx", code: code, st: "wait", created: Date.now(), np: 2, u: set.u || "mix", diff: set.diff == null ? 1 : set.diff, hints: set.hints !== false, vm: set.vm || "race", seed: "vs-" + code + "-" + Math.random().toString(36).slice(2, 8),
+    p: [{id: TOK(), name: nm}], invs: peer ? [peer.tok] : [], inm: peer ? peer.nm : "", r: {}, f: {}};
   vsBusy = true; render();
   HOST.db.doc("vs/" + code).set(d).then(function(){ vsBusy = false; vsEnter(code); }, function(e){ vsBusy = false; render(); toast("Création impossible (" + ((e && e.code) || "erreur") + ")"); });
 }
@@ -788,8 +885,8 @@ function vsAbandon(){
   var r = {}; r[TOK()] = {ab: true}; HOST.db.doc("vs/" + VS.code).update({r: r}).catch(function(){});
 }
 function vsSquares(d, tok){
-  var s = vsR(d, tok).s || [], h = "";
-  for (var i = 0; i < 7; i++) h += i < s.length ? '<i style="background:var(--g' + s[i] + ')"></i>' : "<i></i>";
+  var s = vsShared(d) ? vsMine(d, tok) : (vsR(d, tok).s || []), h = "", n = vsShared(d) ? 4 : 7;
+  for (var i = 0; i < n; i++) h += i < s.length ? '<i style="background:var(--g' + s[i] + ')"></i>' : "<i></i>";
   return h;
 }
 function vsHTML(){
@@ -798,7 +895,7 @@ function vsHTML(){
     var me = TOK(), seen = {}, nm = myName();
     var peers = PEERS.map(function(x){ return x && x.presence; }).filter(function(p){ if (!p || !p.tok || p.tok === me || seen[p.tok]) return false; seen[p.tok] = 1; return true; });
     var rec = ls("cx.vs.rec");
-    return '<div class="vsp"><h3>Défier un pote</h3><p>Vous recevez la même grille au même moment : le premier à trouver les 7 groupes gagne. Pas de limite d’erreurs. À ta 2e puis à ta 4e erreur, un indice te révèle le thème d’un groupe. Univers de la partie : <b>' + esc(UNI_NAME[UNI]) + '</b> (à choisir juste au-dessus).</p>' +
+    return '<div class="vsp"><h3>Défier un pote</h3><p>' + (cfg.vm === "shared" ? "<b>Grille commune</b> : vous jouez tous les deux sur la même grille, un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne." : "<b>Chacun sa grille</b> : vous recevez la même grille au même moment, le premier à trouver les 7 groupes gagne.") + ' Pas de limite d’erreurs. Partie en <b>' + esc(UNI_NAME[cfg.u]) + '</b>, <b>' + esc(DIFF_NAME[cfg.diff].toLowerCase()) + '</b>' + (cfg.hints ? ", avec indices" : ", sans indices") + ' : change-les dans les <b>Réglages</b>.</p>' +
       (nm ? "" : '<div class="row"><input id="vs-name" maxlength="20" placeholder="Ton pseudo" autocomplete="nickname"><button type="button" class="btn primary" data-act="name">OK</button></div>') +
       '<div class="row"><b>En ligne sur le site</b></div>' +
       (peers.length ? '<ul class="peers">' + peers.map(function(p){
@@ -814,7 +911,7 @@ function vsHTML(){
   if (!d) return '<div class="vsp"><p>Connexion à la partie…</p></div>';
   if (d.st === "wait") {
     var refused = d.inm && !(d.invs || []).length;
-    return '<div class="vsp"><h3>' + esc(UNI_NAME[d.u || "lol"]) + ' · ' + (d.inm ? (refused ? esc(d.inm) + " a refusé" : "En attente de " + esc(d.inm) + "…") : "En attente d’un adversaire…") + '</h3>' +
+    return '<div class="vsp"><h3>' + (d.inm ? (refused ? esc(d.inm) + " a refusé" : "En attente de " + esc(d.inm) + "…") : "En attente d’un adversaire…") + '</h3>' +
       '<p>' + (d.inm && !refused ? "Une invitation lui a été envoyée. Il ou elle peut aussi rejoindre avec ce code :" : "Donne ce code à ton adversaire (Connexions → 1v1 → Rejoindre) :") + '</p>' +
       '<div class="row"><span class="bigcode">' + esc(d.code) + '</span></div><div class="row"><button type="button" class="btn" data-act="cancel">Annuler</button></div></div>';
   }
@@ -825,9 +922,9 @@ function vsHTML(){
   function line(nm, r, tok, isMe){
     var e = r.e || 0;
     return '<div class="pl' + (isMe ? " me" : "") + '"><span class="nm">' + esc(nm) + (isMe ? " (toi)" : "") + '</span><span class="sq">' + vsSquares(d, tok) + '</span><span class="er">' +
-      (r.h ? "💡×" + r.h + " · " : "") + (r.ab ? "abandon" : (r.s || []).length === 7 ? "7/7 ✓" : e + " erreur" + (e > 1 ? "s" : "")) + '</span></div>';
+      (r.h ? "💡×" + r.h + " · " : "") + (r.ab ? "abandon" : !vsShared(d) && (r.s || []).length === 7 ? "7/7 ✓" : (vsShared(d) ? vsMine(d, tok).length + "/4 · " : "") + e + " erreur" + (e > 1 ? "s" : "")) + '</span></div>';
   }
-  return '<div class="sb"><div class="top"><span>1v1 · ' + esc(UNI_NAME[d.u || "lol"]) + ' · code <b>' + esc(d.code) + '</b></span><span class="sp"></span><span>⏱ <b id="vs-clock">' + vsTime(d) + '</b></span>' +
+  return '<div class="sb"><div class="top"><span>' + (vsShared(d) ? "Grille commune : le premier à 4 groupes gagne" : "Chacun sa grille : le premier à 7 groupes gagne") + ' · code <b>' + esc(d.code) + '</b></span><span class="sp"></span><span>⏱ <b id="vs-clock">' + vsTime(d) + '</b></span>' +
     (o.over || (S && S.done) ? "" : '<button type="button" class="btn small danger" data-act="abandon">' + (abandonArm ? "Confirmer l’abandon" : "Abandonner") + '</button>') + '</div>' +
     line(myName() || "Moi", meR, TOK(), true) + line(opp.name, opR, opp.id, false) + '</div>';
 }
@@ -838,6 +935,7 @@ function vsEndHTML(){
   var win = o.winner === me, draw = !o.winner;
   var na = (vsR(d, me).s || []).length, nb = (vsR(d, opp.id).s || []).length;
   var why = o.why === "ab" ? (win ? esc(opp.name) + " a abandonné." : "Tu as abandonné.")
+    : o.why === "4" ? (win ? "Tu as trouvé 4 groupes sur la grille commune, en " + vsTime(d) + "." : esc(opp.name) + " a trouvé 4 groupes sur la grille commune, en " + vsTime(d) + ".")
     : o.why === "7" ? (win ? "Tu as trouvé les 7 groupes en premier, en " + vsTime(d) + "." : esc(opp.name) + " a trouvé les 7 groupes en premier, en " + vsTime(d) + ".")
     : o.why === "count" ? "Plus personne n’avait d’essais : " + na + " groupe" + (na > 1 ? "s" : "") + " contre " + nb + "."
     : o.why === "time" ? "Autant de groupes chacun (" + na + "), mais " + (win ? "tu as trouvé ton dernier plus vite." : esc(opp.name) + " a trouvé son dernier plus vite.")
@@ -857,7 +955,7 @@ document.addEventListener("click", function(e){
   else if (a === "cancel") vsCancel();
   else if (a === "abandon") vsAbandon();
   else if (a === "lobby") vsLeave();
-  else if (a === "rematch") { var op = vsOpp(VS.doc); vsLeave(); vsCreate({tok: op.id, nm: op.name}); }
+  else if (a === "rematch") { var od = VS.doc, op = vsOpp(od); vsLeave(); vsCreate({tok: op.id, nm: op.name}, {u: od.u, diff: od.diff, hints: od.hints, vm: od.vm}); }   /* same settings as the game just played */
 });
 document.addEventListener("keydown", function(e){
   if (e.key !== "Enter" || !e.target || !e.target.id) return;
@@ -882,23 +980,15 @@ $("#b-shuffle").onclick = function(){
   S.order = S.order.filter(function(id){ return S.solved.indexOf(P.gOf[id]) >= 0; }).concat(left);
   save(); render();
 };
-$("#m-day").onclick = function(){ if (mode !== "day") setMode("day"); };
-$("#m-free").onclick = function(){ if (mode !== "free") setMode("free"); };
-$("#m-vs").onclick = function(){ if (mode !== "vs") setMode("vs"); };
-$("#unis").addEventListener("click", function(e){
-  var b = e.target.closest("[data-uni]"); if (!b) return;
-  var u = b.getAttribute("data-uni"); if (u === UNI) return;
-  UNI = u; ls("cx.uni", u);
-  if (mode === "free") newFree(); else render();
-});
+$("#b-vs").onclick = function(){ setMode(mode === "vs" ? "free" : "vs"); };
+$("#b-cfg").onclick = openCfg;
+$("#b-new").onclick = newFree;
+$("#giveup").onclick = giveUp;
 $("#b-stats").onclick = showStats;
 $("#b-help").onclick = showHelp;
-$("#t-titles").onchange = function(){ ls("cx.titles", this.checked ? 1 : null); document.body.classList.toggle("titles", this.checked); };
-document.addEventListener("keydown", function(e){ if (e.key === "Enter" && !dlg.open && sel.length === 5 && !(e.target.closest && e.target.closest(".tile"))) submit(); });
-/* the daily grid changes at midnight: reload it if the tab stayed open */
-setInterval(function(){ if (mode === "day" && S && S.seed !== "jour-" + today()) load(); }, 60000);
+document.addEventListener("keydown", function(e){ if (e.key === "Enter" && !dlg.open && sel.length === 5 && !(e.target.closest && e.target.closest(".tile, input"))) submit(); });
 if (!ls("cx.seen")) { ls("cx.seen", 1); setTimeout(showHelp, 300); }
-window.__cx = {state: function(){ return S; }, puzzle: function(){ return P; }, vs: function(){ return VS; }};
+window.__cx = {state: function(){ return S; }, puzzle: function(){ return P; }, vs: function(){ return VS; }, cfg: function(){ return cfg; }};
 /* a 1v1 invitation accepted on the site (index.html calls this, or leaves the code in cx.vs.join if this page was not loaded yet) */
 window.__cxJoin = function(code){ ls("cx.vs.join", null); if (mode !== "vs") setMode("vs"); vsJoin(code); };
 var pend = ls("cx.vs.join");
