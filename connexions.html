@@ -227,7 +227,7 @@ dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
   {"id":"s-zelda","f":"sserie","d":1,"t":"Univers Zelda","m":["s-link","s-sheik","s-zelda","s-young_link","s-ganondorf","s-toon_link"],"x":[]},
   {"id":"s-tiers","f":"sserie","d":2,"t":"Combattants invités (pas de Nintendo)","m":["s-snake","s-sonic","s-mega_man","s-pac_man","s-ryu","s-ken","s-cloud","s-bayonetta","s-simon","s-richter","s-joker","s-dq_hero","s-banjo_and_kazooie","s-terry","s-steve","s-sephiroth","s-kazuya","s-sora"],"x":[]},
   {"id":"s-dlc","f":"sjeu","d":2,"t":"Combattants DLC de Smash Ultimate","m":["s-packun_flower","s-joker","s-dq_hero","s-banjo_and_kazooie","s-terry","s-byleth","s-minmin","s-steve","s-sephiroth","s-homura","s-kazuya","s-sora"],"x":[]},
-  {"id":"s-echo","f":"sjeu","d":3,"t":"Combattants Écho","m":["s-dark_samus","s-daisy","s-lucina","s-chrom","s-dark_pit","s-ken","s-richter"],"x":[]},
+  {"id":"s-echo","f":"slore","d":3,"t":"Combattants Écho","m":["s-dark_samus","s-daisy","s-lucina","s-chrom","s-dark_pit","s-ken","s-richter"],"x":[]},
   {"id":"s-64","f":"sjeu","d":2,"t":"Les 12 combattants du premier Smash (N64)","m":["s-mario","s-donkey_kong","s-link","s-samus","s-yoshi","s-kirby","s-fox","s-pikachu","s-luigi","s-ness","s-captain_falcon","s-jigglypuff"],"x":[]},
   {"id":"s-melee","f":"sjeu","d":3,"t":"Arrivés dans Smash Melee","m":["s-peach","s-bowser","s-ice_climbers","s-sheik","s-zelda","s-dr_mario","s-pichu","s-falco","s-marth","s-young_link","s-ganondorf","s-mewtwo","s-roy","s-mr_game_and_watch"],"x":[]},
   {"id":"s-brawl","f":"sjeu","d":3,"t":"Arrivés dans Smash Brawl","m":["s-meta_knight","s-pit","s-zero_suit_samus","s-wario","s-snake","s-ike","s-pokemon_trainer","s-diddy_kong","s-lucas","s-sonic","s-king_dedede","s-olimar","s-lucario","s-rob","s-toon_link","s-wolf"],"x":[]},
@@ -327,6 +327,8 @@ var CX_N = 7, CX_K = 5;
 var CX_FAMMAX = {ult:1, annee:1, titre:1, ressource:1, element:1, role:1, stat:1, groupe:2, worlds:2, region:2, nom:2, espece:2, arme:2, look:2, lore:2, kit:3, sserie:2, sjeu:1, slore:1, skit:1, lettre:1};
 /* difficulty mix of a grid (1 easy … 4 expert): mostly easy and medium groups, at most one expert */
 var CX_PATTERNS = [[1,1,1,2,2,2,3],[1,1,2,2,2,3,3],[1,1,1,2,2,3,4],[1,1,2,2,2,3,4],[1,1,2,2,3,3,4]];
+/* kinds of criteria limited to one per grid: names (letters, length…) and dates (release years, Worlds years, Smash game of arrival) */
+function cxKind(c){ return c.f === "nom" || c.f === "lettre" ? "nom" : (c.f === "annee" || c.f === "sjeu" || /^w\d{4}$/.test(c.id)) ? "date" : ""; }
 function cxShuffle(a, rand){ for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rand() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 function cxCountSolutions(tiles, crits, limit){
   var opts = tiles.map(function(id){ return crits.map(function(c, k){ return c.mset[id] ? k : -1; }).filter(function(k){ return k >= 0; }); });
@@ -366,6 +368,7 @@ function cxGenerate(D, rand, opt){
         var k = cands[q];
         if (chosen.indexOf(k) >= 0) continue;
         if ((fam[k.c.f] || 0) >= (CX_FAMMAX[k.c.f] || 2)) continue;
+        var kind = cxKind(k.c); if (!opt.relax && kind && chosen.some(function(o){ return cxKind(o.c) === kind; })) continue;
         if (chosen.some(function(o){ var n = inter(k, o); return n * 2 > Math.min(k.c.m.length, o.c.m.length) || n > 4; })) continue;
         pick = k;
       }
@@ -373,6 +376,9 @@ function cxGenerate(D, rand, opt){
       chosen.push(pick); fam[pick.c.f] = (fam[pick.c.f] || 0) + 1;
     }
     if (!ok) continue;
+    /* a real mix of difficulty: at least one easy, one medium, one hard group, at most one expert */
+    var nd = [0, 0, 0, 0, 0]; chosen.forEach(function(k){ nd[k.c.d]++; });
+    if (!opt.relax && (!nd[1] || !nd[2] || !(nd[3] + nd[4]) || nd[4] > 1)) continue;
     /* champions shown: never a debatable one (x) of any criterion of the grid */
     function allowed(id){ return !chosen.some(function(k){ return k.xset[id]; }); }
     var used = {}, groups = [], herrings = 0, maxH = opt.maxHerrings == null ? 2 : opt.maxHerrings;
@@ -397,7 +403,7 @@ function cxGenerate(D, rand, opt){
     if (opt.mix) {   /* at least 10 of each game, and a group where they meet */
       var ns = tiles.filter(function(id){ return id.indexOf("s-") === 0; }).length;
       if (ns < 10 || ns > 25) continue;
-      if (!groups.some(function(gr){ var s = gr.ids.filter(function(id){ return id.indexOf("s-") === 0; }).length; return s && s < CX_K; })) continue;
+      if (groups.filter(function(gr){ var s = gr.ids.filter(function(id){ return id.indexOf("s-") === 0; }).length; return s && s < CX_K; }).length < (opt.relax ? 1 : 2)) continue;   /* at least two groups mixing both games */
     }
     if (cxCountSolutions(tiles, chosen, 2) !== 1) continue;
     /* colours: easiest first (difficulty, then the bigger the family the easier) */
@@ -441,6 +447,7 @@ function build(seedStr, uni){
   var opt = {pool: POOLS[uni], mix: uni === "mix"};
   var r = cxGenerate(D, cxRng(cxHash(seedStr)), opt);
   if (!r) r = cxGenerate(D, cxRng(cxHash(seedStr + "+")), opt);
+  if (!r) { opt.relax = true; r = cxGenerate(D, cxRng(cxHash(seedStr)), opt); }   /* never stuck: the variety rules give way first */
   var gOf = {};
   r.groups.forEach(function(g, i){ g.ids.forEach(function(id){ gOf[id] = i; }); });
   return {groups: r.groups, tiles: r.tiles, gOf: gOf};
