@@ -364,12 +364,16 @@ dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
 var CX_N = 7, CX_K = 5;
 var CX_FAMMAX = {ult:1, annee:1, titre:1, ressource:1, element:1, role:1, stat:1, groupe:2, worlds:2, region:2, nom:2, espece:2, arme:2, look:2, lore:2, kit:3, sserie:2, sjeu:1, slore:1, skit:1, lettre:1};
 /* difficulty settings: the mixes of group difficulties (1 easy … 4 expert), the number of experts and of red herrings allowed */
+/* opt.diff: -1 Très facile, 0 Facile, 1 Normal, 2 Difficile, 3 Expert (index = diff + 1).
+   hard: the grid must hold at least one hard group; max4: expert groups allowed; herrings: traps (tiles fitting two themes) */
 var CX_DIFFS = [
-  {pat: [[1,1,1,2,2,2,3],[1,1,2,2,2,3,3],[1,1,1,1,2,2,3],[1,1,1,2,2,3,3]], max4: 0, herrings: 0},   /* Facile */
-  {pat: [[1,1,1,2,2,2,3],[1,1,2,2,2,3,3],[1,1,1,2,2,3,4],[1,1,2,2,2,3,4],[1,1,2,2,3,3,4]], max4: 1, herrings: 1},   /* Normal */
-  {pat: [[1,2,2,3,3,3,4],[1,1,2,3,3,4,4],[1,2,2,3,3,4,4],[1,2,2,2,3,3,4],[1,1,2,3,3,3,4]], max4: 2, herrings: 2}   /* Difficile */
+  {pat: [[1,1,1,1,2,2,2],[1,1,1,2,2,2,2],[1,1,2,2,2,2,2]], max4: 0, herrings: 0, hard: false, maxHard: 1},   /* Très facile: simple themes (at most one hard one, when the universe leaves no choice) */
+  {pat: [[1,1,1,2,2,2,3],[1,1,2,2,2,3,3],[1,1,1,1,2,2,3],[1,1,1,2,2,3,3]], max4: 0, herrings: 0, hard: true},   /* Facile */
+  {pat: [[1,1,1,2,2,2,3],[1,1,2,2,2,3,3],[1,1,1,2,2,3,4],[1,1,2,2,2,3,4],[1,1,2,2,3,3,4]], max4: 1, herrings: 1, hard: true},   /* Normal */
+  {pat: [[1,2,2,3,3,3,4],[1,1,2,3,3,4,4],[1,2,2,3,3,4,4],[1,2,2,2,3,3,4],[1,1,2,3,3,3,4]], max4: 2, herrings: 2, hard: true},   /* Difficile */
+  {pat: [[1,2,3,3,4,4,4],[2,2,3,3,4,4,4],[1,2,3,3,3,4,4],[2,3,3,3,4,4,4]], max4: 3, herrings: 3, hard: true}   /* Expert */
 ];
-var CX_PATTERNS = CX_DIFFS[1].pat;
+function cxDiff(d){ return CX_DIFFS[(d == null ? 1 : d) + 1] || CX_DIFFS[2]; }
 /* kinds of criteria limited to one per grid: names (letters, length…) and dates (release years, Worlds years, Smash game of arrival) */
 function cxKind(c){ return c.f === "nom" || c.f === "lettre" ? "nom" : (c.f === "annee" || c.f === "sjeu" || /^w\d{4}$/.test(c.id)) ? "date" : ""; }
 function cxShuffle(a, rand){ for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rand() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -400,7 +404,7 @@ function cxGenerate(D, rand, opt){
   var byD = {1: [], 2: [], 3: [], 4: []}; crit.forEach(function(k){ byD[k.c.d].push(k); });
   function inter(a, b){ var n = 0; a.c.m.forEach(function(id){ if (b.mset[id]) n++; }); return n; }
   for (var attempt = 0; attempt < 3000; attempt++) {
-    var DF = CX_DIFFS[opt.diff == null ? 1 : opt.diff] || CX_DIFFS[1];
+    var DF = cxDiff(opt.diff);
     var pattern = DF.pat[Math.floor(rand() * DF.pat.length)].slice();
     var chosen = [], fam = {}, ok = true, maxH = opt.maxHerrings == null ? DF.herrings : opt.maxHerrings;
     /* how many tiles the themes would have to share: each theme needs 5 tiles that fit no other theme of the grid, the traps aside */
@@ -431,9 +435,9 @@ function cxGenerate(D, rand, opt){
       chosen.push(pick); fam[pick.c.f] = (fam[pick.c.f] || 0) + 1;
     }
     if (!ok) continue;
-    /* a real mix of difficulty: at least one easy, one medium, one hard group, at most one expert */
+    /* a real mix of difficulty: at least one easy, one medium and (but in Très facile) one hard group; experts capped */
     var nd = [0, 0, 0, 0, 0]; chosen.forEach(function(k){ nd[k.c.d]++; });
-    if (!opt.relax && (!nd[1] || !nd[2] || !(nd[3] + nd[4]) || nd[4] > DF.max4)) continue;
+    if (!opt.relax && (!nd[1] || !nd[2] || (DF.hard && !(nd[3] + nd[4])) || nd[3] + nd[4] > (DF.maxHard == null ? 7 : DF.maxHard) || nd[4] > DF.max4)) continue;
     /* champions shown: never a debatable one (x) of any criterion of the grid */
     function allowed(id){ return !chosen.some(function(k){ return k.xset[id]; }); }
     var used = {}, groups = [], herrings = 0;
@@ -488,18 +492,18 @@ function icon(id){ return id.slice(0, 2) === "s-" ? "https://ssb.wiki.gallery/im
 function img(id){ return '<img' + (id.slice(0, 2) === "s-" ? ' class="si"' : "") + ' src="' + icon(id) + '" alt="" loading="lazy" decoding="async" onerror="this.outerHTML=\'<i class=&quot;ph&quot;>' + esc(NAMES[id].charAt(0)) + '</i>\'">'; }
 
 /* ---------- settings (the "Réglages" window) ----------
-   u: universe "lol" | "smash" | "mix"; diff: 0 easy, 1 normal, 2 hard; err: errors allowed in solo (0 = no limit);
+   u: universe "lol" | "smash" | "mix"; diff: -1 very easy, 0 easy, 1 normal, 2 hard, 3 expert; err: errors allowed in solo (0 = no limit);
    hx: a hint every hx failed attempts (0 = no hints); vm: 1v1 "race" (each on his own board) | "shared" (one board for both);
    T: seconds per turn in a match (0 = no limit); titles: show the titles */
 var UNI_NAME = {lol: "LoL", smash: "Smash", mix: "Mix LoL × Smash"};
-var DIFF_NAME = ["Facile", "Normal", "Difficile"];
+var DIFF_NAME = {"-1": "Très facile", 0: "Facile", 1: "Normal", 2: "Difficile", 3: "Expert"};
 var VM_NAME = {race: "chacun sa grille", shared: "grille commune"};
 var cfg = (function(){
   var c = ls("cx.cfg") || {};
   if (c.u == null) c.u = ls("cx.uni") || "mix";            /* older settings */
   if (c.titles == null) c.titles = ls("cx.titles") ? 1 : 0;
   if (!UNI_NAME[c.u]) c.u = "mix";
-  if ([0, 1, 2].indexOf(c.diff) < 0) c.diff = 1;
+  if ([-1, 0, 1, 2, 3].indexOf(c.diff) < 0) c.diff = 1;
   if ([0, 3, 5, 7].indexOf(c.err) < 0) c.err = 5;
   if ([0, 2, 3, 4, 5].indexOf(c.hx) < 0) c.hx = c.hints === 0 ? 0 : 3;
   if ([0, 30, 60, 90].indexOf(c.T) < 0) c.T = 60;
@@ -551,7 +555,7 @@ function load(){
   try { Object.keys(localStorage).forEach(function(k){ if (/^cx\.day\./.test(k)) localStorage.removeItem(k); }); } catch(e){}   /* the daily grid is gone */
   render();
 }
-var CX_GEN = 2;   /* generator version: 2 = traps capped (Facile 0, Normal 1, Difficile 2) */
+var CX_GEN = 2;   /* generator version: 2 = traps capped (Très facile/Facile 0, Normal 1, Difficile 2, Expert 3) */
 function newState(){ return {gv: CX_GEN, seed: "libre-" + cfg.u + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uni: cfg.u, diff: cfg.diff, me: cfg.err, hx: cfg.hx, order: null, solved: [], guesses: [], err: 0, done: false, hint: [], hstep: 0}; }
 
 /* ---------- hints: every X failed attempts, a hint on the easiest group not found yet ----------
@@ -728,7 +732,7 @@ function showStats(){
 function showHelp(){
   dlg.innerHTML = '<h2>Comment jouer</h2><p style="margin-top:0">Les 35 personnages forment <b>7 groupes de 5</b> qui partagent un point commun : région, lore, kit, skins, série, date de sortie, nom…</p><ul>' +
     '<li>Sélectionne 5 personnages puis <b>Valider</b>. Un groupe juste se range en haut, avec sa couleur, du jaune (le plus facile) au marron (le plus dur).</li>' +
-    '<li>Pièges : en Normal, un personnage de la grille colle à deux thèmes (deux en Difficile, aucun en Facile). Il n’existe qu’une seule répartition qui marche.</li>' +
+    '<li>Pièges : en Normal, un personnage de la grille colle à deux thèmes (deux en Difficile, trois en Expert, aucun en Facile et Très facile). Il n’existe qu’une seule répartition qui marche.</li>' +
     '<li>« Presque ! » veut dire que 4 des 5 personnages vont ensemble.</li>' +
     '<li><b>Indices</b> : toutes les X erreurs (réglable), un indice tombe sur le groupe le plus simple qu’il te reste. Le 1er donne son thème, les suivants révèlent ses personnages un par un tant qu’il n’est pas trouvé, puis on passe au groupe le plus simple suivant.</li>' +
     '<li><b>Réglages</b> : univers (LoL, Smash ou Mix des deux), difficulté, erreurs autorisées en solo, fréquence des indices, type de match et temps par tour.</li>' +
@@ -742,7 +746,7 @@ function openCfg(){
   var solo = mode !== "vs";
   dlg.innerHTML = '<form method="dialog" class="cfg"><div class="ph"><div class="pc">Réglages</div><button type="button" class="x" data-close aria-label="Fermer">✕</button></div>' +
     '<div class="f"><span class="lb">Univers</span>' + chips("u", [["lol", "LoL"], ["smash", "Smash"], ["mix", "Mix LoL × Smash"]], cfg.u) + '<small>Champions de LoL, combattants de Smash Bros. Ultimate, ou les deux mélangés avec des critères communs.</small></div>' +
-    '<div class="f"><span class="lb">Difficulté</span>' + chips("df", [[0, "Facile"], [1, "Normal"], [2, "Difficile"]], cfg.diff) + '<small>Toujours un mélange de groupes faciles et durs. Facile : aucun critère expert et aucun piège. Normal : un seul personnage piège. Difficile : critères plus pointus, deux pièges au maximum.</small></div>' +
+    '<div class="f"><span class="lb">Difficulté</span>' + chips("df", [[-1, "Très facile"], [0, "Facile"], [1, "Normal"], [2, "Difficile"], [3, "Expert"]], cfg.diff) + '<small>Très facile : des thèmes simples (un dur au plus en Smash), aucun piège. Facile : un ou deux thèmes durs, aucun piège. Normal : un personnage piège. Difficile : thèmes plus pointus, deux pièges. Expert : surtout des thèmes pointus, trois pièges.</small></div>' +
     '<div class="f"><span class="lb">Erreurs autorisées (solo)</span>' + chips("er", [[3, "3"], [5, "5"], [7, "7"], [0, "Illimitées"]], cfg.err) + '<small>En match, il n’y a pas de limite.</small></div>' +
     '<div class="f"><span class="lb">Un indice toutes les X erreurs</span>' + chips("hx", [[2, "2"], [3, "3"], [4, "4"], [5, "5"], [0, "Aucun indice"]], cfg.hx) + '<small>Un indice tombe sur le groupe le plus simple qu’il te reste : d’abord son thème, puis ses personnages un par un tant qu’il n’est pas trouvé. Ensuite, on passe au groupe le plus simple suivant.</small></div>' +
     '<div class="f"><span class="lb">Affichage</span><div class="chips"><label><input type="checkbox" id="c-titles"' + (cfg.titles ? " checked" : "") + '>Afficher les titres</label></div><small>Titre officiel des champions, série des combattants Smash.</small></div>' +
