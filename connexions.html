@@ -193,6 +193,7 @@ dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
     <button type="button" class="btn" id="b-vs">Match</button>
     <button type="button" class="btn" id="b-cfg">Réglages</button>
     <button type="button" class="btn primary" id="b-new">Nouvelle grille</button>
+    <button type="button" class="btn icon" id="snd" title="Couper les sons" aria-label="Sons">🔊</button>
     <button type="button" class="btn icon" id="b-stats" title="Statistiques" aria-label="Statistiques">▥</button>
     <button type="button" class="btn icon" id="b-help" title="Règles" aria-label="Règles">?</button>
   </header>
@@ -864,7 +865,8 @@ function vsEnter(code){
     var c = document.getElementById("vs-clock"); if (c) c.textContent = vsTime(d);
     var t2 = document.getElementById("vs-turn2"); if (t2) t2.innerHTML = vsTurnHTML(d);
     var tl = document.getElementById("vs-turn"); if (tl) { tl.innerHTML = vsTurnHTML(d); tl.className = "turn" + (vsMyTurn() && !vsLock() && !vsOutcome(d).over ? " me" : ""); }
-    if (S && S.lock) { renderSel(); if (!vsLock()) S.lock = 0; }
+    if (S && S.lock) { renderSel(); if (!vsLock()) { S.lock = 0; save(); SFX.ready(); } }
+    vsTurnSound(d);
     vsTimeout();
   }, 250);
   render();
@@ -911,6 +913,52 @@ function vsSync(){
   save();
 }
 /* whose turn */
+/* ---------- sounds (the Grille's synth): your turn, last seconds of your turn, end of the block after a miss ---------- */
+var SND = {on: ls("cx.snd") !== 0}, ACX = null, MST = null, BUS = null;
+function actx(){
+  ACX = ACX || new (window.AudioContext || window.webkitAudioContext)();
+  if (ACX.state === "suspended") ACX.resume();
+  if (!BUS) {
+    MST = ACX.createGain(); MST.gain.value = 0.55; MST.connect(ACX.destination);
+    BUS = ACX.createGain(); BUS.connect(MST);
+    var dl = ACX.createDelay(0.5), fb = ACX.createGain(), wet = ACX.createGain(), lp = ACX.createBiquadFilter();
+    dl.delayTime.value = 0.13; fb.gain.value = 0.28; wet.gain.value = 0.32; lp.type = "lowpass"; lp.frequency.value = 3200;
+    BUS.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(wet); wet.connect(MST);
+  }
+  return ACX;
+}
+function synth(notes){
+  if (!SND.on) return;
+  try { var A = actx(), t0 = A.currentTime + 0.01;
+    notes.forEach(function(n){
+      var g = A.createGain(), lp = A.createBiquadFilter(), st = t0 + n.t, en = st + n.d;
+      lp.type = "lowpass"; lp.Q.value = 6; lp.frequency.setValueAtTime(n.cut || 4000, st); lp.frequency.exponentialRampToValueAtTime(n.cut2 || 900, en);
+      g.gain.setValueAtTime(0.0001, st); g.gain.exponentialRampToValueAtTime(n.v || 0.05, st + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, en);
+      [-7, 7].forEach(function(dt){
+        var o = A.createOscillator(); o.type = n.w || "sawtooth"; o.detune.value = dt;
+        o.frequency.setValueAtTime(n.f, st); if (n.f2) o.frequency.exponentialRampToValueAtTime(n.f2, en);
+        o.connect(lp); o.start(st); o.stop(en + 0.03);
+      });
+      lp.connect(g); g.connect(n.dry ? MST : BUS);
+    });
+  } catch(e){}
+}
+var SFX = {
+  turn: function(){ synth([{f: 880, t: 0, d: 0.07, w: "square", v: 0.028, cut: 5000, cut2: 2500}, {f: 1760, t: 0.09, d: 0.12, w: "square", v: 0.028, cut: 6000, cut2: 2000}]); },   /* your turn (same as the Grille) */
+  tick: function(){ synth([{f: 2200, t: 0, d: 0.03, w: "square", v: 0.012, cut: 8000, cut2: 4000, dry: 1}]); },   /* last 5 seconds of your turn */
+  ready: function(){ synth([{f: 1319, t: 0, d: 0.09, v: 0.03, cut: 6000, cut2: 2000}]); }   /* the block after a miss is over */
+};
+Object.keys(SFX).forEach(function(k){ var f = SFX[k]; SFX[k] = function(){ (window.__cxSnd = window.__cxSnd || []).push(k); f(); }; });   /* log for the tests */
+function sndBtn(){ var b = $("#snd"); if (!b) return; b.textContent = SND.on ? "🔊" : "🔇"; b.title = SND.on ? "Couper les sons" : "Activer les sons"; }
+["pointerdown", "keydown"].forEach(function(ev){ document.addEventListener(ev, function warm(){ if (SND.on) try { actx(); } catch(e){} document.removeEventListener(ev, warm, true); }, true); });
+/* the "your turn" sound: once per turn (turn number), when the game has started */
+function vsTurnSound(d){
+  if (!VS || !d || d.st !== "play" || !vsTurns(d) || Date.now() < (d.start || 0) || vsOutcome(d).over) return;
+  if (d.turn === TOK() && VS.sndTn !== d.tn) { VS.sndTn = d.tn; SFX.turn(); }
+  else if (d.turn !== TOK()) VS.sndTn = null;
+  var left = vsLeft(d);
+  if (d.turn === TOK() && left != null && left <= 5 && left > 0 && VS.tickAt !== d.tn + ":" + left) { VS.tickAt = d.tn + ":" + left; SFX.tick(); }
+}
 /* turns only on a shared board; in a race both play at the same time, a miss blocks for VS_LOCK seconds */
 var VS_LOCK = 10;
 function vsTurns(d){ return vsShared(d); }
@@ -1107,6 +1155,8 @@ $("#b-cfg").onclick = openCfg;
 $("#b-new").onclick = newFree;
 $("#giveup").onclick = giveUp;
 $("#b-stats").onclick = showStats;
+$("#snd").onclick = function(){ SND.on = !SND.on; ls("cx.snd", SND.on ? 1 : 0); sndBtn(); if (SND.on) SFX.turn(); };
+sndBtn();
 $("#b-help").onclick = showHelp;
 document.addEventListener("keydown", function(e){ if (e.key === "Enter" && !dlg.open && sel.length === 5 && !(e.target.closest && e.target.closest(".tile, input"))) submit(); });
 if (!ls("cx.seen")) { ls("cx.seen", 1); setTimeout(showHelp, 300); }
