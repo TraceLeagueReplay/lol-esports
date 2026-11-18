@@ -732,7 +732,7 @@ function openCfg(){
     '<div class="f"><span class="lb">Un indice toutes les X erreurs</span>' + chips("hx", [[2, "2"], [3, "3"], [4, "4"], [5, "5"], [0, "Aucun indice"]], cfg.hx) + '<small>Un indice tombe sur le groupe le plus simple qu’il te reste : d’abord son thème, puis ses personnages un par un tant qu’il n’est pas trouvé. Ensuite, on passe au groupe le plus simple suivant.</small></div>' +
     '<div class="f"><span class="lb">Affichage</span><div class="chips"><label><input type="checkbox" id="c-titles"' + (cfg.titles ? " checked" : "") + '>Afficher les titres</label></div><small>Titre officiel des champions, série des combattants Smash.</small></div>' +
 
-    '<div class="ft"><button type="button" class="btn" data-close>Annuler</button><button type="submit" class="btn primary">' + (solo ? "Nouvelle grille" : "Enregistrer") + '</button></div></form>';
+    '<div class="ft"><button type="button" class="btn" data-close>Annuler</button><button type="submit" class="btn' + (solo ? "" : " primary") + '" data-keep="1" title="Garde la grille en cours">Valider</button>' + (solo ? '<button type="submit" class="btn primary">Nouvelle grille</button>' : "") + '</div></form>';
   dlg.showModal();
   dlg.querySelectorAll("[data-close]").forEach(function(b){ b.onclick = function(){ dlg.close(); }; });
   dlg.querySelector("form").onsubmit = function(e){
@@ -741,7 +741,17 @@ function openCfg(){
     cfg.u = v("u") || cfg.u; cfg.diff = +v("df"); cfg.err = +v("er"); cfg.hx = +v("hx");
     cfg.titles = $("#c-titles").checked ? 1 : 0;
     saveCfg(); dlg.close();
-    if (solo) newFree(); else render();
+    var keep = !solo || (e.submitter && e.submitter.getAttribute("data-keep"));
+    if (!keep) { newFree(); return; }
+    /* "Valider": the grid in progress stays; titles and hints apply now, the errors too if that does not end the game; universe and difficulty make the next grid */
+    if (solo && S && !S.done) {
+      S.hx = cfg.hx; hintCatchUp();
+      if (!cfg.err || cfg.err > S.err) S.me = cfg.err;
+      save();
+      if (S.uni !== cfg.u || S.diff !== cfg.diff) toast("Réglages enregistrés : univers et difficulté pour la prochaine grille.");
+      else toast("Réglages enregistrés.");
+    } else toast(solo ? "Réglages enregistrés : ils serviront pour la prochaine grille." : "Réglages enregistrés : ils serviront pour le prochain match.");
+    render();
   };
 }
 function setMode(m){ mode = m; ls("cx.mode", m); if (VS) VS.pseed = null; P = null; S = null; sel = []; load(); window.scrollTo(0, 0); }

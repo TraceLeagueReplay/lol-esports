@@ -1324,7 +1324,7 @@ function openCfg(){
     '<div class="f"><label class="lb" for="c-sp">Critères autres que des équipes : <b id="c-spv">'+c.special+'</b></label><input id="c-sp" type="range" min="0" max="8" value="'+c.special+'"></div>' +
     '<div class="f"><span class="lb">Bonus (solo)</span><div class="chips"><label><input type="checkbox" id="c-mys"'+(c.mys ? " checked" : "")+'>Joueur mystère : une case à deviner</label><label title="Une ligne ou une colonne affiche « ? » : son critère se révèle à la 1re bonne réponse placée dedans"><input type="checkbox" id="c-hid"'+(c.hid ? " checked" : "")+'>Critère caché</label></div></div>' +
     '<div class="f"><span class="lb">Types de critères</span><div class="chips">' + FAMS.map(function(f){ return '<label><input type="checkbox" name="fam" value="'+f[0]+'"'+(c.fam[f[0]] ? " checked" : "")+'>'+f[1]+'</label>'; }).join("") + '</div></div>' +
-    '<div class="ft"><button type="button" class="btn" data-close>Annuler</button><button type="submit" class="btn primary">Nouvelle grille</button></div></form>';
+    '<div class="ft"><button type="button" class="btn" data-close>Annuler</button><button type="submit" class="btn" data-keep="1" title="Garde la grille en cours : les réglages serviront pour la prochaine">Valider</button><button type="submit" class="btn primary">Nouvelle grille</button></div></form>';
   dlg.showModal();
   $("#c-sp").oninput = function(){ $("#c-spv").textContent = this.value; };
   dlg.querySelector("form").onsubmit = function(e){
@@ -1334,7 +1334,10 @@ function openCfg(){
     cfg.leagues = lgs; cfg.mix = +dlg.querySelector('[name=mx]:checked').value; cfg.from = +$("#c-from").value; cfg.diff = +dlg.querySelector('[name=df]:checked').value;
     cfg.size = +dlg.querySelector('[name=sz]:checked').value; cfg.special = +$("#c-sp").value; cfg.mys = $("#c-mys").checked ? 1 : 0; cfg.hid = $("#c-hid").checked ? 1 : 0;
     var fam = {}; FAMS.forEach(function(f){ fam[f[0]] = 0; }); dlg.querySelectorAll('[name=fam]:checked').forEach(function(x){ fam[x.value] = 1; }); cfg.fam = fam;
-    ls("grille.cfg", cfg); dlg.close(); startNew();
+    ls("grille.cfg", cfg); dlg.close();
+    /* "Valider": keep the grid in progress, the settings make the next one; "Nouvelle grille": a new grid right away */
+    if (e.submitter && e.submitter.getAttribute("data-keep")) toast("Réglages enregistrés : ils serviront pour la prochaine grille.");
+    else startNew();
   };
 }
 
