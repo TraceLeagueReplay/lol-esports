@@ -1,0 +1,496 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connexions LoL</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Saira+Condensed:wght@600;700&display=swap"><style>:root{
+  --bg:#eef0f4; --panel:#ffffff; --panel-2:#f6f7fa; --line:#d9dde6; --line-2:#c5cbd8;
+  --fg:#141a26; --muted:#5d6678; --faint:#8a92a3;
+  --accent:#9a6f22; --accent-ink:#ffffff; --accent-soft:#f3e9d4;
+  --ok:#2f8f4e; --bad:#c43b3b;
+  --sel:#3a4458; --sel-ink:#ffffff;
+  --shadow:0 10px 30px rgba(20,26,38,.16);
+  --f-display:"Saira Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --g0:#f2c94c; --g1:#f2994a; --g2:#6fcf97; --g3:#5aa5f0; --g4:#eb7272; --g5:#a986ea; --g6:#c09474; --g-ink:#141a26;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1018; --panel:#141a25; --panel-2:#192130; --line:#243045; --line-2:#33415a;
+  --fg:#e8ebf2; --muted:#9aa4b7; --faint:#6b7589;
+  --accent:#c8aa6e; --accent-ink:#141a25; --accent-soft:#2b2618;
+  --ok:#4cc271; --bad:#ef6b62; --sel:#c8aa6e; --sel-ink:#141a25;
+  --shadow:0 12px 34px rgba(0,0,0,.5); color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0c1018; --panel:#141a25; --panel-2:#192130; --line:#243045; --line-2:#33415a;
+  --fg:#e8ebf2; --muted:#9aa4b7; --faint:#6b7589;
+  --accent:#c8aa6e; --accent-ink:#141a25; --accent-soft:#2b2618;
+  --ok:#4cc271; --bad:#ef6b62; --sel:#c8aa6e; --sel-ink:#141a25;
+  --shadow:0 12px 34px rgba(0,0,0,.5); color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.4}
+button{font:inherit;color:inherit}
+.wrap{max-width:1100px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{display:flex;align-items:flex-end;gap:10px;margin-bottom:14px}
+header.top>div:first-child{min-width:0}
+header.top h1{margin:0;font-family:var(--f-display);font-size:34px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
+header.top h1 span{color:var(--accent)}
+header.top .sub{color:var(--muted);font-size:13.5px}
+header.top .sp{flex:1}
+.btn{border:1px solid var(--line-2);background:var(--panel);border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--fg)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.icon{width:38px;height:38px;padding:0;display:grid;place-items:center;font-weight:700}
+.modes{display:inline-flex;border:1px solid var(--line-2);border-radius:9px;overflow:hidden;background:var(--panel)}
+.modes button{border:0;background:none;padding:8px 13px;font-weight:600;cursor:pointer;color:var(--muted)}
+.modes button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;color:var(--muted);font-size:13.5px}
+.bar .sp{flex:1}
+.bar b{color:var(--fg)}
+.toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.toggle input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+
+/* solved groups */
+#solved{display:grid;gap:8px;margin-bottom:8px}
+.grp{border-radius:12px;padding:10px 14px;color:var(--g-ink);display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
+.grp.new{animation:pop .35s ease-out}
+.grp .gt{flex:1 1 220px;min-width:0}
+.grp .gt b{display:block;font-family:var(--f-display);font-size:19px;letter-spacing:.02em;text-transform:uppercase;line-height:1.1}
+.grp .gt small{display:block;font-size:12.5px;font-weight:600;opacity:.78}
+.grp .gm{display:flex;gap:8px;flex-wrap:wrap}
+.grp .gm span{display:flex;flex-direction:column;align-items:center;width:62px;font-size:11.5px;font-weight:600;text-align:center;line-height:1.15}
+.grp .gm img,.grp .gm i{width:40px;height:40px;border-radius:8px;margin-bottom:3px;background:rgba(0,0,0,.12);display:block}
+.grp.missed{outline:3px dashed rgba(0,0,0,.28);outline-offset:-3px}
+@keyframes pop{from{transform:scale(.97);opacity:.4}to{transform:none;opacity:1}}
+
+/* board */
+#board{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.tile{position:relative;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:10px 6px 9px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;min-width:0;transition:transform .12s ease,background .12s ease,border-color .12s ease;-webkit-tap-highlight-color:transparent}
+.tile:hover{border-color:var(--line-2);transform:translateY(-1px)}
+.tile img,.tile .ph{width:64px;height:64px;border-radius:10px;display:block;background:var(--panel-2);object-fit:cover}
+.tile .ph{display:grid;place-items:center;font-family:var(--f-display);font-size:24px;color:var(--faint)}
+.tile .nm{font-weight:700;font-size:14px;line-height:1.15;text-align:center;max-width:100%;overflow-wrap:anywhere;hyphens:auto}
+.tile .ti{font-size:11.5px;line-height:1.15;color:var(--muted);text-align:center;display:none}
+body.titles .tile .ti{display:block}
+.tile[aria-pressed="true"]{background:var(--sel);border-color:var(--sel);color:var(--sel-ink)}
+.tile[aria-pressed="true"] .ti{color:inherit;opacity:.8}
+.tile.shake{animation:shake .4s}
+@keyframes shake{0%,100%{transform:none}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+
+.foot{display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:16px}
+.lives{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:14px}
+.lives i{width:12px;height:12px;border-radius:50%;background:var(--fg);display:inline-block;transition:opacity .2s, transform .2s}
+.lives i.off{opacity:.18;transform:scale(.8)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.actions .btn{border-radius:999px;padding:10px 18px}
+#count{font-variant-numeric:tabular-nums}
+.end{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:16px 18px;margin-top:16px;text-align:center;box-shadow:var(--shadow)}
+.end h2{margin:0 0 4px;font-family:var(--f-display);font-size:26px;text-transform:uppercase;letter-spacing:.02em}
+.end p{margin:0 0 12px;color:var(--muted)}
+.end .rows{font-size:20px;line-height:1.25;margin:0 0 12px;letter-spacing:2px}
+.end .actions{margin-top:4px}
+
+.toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:999px;font-weight:600;box-shadow:var(--shadow);z-index:20;pointer-events:none}
+dialog{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:14px;box-shadow:var(--shadow);max-width:min(560px,92vw);padding:18px 20px}
+dialog::backdrop{background:rgba(10,14,22,.45)}
+dialog h2{margin:0 0 10px;font-family:var(--f-display);font-size:24px;text-transform:uppercase}
+dialog p,dialog li{color:var(--muted)}
+dialog ul{padding-left:20px}
+dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;margin:6px 0 14px}
+.stats b{display:block;font-family:var(--f-display);font-size:30px;line-height:1;color:var(--fg)}
+.stats small{color:var(--muted);font-size:12px}
+.dist{display:grid;gap:4px}
+.dist div{display:flex;align-items:center;gap:8px;font-size:13px}
+.dist span{width:74px;color:var(--muted)}
+.dist em{font-style:normal;background:var(--line-2);color:var(--fg);border-radius:4px;padding:1px 6px;min-width:22px;text-align:right;font-weight:700}
+.dist em.me{background:var(--accent);color:var(--accent-ink)}
+
+@media (max-width:760px){
+  #board{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+  .tile{padding:7px 3px 6px;border-radius:10px;gap:4px}
+  .tile img,.tile .ph{width:44px;height:44px;border-radius:8px}
+  .tile .nm{font-size:11.5px}
+  .tile .ti{font-size:10px}
+  header.top h1{font-size:28px}
+  .grp{padding:8px 10px}
+  .grp .gm span{width:52px;font-size:10.5px}
+  .grp .gm img,.grp .gm i{width:34px;height:34px}
+}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+<div class="wrap">
+  <header class="top">
+    <div><h1>Conne<span>x</span>ions</h1><div class="sub">Trouve les 7 groupes de 5 champions qui ont un point commun.</div></div>
+    <span class="sp"></span>
+    <button type="button" class="btn icon" id="b-stats" title="Statistiques" aria-label="Statistiques">▥</button>
+    <button type="button" class="btn icon" id="b-help" title="Règles" aria-label="Règles">?</button>
+  </header>
+  <div class="bar"><div class="modes" role="group" aria-label="Mode"><button type="button" id="m-day" aria-pressed="true">Grille du jour</button><button type="button" id="m-free" aria-pressed="false">Partie libre</button></div><span id="label"></span><span class="sp"></span><label class="toggle" title="Affiche le titre officiel de chaque champion (utile pour certains groupes)"><input type="checkbox" id="t-titles"> Afficher les titres</label></div>
+  <div id="solved"></div>
+  <div id="board" role="group" aria-label="Champions"></div>
+  <div class="foot" id="foot">
+    <div class="lives" id="lives"></div>
+    <div class="actions">
+      <button type="button" class="btn" id="b-shuffle">Mélanger</button>
+      <button type="button" class="btn" id="b-clear" disabled>Tout désélectionner</button>
+      <button type="button" class="btn primary" id="b-submit" disabled>Valider <span id="count">0/5</span></button>
+    </div>
+  </div>
+  <div id="end"></div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+<dialog id="dlg"></dialog>
+<script type="application/json" id="cx-data">{"v":"16.23.1","names":{"Aatrox":"Aatrox","Ahri":"Ahri","Akali":"Akali","Akshan":"Akshan","Alistar":"Alistar","Ambessa":"Ambessa","Amumu":"Amumu","Anivia":"Anivia","Annie":"Annie","Aphelios":"Aphelios","Ashe":"Ashe","AurelionSol":"Aurelion Sol","Aurora":"Aurora","Azir":"Azir","Bard":"Bard","Belveth":"Bel'Veth","Blitzcrank":"Blitzcrank","Brand":"Brand","Braum":"Braum","Briar":"Briar","Caitlyn":"Caitlyn","Camille":"Camille","Cassiopeia":"Cassiopeia","Chogath":"Cho'Gath","Corki":"Corki","Darius":"Darius","Diana":"Diana","Draven":"Draven","DrMundo":"Dr. Mundo","Ekko":"Ekko","Elise":"Elise","Evelynn":"Evelynn","Ezreal":"Ezreal","Fiddlesticks":"Fiddlesticks","Fiora":"Fiora","Fizz":"Fizz","Galio":"Galio","Gangplank":"Gangplank","Garen":"Garen","Gnar":"Gnar","Gragas":"Gragas","Graves":"Graves","Gwen":"Gwen","Hecarim":"Hecarim","Heimerdinger":"Heimerdinger","Hwei":"Hwei","Illaoi":"Illaoi","Irelia":"Irelia","Ivern":"Ivern","Janna":"Janna","JarvanIV":"Jarvan IV","Jax":"Jax","Jayce":"Jayce","Jhin":"Jhin","Jinx":"Jinx","Kaisa":"Kai'Sa","Kalista":"Kalista","Karma":"Karma","Karthus":"Karthus","Kassadin":"Kassadin","Katarina":"Katarina","Kayle":"Kayle","Kayn":"Kayn","Kennen":"Kennen","Khazix":"Kha'Zix","Kindred":"Kindred","Kled":"Kled","KogMaw":"Kog'Maw","KSante":"K'Santé","Leblanc":"LeBlanc","LeeSin":"Lee Sin","Leona":"Leona","Lillia":"Lillia","Lissandra":"Lissandra","Locke":"Locke","Lucian":"Lucian","Lulu":"Lulu","Lux":"Lux","Malphite":"Malphite","Malzahar":"Malzahar","Maokai":"Maokai","MasterYi":"Maître Yi","Mel":"Mel","Milio":"Milio","MissFortune":"Miss Fortune","MonkeyKing":"Wukong","Mordekaiser":"Mordekaiser","Morgana":"Morgana","Naafiri":"Naafiri","Nami":"Nami","Nasus":"Nasus","Nautilus":"Nautilus","Neeko":"Neeko","Nidalee":"Nidalee","Nilah":"Nilah","Nocturne":"Nocturne","Nunu":"Nunu et Willump","Olaf":"Olaf","Orianna":"Orianna","Ornn":"Ornn","Pantheon":"Pantheon","Poppy":"Poppy","Pyke":"Pyke","Qiyana":"Qiyana","Quinn":"Quinn","Rakan":"Rakan","Rammus":"Rammus","RekSai":"Rek'Sai","Rell":"Rell","Renata":"Renata Glasc","Renekton":"Renekton","Rengar":"Rengar","Riven":"Riven","Rumble":"Rumble","Ryze":"Ryze","Samira":"Samira","Sejuani":"Sejuani","Senna":"Senna","Seraphine":"Séraphine","Sett":"Sett","Shaco":"Shaco","Shen":"Shen","Shyvana":"Shyvana","Singed":"Singed","Sion":"Sion","Sivir":"Sivir","Skarner":"Skarner","Smolder":"Smolder","Sona":"Sona","Soraka":"Soraka","Swain":"Swain","Sylas":"Sylas","Syndra":"Syndra","TahmKench":"Tahm Kench","Taliyah":"Taliyah","Talon":"Talon","Taric":"Taric","Teemo":"Teemo","Thresh":"Thresh","Tristana":"Tristana","Trundle":"Trundle","Tryndamere":"Tryndamere","TwistedFate":"Twisted Fate","Twitch":"Twitch","Udyr":"Udyr","Urgot":"Urgot","Varus":"Varus","Vayne":"Vayne","Veigar":"Veigar","Velkoz":"Vel'Koz","Vex":"Vex","Vi":"Vi","Viego":"Viego","Viktor":"Viktor","Vladimir":"Vladimir","Volibear":"Volibear","Warwick":"Warwick","Xayah":"Xayah","Xerath":"Xerath","XinZhao":"Xin Zhao","Yasuo":"Yasuo","Yone":"Yone","Yorick":"Yorick","Yunara":"Yunara","Yuumi":"Yuumi","Zaahen":"Zaahen","Zac":"Zac","Zed":"Zed","Zeri":"Zeri","Ziggs":"Ziggs","Zilean":"Zilean","Zoe":"Zoé","Zyra":"Zyra"},"titles":{"Aatrox":"Épée des Darkin","Ahri":"Renarde à neuf queues","Akali":"Assassine rebelle","Akshan":"Sentinelle rebelle","Alistar":"Minotaure","Ambessa":"Matriarche de guerre","Amumu":"Momie mélancolique","Anivia":"Cryophénix","Annie":"Enfant des ténèbres","Aphelios":"Arme des Lunaris","Ashe":"Archère de givre","AurelionSol":"Forgeur d'étoiles","Aurora":"Sorcière d'entre les mondes","Azir":"Empereur des sables","Bard":"Gardien errant","Belveth":"Impératrice du Néant","Blitzcrank":"Golem de vapeur","Brand":"Vengeur flamboyant","Braum":"Cœur de Freljord","Briar":"Faim insatiable","Caitlyn":"Shérif de Piltover","Camille":"Ombre d'acier","Cassiopeia":"Étreinte du serpent","Chogath":"Terreur noire","Corki":"Artilleur téméraire","Darius":"Main de Noxus","Diana":"Mépris de la lune","Draven":"Glorieux exécuteur","DrMundo":"Dément de Zaun","Ekko":"Fractureur du temps","Elise":"Reine araignée","Evelynn":"Démon sadique","Ezreal":"Explorateur prodigue","Fiddlesticks":"Effroi nocturne","Fiora":"Sublime bretteuse","Fizz":"Filou des mers","Galio":"Colosse","Gangplank":"Fléau des mers","Garen":"Force de Demacia","Gnar":"Chaînon manquant","Gragas":"Agitateur","Graves":"Hors-la-loi","Gwen":"Couturière sacrée","Hecarim":"Ombre de la guerre","Heimerdinger":"Inventeur réputé","Hwei":"Visionnaire","Illaoi":"Prêtresse du kraken","Irelia":"Danseuse des lames","Ivern":"Aîné de la forêt","Janna":"Avatar de l'air","JarvanIV":"Exemple demacien","Jax":"Maître d'armes","Jayce":"Protecteur du futur","Jhin":"Virtuose","Jinx":"Gâchette folle","Kaisa":"Fille du Néant","Kalista":"Lance de la vengeance","Karma":"Sagesse incarnée","Karthus":"Liche","Kassadin":"Chasseur du Néant","Katarina":"Lame sinistre","Kayle":"Vertueuse","Kayn":"Faucheur de l'ombre","Kennen":"Cœur de la tempête","Khazix":"Faucheur du Néant","Kindred":"Chasseurs éternels","Kled":"Cavalier colérique","KogMaw":"Gueule des abysses","KSante":"Fierté de Nazumah","Leblanc":"Manipulatrice","LeeSin":"Moine aveugle","Leona":"Aube radieuse","Lillia":"Fleur timide","Lissandra":"Sorcière de glace","Locke":"Exorciste cendré","Lucian":"Purificateur","Lulu":"Sorcière féérique","Lux":"Dame de lumière","Malphite":"Éclat du monolithe","Malzahar":"Prophète du Néant","Maokai":"Tréant torturé","MasterYi":"Fine lame Wuju","Mel":"Reflet de l'âme","Milio":"Douce flamme","MissFortune":"Chasseuse de primes","MonkeyKing":"Roi des singes","Mordekaiser":"Revenant de fer","Morgana":"Déchue","Naafiri":"La meute de fer","Nami":"Aquamancienne","Nasus":"Gardien des sables","Nautilus":"Titan des profondeurs","Neeko":"Caméléon curieux","Nidalee":"Chasseresse bestiale","Nilah":"Joie incarnée","Nocturne":"Éternel cauchemar","Nunu":"Le Garçon et son yéti","Olaf":"Berzerker","Orianna":"Demoiselle mécanique","Ornn":"Dieu de la forge volcanique","Pantheon":"Lance éternelle","Poppy":"Gardienne du marteau","Pyke":"Éventreur des abysses","Qiyana":"Impératrice des éléments","Quinn":"Ailes de Demacia","Rakan":"Charmeur","Rammus":"Tatou blindé","RekSai":"Traqueuse du Néant","Rell":"Cavalière de fer","Renata":"Baronne de la chimie","Renekton":"Dévoreur des sables","Rengar":"Fier traqueur","Riven":"Exilée brisée","Rumble":"Menace mécanisée","Ryze":"Mage runique","Samira":"Rose du désert","Sejuani":"Fureur du nord","Senna":"Rédemptrice","Seraphine":"Chanteuse rêveuse","Sett":"Patron","Shaco":"Bouffon des ténèbres","Shen":"Œil du crépuscule","Shyvana":"Demi-dragon","Singed":"Chimiste fou","Sion":"Colosse mort-vivant","Sivir":"Mercenaire du désert","Skarner":"Souverain originel","Smolder":"Dragonnet flamboyant","Sona":"Virtuose de la harpe","Soraka":"Enfant des étoiles","Swain":"Grand général noxien","Sylas":"Révolutionnaire déchaîné","Syndra":"Souveraine obscure","TahmKench":"Roi des rivières","Taliyah":"Tisseuse de pierres","Talon":"Lame des ténèbres","Taric":"Bouclier de Valoran","Teemo":"Éclaireur de Bandle","Thresh":"Garde aux chaînes","Tristana":"Canonnière yordle","Trundle":"Roi des trolls","Tryndamere":"Roi barbare","TwistedFate":"Maître des cartes","Twitch":"Semeur de peste","Udyr":"Gardien des esprits","Urgot":"Broyeur","Varus":"Flèche de la vengeance","Vayne":"Chasseresse nocturne","Veigar":"Seigneur des maléfices","Velkoz":"Œil du Néant","Vex":"Ombre du désespoir","Vi":"Pacifieuse de Piltover","Viego":"Roi déchu","Viktor":"Héraut de l'arcane","Vladimir":"Saigneur pourpre","Volibear":"Tempête impitoyable","Warwick":"Fureur déchaînée de Zaun","Xayah":"Rebelle","Xerath":"Mage suprême","XinZhao":"Sénéchal de Demacia","Yasuo":"Disgracié","Yone":"Inoublié","Yorick":"Berger des âmes","Yunara":"Foi inébranlable","Yuumi":"Gardienne du Grimoire","Zaahen":"Incorruptible","Zac":"Arme secrète","Zed":"Maître des ombres","Zeri":"Étincelle de Zaun","Ziggs":"Expert des Hexplosifs","Zilean":"Gardien du Temps","Zoe":"Manifestation du Crépuscule","Zyra":"Dame aux ronces"},"crit":[
+  {"id":"demacia","f":"region","d":1,"t":"Viennent de Demacia","m":["Fiora","Galio","Garen","JarvanIV","Kayle","Locke","Lucian","Lux","Morgana","Poppy","Quinn","Shyvana","Sona","Sylas","Vayne","XinZhao"],"x":["Taric","Senna","Zaahen"]},
+  {"id":"noxus","f":"region","d":1,"t":"Viennent de Noxus","m":["Ambessa","Briar","Cassiopeia","Darius","Draven","Katarina","Kled","Leblanc","Mel","Rell","Samira","Sion","Swain","Talon","Vladimir"],"x":["Mordekaiser","Elise","Riven","Urgot","Singed"]},
+  {"id":"ionia","f":"region","d":1,"t":"Viennent d’Ionia","m":["Ahri","Akali","Hwei","Irelia","Jhin","Karma","Kayn","Kennen","LeeSin","Lillia","MasterYi","MonkeyKing","Rakan","Sett","Shen","Syndra","Varus","Xayah","Yasuo","Yone","Yunara","Zed"],"x":["Riven","Ivern","Zaahen","Soraka","Aurora"]},
+  {"id":"freljord","f":"region","d":1,"t":"Viennent de Freljord","m":["Anivia","Ashe","Aurora","Braum","Gnar","Gragas","Lissandra","Nunu","Olaf","Ornn","Sejuani","Trundle","Tryndamere","Udyr","Volibear"],"x":[]},
+  {"id":"piltover","f":"region","d":1,"t":"Viennent de Piltover","m":["Caitlyn","Camille","Ezreal","Heimerdinger","Jayce","Orianna","Seraphine","Vi"],"x":["Corki","Viktor","Jinx","Ekko","Zeri","Mel","Ziggs"]},
+  {"id":"zaun","f":"region","d":1,"t":"Viennent de Zaun","m":["Blitzcrank","DrMundo","Ekko","Jinx","Renata","Singed","Twitch","Urgot","Viktor","Warwick","Zac","Zeri","Ziggs"],"x":["Vi","Seraphine","Orianna","Camille"]},
+  {"id":"bilgewater","f":"region","d":1,"t":"Viennent de Bilgewater","m":["Fizz","Gangplank","Graves","Illaoi","MissFortune","Nautilus","Nilah","Pyke","TahmKench","TwistedFate"],"x":["Nami"]},
+  {"id":"shurima","f":"region","d":1,"t":"Viennent de Shurima","m":["Akshan","Amumu","Azir","KSante","Naafiri","Nasus","Rammus","Renekton","Sivir","Taliyah","Xerath"],"x":["Zilean","Skarner","Zaahen","Aatrox","Cassiopeia","Varus"]},
+  {"id":"isles","f":"region","d":1,"t":"Viennent des Îles obscures","m":["Gwen","Hecarim","Kalista","Karthus","Maokai","Thresh","Vex","Viego","Yorick"],"x":["Elise","Mordekaiser","Senna","Lucian"]},
+  {"id":"neant","f":"region","d":1,"t":"Créatures du Néant","m":["Belveth","Chogath","Kaisa","Kassadin","Khazix","KogMaw","Malzahar","RekSai","Velkoz"],"x":[]},
+  {"id":"targon","f":"region","d":2,"t":"Viennent du Mont Targon","m":["AurelionSol","Aphelios","Diana","Leona","Pantheon","Taric","Zoe"],"x":["Soraka","Kayle","Morgana","Bard","Nami"]},
+  {"id":"ixtal","f":"region","d":2,"t":"Viennent d’Ixtal","m":["Malphite","Milio","Neeko","Nidalee","Qiyana","Rengar","Skarner","Zyra"],"x":[]},
+  {"id":"yordles","f":"espece","d":1,"t":"Yordles","m":["Corki","Gnar","Heimerdinger","Kennen","Kled","Lulu","Poppy","Rumble","Teemo","Tristana","Veigar","Vex","Yuumi","Ziggs"],"x":["Amumu"]},
+  {"id":"vastaya","f":"espece","d":2,"t":"Vastaya","m":["Ahri","Aurora","Nami","Neeko","Rakan","Rengar","Sett","MonkeyKing","Xayah"],"x":["Lillia","Kindred","Yuumi"]},
+  {"id":"darkin","f":"espece","d":3,"t":"Darkin","m":["Aatrox","Kayn","Naafiri","Varus","Zaahen"],"x":["Briar","XinZhao"]},
+  {"id":"mortsvivants","f":"espece","d":2,"t":"Morts-vivants","m":["Amumu","Hecarim","Kalista","Karthus","Mordekaiser","Sion","Thresh","Viego"],"x":["Yorick","Gwen","Maokai","Vex","Fiddlesticks","Nocturne","Elise","Locke","Zac"]},
+  {"id":"ninjas","f":"espece","d":3,"t":"Ninjas (Kinkou ou Ordre de l’Ombre)","m":["Akali","Kennen","Shen","Zed","Kayn"],"x":["Talon","Yasuo","Yone","Yunara","LeeSin","Irelia","MasterYi"]},
+  {"id":"demons","f":"espece","d":3,"t":"Démons (ou possédés par un démon)","m":["Evelynn","Fiddlesticks","Nocturne","TahmKench","Swain"],"x":["Shaco","Yone","Vex","Belveth","Leblanc","Locke","Kayn"]},
+  {"id":"aspects","f":"espece","d":3,"t":"Aspects de Targon","m":["Diana","Leona","Pantheon","Taric","Zoe"],"x":["AurelionSol","Soraka","Aphelios","Kayle","Morgana"]},
+  {"id":"animaux","f":"espece","d":2,"t":"Sont des animaux","m":["Anivia","Naafiri","Rammus","Skarner","Volibear","Yuumi"],"x":["Warwick","Rengar","Nasus","Renekton","Kindred","KogMaw","Gnar","MonkeyKing","RekSai","Smolder","Nunu","Chogath","Hecarim","Alistar","Kled","Neeko","Ahri","Rakan","Xayah","Nami","Belveth","Khazix","Aurora"]},
+  {"id":"fratrie","f":"lore","d":2,"t":"Ont un frère ou une sœur jouable","m":["Cassiopeia","Darius","Draven","Garen","Jinx","Katarina","Kayle","Lux","Morgana","Nasus","Renekton","Vi","Yasuo","Yone"],"x":["Talon","Mel","Ambessa"]},
+  {"id":"couples","f":"lore","d":2,"t":"En couple avec un autre champion","m":["Ashe","Lucian","Rakan","Senna","Tryndamere","Xayah"],"x":["Shyvana","JarvanIV","Caitlyn","Vi","Viego","Sejuani","Ezreal","Taliyah","Leona","Diana"]},
+  {"id":"arcane","f":"lore","d":1,"t":"Personnages de la série Arcane","m":["Ambessa","Caitlyn","Ekko","Heimerdinger","Jayce","Jinx","Mel","Singed","Vi","Viktor","Warwick"],"x":["Leblanc","Blitzcrank","Draven","Renata","Zeri","Sion","Swain","Twitch"]},
+  {"id":"kda","f":"groupe","d":2,"t":"Membres de K/DA","m":["Ahri","Akali","Evelynn","Kaisa","Seraphine"],"x":[]},
+  {"id":"truedamage","f":"groupe","d":3,"t":"Membres de True Damage","m":["Akali","Ekko","Qiyana","Senna","Yasuo"],"x":[]},
+  {"id":"pentakill","f":"groupe","d":3,"t":"Membres de Pentakill","m":["Karthus","Kayle","Mordekaiser","Olaf","Sona","Yorick"],"x":["Viego","Lillia"]},
+  {"id":"heartsteel","f":"groupe","d":3,"t":"Membres de Heartsteel","m":["Aphelios","Ezreal","Kayn","KSante","Sett","Yone"],"x":[]},
+  {"id":"ultglobale","f":"ult","d":2,"t":"Ultime à portée globale","m":["Ashe","Draven","Ezreal","Gangplank","Jinx","Karthus","Senna","Shen","Soraka"],"x":["TwistedFate","Pantheon","Nocturne","Ryze","Galio","Taliyah","Kalista","Lux","Xerath","Ziggs","Jhin","Caitlyn"]},
+  {"id":"ultvoyage","f":"ult","d":2,"t":"Ultime pour traverser la carte","m":["Galio","Nocturne","Pantheon","Ryze","Shen","TwistedFate"],"x":["Taliyah","Bard","TahmKench","Kalista","Hecarim","Rakan","Karthus","Soraka"]},
+  {"id":"transfo","f":"kit","d":2,"t":"Changent de forme en combat","m":["Elise","Gnar","Jayce","Nidalee","Shyvana"],"x":["Kayn","Swain","Neeko","Udyr","Renekton","Kled","Mordekaiser","Rengar","Aphelios","Hecarim","Sion","Nunu","Zac"]},
+  {"id":"crochets","f":"kit","d":2,"t":"Attirent un ennemi vers eux","m":["Blitzcrank","Darius","Nautilus","Pyke","Thresh"],"x":["Sett","Urgot","Skarner","Amumu","Leona","Camille","Rell","Zac","Vi","Poppy","Diana","Kalista","Briar"]},
+  {"id":"invisibles","f":"kit","d":2,"t":"Peuvent devenir invisibles","m":["Akali","Evelynn","Khazix","Pyke","Qiyana","Rengar","Senna","Shaco","Talon","Teemo","Twitch","Vayne"],"x":["MonkeyKing","Neeko","Leblanc","Kled","Kindred","Ekko","Locke","Nocturne","Briar"]},
+  {"id":"clones","f":"kit","d":2,"t":"Créent des clones d’eux-mêmes","m":["Leblanc","MonkeyKing","Neeko","Shaco","Zed"],"x":["Fiddlesticks","Yorick","Viego","Mordekaiser","Syndra","Gwen"]},
+  {"id":"invocations","f":"kit","d":2,"t":"Invoquent des créatures","m":["Annie","Azir","Elise","Heimerdinger","Illaoi","Ivern","Malzahar","Naafiri","Yorick","Zyra"],"x":["Shaco","Fiddlesticks","Teemo","Kalista","Belveth","Mordekaiser","Bard","Orianna","Quinn","Nunu","Kindred"]},
+  {"id":"compagnon","f":"kit","d":2,"t":"Accompagnés d’un animal","m":["Annie","Kled","Nunu","Quinn","Sejuani"],"x":["Kindred","Yuumi","Ivern","Nidalee","Volibear","Rengar","Lulu","Rell","Hecarim","Skarner","Twitch","Teemo"]},
+  {"id":"armesfeu","f":"arme","d":1,"t":"Utilisent une arme à feu","m":["Akshan","Aphelios","Caitlyn","Corki","Gangplank","Graves","Jhin","Jinx","Lucian","MissFortune","Samira","Senna","Tristana","Urgot","Zeri"],"x":["Twitch","Ezreal","Jayce","Rumble","Heimerdinger","Ziggs","Kled","Yunara"]},
+  {"id":"arcs","f":"arme","d":1,"t":"Arc ou arbalète","m":["Ashe","Kindred","Quinn","Twitch","Varus","Vayne"],"x":["Yunara","Teemo","Kalista"]},
+  {"id":"epees","f":"arme","d":2,"t":"Manient une épée","m":["Aatrox","Fiora","Garen","Kayle","MasterYi","Riven","Samira","Shen","Tryndamere","Viego","Yasuo","Yone"],"x":["Irelia","Katarina","Talon","Gwen","Zed","Akali","Camille","Kayn","Nilah","Zaahen","Pantheon","XinZhao","JarvanIV","Sylas","Jax","Lucian","Locke"]},
+  {"id":"marteaux","f":"arme","d":2,"t":"Marteau ou masse","m":["Jayce","Mordekaiser","Ornn","Poppy","Trundle"],"x":["Taric","Jax","Sion","Garen","Braum","Gragas","Rell","Volibear","Kled","Malphite","Udyr","Ivern"]},
+  {"id":"glace","f":"element","d":1,"t":"Pouvoirs de glace","m":["Anivia","Ashe","Lissandra","Nunu","Sejuani","Trundle"],"x":["Braum","Aurora","Olaf","Volibear","Udyr","Gnar"]},
+  {"id":"feu","f":"element","d":2,"t":"Pouvoirs de feu","m":["Annie","Brand","Milio","Ornn","Rumble","Shyvana","Smolder"],"x":["AurelionSol","Ziggs","Hwei","Gragas","Corki","Jinx","Sylas","Volibear"]},
+  {"id":"murs","f":"kit","d":3,"t":"Créent des murs","m":["Anivia","Azir","JarvanIV","Ornn","Taliyah","Trundle"],"x":["Yasuo","Veigar","Poppy","Nunu","Samira","Braum","Bard","Zac","Skarner","Galio"]},
+  {"id":"charges","f":"kit","d":3,"t":"Accumulent des charges sans limite","m":["AurelionSol","Bard","Belveth","Chogath","Kindred","Nasus","Senna","Sion","Smolder","Swain","Thresh","Veigar"],"x":["Shyvana","Kayle","Zaahen","Pyke","Ryze","Tryndamere","Darius","Mordekaiser","Kayn","Azir"]},
+  {"id":"revivre","f":"kit","d":3,"t":"Peuvent revenir à la vie","m":["Anivia","Sion","Zaahen","Zac","Zilean"],"x":["Karthus","KogMaw","Aatrox","Tryndamere","Kindred","Yorick","Kayle","Taric","Viego"]},
+  {"id":"ailes","f":"look","d":2,"t":"Ont des ailes","m":["Anivia","Galio","Kayle","Morgana","Smolder"],"x":["Shyvana","Swain","Quinn","Xayah","Rakan","Zaahen","Aatrox","Fiddlesticks","Kindred","AurelionSol","Velkoz","Belveth","Evelynn","Naafiri"]},
+  {"id":"masques","f":"look","d":3,"t":"Portent un masque","m":["Jhin","Kindred","Shen","Yone","Zed"],"x":["Akali","MasterYi","LeeSin","Shaco","Leblanc","Talon","Pyke","Kayn","Rell","Mordekaiser","Pantheon","Kassadin","Xerath","Hecarim","Nocturne","Vex","Kled","Rengar","Evelynn"]},
+  {"id":"chapeaux","f":"look","d":2,"t":"Portent un chapeau","m":["Caitlyn","Gangplank","Lulu","MissFortune","TahmKench","Teemo","TwistedFate","Veigar"],"x":["Shaco","Fiddlesticks","Annie","Corki","Kled","Rumble","Ziggs","Heimerdinger","Gragas","Malzahar","Graves","Pyke","Nami","Jhin"]},
+  {"id":"mecanique","f":"look","d":3,"t":"Corps mécanique ou augmenté","m":["Blitzcrank","Camille","Orianna","Urgot","Viktor","Warwick"],"x":["DrMundo","Singed","Twitch","Renata","Ekko","Zac","Zeri","Jinx","Rumble","Galio","Mordekaiser","Corki","Jayce","Kled"]},
+  {"id":"boomerang","f":"kit","d":3,"t":"Projectiles qui reviennent (boomerang)","m":["Ahri","Draven","Ekko","Gnar","Sivir","Talon","Xayah"],"x":["Olaf","Akshan","Zoe","Kalista","Yorick","Sett","Kaisa","Aphelios","Rakan","Nilah","Locke","Irelia","Jayce"]},
+  {"id":"intouchables","f":"kit","d":3,"t":"Peuvent devenir intouchables","m":["Elise","Fizz","Kayn","MasterYi","Vladimir","Xayah","Yuumi"],"x":["Zed","Ekko","Lissandra","Kayle","Taric","Zilean","Samira","Sylas","Jayce","Camille","Vex","Briar","Belveth","Aphelios","Akali","Irelia","Kindred","Lillia","Locke"]},
+  {"id":"enchanteurs","f":"role","d":2,"t":"Supports enchanteurs","m":["Janna","Lulu","Milio","Nami","Sona","Soraka","Yuumi"],"x":["Karma","Seraphine","Renata","Ivern","Zilean","Bard","Taric","Senna","Morgana","Zyra","Mel","Hwei","Lux"]},
+  {"id":"tireurs","f":"role","d":1,"t":"Tireurs (ADC)","m":["Aphelios","Ashe","Caitlyn","Draven","Ezreal","Jhin","Jinx","Kaisa","Kalista","KogMaw","Lucian","MissFortune","Nilah","Samira","Sivir","Smolder","Tristana","Twitch","Varus","Vayne","Xayah","Yunara","Zeri"],"x":["Senna","Corki","Kindred","Graves","Quinn","Akshan","Ziggs","Seraphine","Swain","Karthus","Hwei","Mel","Teemo","Kayle","Jayce","Cassiopeia"]},
+  {"id":"artistes","f":"lore","d":3,"t":"Artistes (musique, peinture, théâtre)","m":["Bard","Hwei","Jhin","Seraphine","Sona"],"x":["Gwen","Taric","Lillia","Neeko"]},
+  {"id":"energie","f":"ressource","d":2,"t":"Utilisent de l’énergie","m":["Akali","Ambessa","Kennen","LeeSin","Shen","Zed"],"x":[]},
+  {"id":"rage","f":"ressource","d":3,"t":"Barre de rage ou de fureur","m":["Briar","Gnar","RekSai","Renekton","Shyvana","Tryndamere"],"x":["Rengar","Sett","Kled"]},
+  {"id":"sansressource","f":"ressource","d":3,"t":"N’ont aucune ressource","m":["Belveth","DrMundo","Garen","Katarina","Riven","Viego","Zac"],"x":["Aatrox","Vladimir","Mordekaiser","Kled","Sett","Yasuo","Yone","Rumble","Rengar","Gnar","Tryndamere","Renekton","Shyvana","Briar","RekSai"]},
+  {"id":"origine","f":"annee","d":3,"t":"Les 17 champions de la sortie du jeu (2009)","m":["Alistar","Annie","Ashe","Fiddlesticks","Jax","Kayle","MasterYi","Morgana","Nunu","Ryze","Sion","Sivir","Soraka","Teemo","Tristana","TwistedFate","Warwick"],"x":[]},
+  {"id":"depuis2024","f":"annee","d":2,"t":"Sortis depuis 2024","m":["Ambessa","Aurora","Locke","Mel","Smolder","Yunara","Zaahen"],"x":["Hwei","Briar","Milio","Naafiri"]},
+  {"id":"an2022","f":"annee","d":4,"t":"Sortis en 2022","m":["Belveth","KSante","Nilah","Renata","Zeri"],"x":[]},
+  {"id":"an2020","f":"annee","d":4,"t":"Sortis en 2020","m":["Lillia","Rell","Samira","Seraphine","Sett","Yone"],"x":["Aphelios"]},
+  {"id":"an2019","f":"annee","d":4,"t":"Sortis en 2019","m":["Aphelios","Qiyana","Senna","Sylas","Yuumi"],"x":["Neeko"]},
+  {"id":"royaute","f":"titre","d":4,"t":"Titre de roi, reine, empereur ou impératrice","m":["Azir","Belveth","Elise","MonkeyKing","Qiyana","TahmKench","Trundle","Tryndamere","Viego"],"x":["Syndra","Skarner","Renata","Sett","Ambessa","Sejuani"]},
+  {"id":"titreneant","f":"titre","d":4,"t":"« Néant » dans leur titre","m":["Belveth","Kaisa","Kassadin","Khazix","Malzahar","RekSai","Velkoz"],"x":[]},
+  {"id":"titreombre","f":"titre","d":4,"t":"« Ombre » ou « ténèbres » dans leur titre","m":["Annie","Camille","Hecarim","Kayn","Shaco","Talon","Vex","Zed"],"x":[]},
+  {"id":"gardiens","f":"titre","d":4,"t":"« Gardien » dans leur titre","m":["Bard","Nasus","Poppy","Udyr","Yuumi","Zilean"],"x":["Thresh"]},
+  {"id":"portee600","f":"stat","d":4,"t":"Portée d’attaque de 600 ou plus","m":["Anivia","Annie","Ashe","Caitlyn","Senna"],"x":["Varus","Zyra","Yunara","Tristana","KogMaw","Jinx"]},
+  {"id":"court","f":"nom","d":2,"t":"Nom de 3 lettres ou moins","m":["Jax","Lux","Mel","Vex","Vi","Zac","Zed","Zoe"],"x":[]},
+  {"id":"z","f":"nom","d":1,"t":"Leur nom commence par Z","m":["Zaahen","Zac","Zed","Zeri","Ziggs","Zilean","Zoe","Zyra"],"x":[]},
+  {"id":"y","f":"nom","d":1,"t":"Leur nom commence par Y","m":["Yasuo","Yone","Yorick","Yunara","Yuumi"],"x":[]},
+  {"id":"v","f":"nom","d":1,"t":"Leur nom commence par V","m":["Varus","Vayne","Veigar","Velkoz","Vex","Vi","Viego","Viktor","Vladimir","Volibear"],"x":[]},
+  {"id":"apostrophe","f":"nom","d":2,"t":"Apostrophe dans le nom","m":["Belveth","Chogath","Kaisa","Khazix","KogMaw","KSante","RekSai","Velkoz"],"x":[]},
+  {"id":"motsmultiples","f":"nom","d":1,"t":"Nom en plusieurs mots","m":["AurelionSol","DrMundo","JarvanIV","LeeSin","MasterYi","MissFortune","Nunu","Renata","TahmKench","TwistedFate","XinZhao"],"x":[]},
+  {"id":"doublelettre","f":"nom","d":3,"t":"Une lettre doublée dans le nom","m":["Aatrox","Ambessa","Annie","Camille","Cassiopeia","Ekko","Evelynn","Fiddlesticks","Fizz","Illaoi","Janna","Kassadin","Kennen","LeeSin","Lillia","Lissandra","MissFortune","Naafiri","Neeko","Nidalee","Nunu","Orianna","Ornn","Poppy","Quinn","Rammus","Rell","Senna","Sett","Teemo","Yuumi","Zaahen","Ziggs"],"x":[]}
+]}</script>
+<script>
+/* ---------- Connexions: puzzle generator (pure, deterministic for a given random function) ----------
+   D = {crit:[{id,f,d,t,m,x}]}. Returns {groups:[{c, ids}], tiles:[ids...]} or null.
+   A puzzle = 7 criteria x 5 champions. A champion may fit several criteria of the grid (red herring),
+   but the split into 7 groups must be unique; "debatable" champions (x) of a criterion are never shown elsewhere. */
+var CX_N = 7, CX_K = 5;
+var CX_FAMMAX = {ult:1, annee:1, titre:1, ressource:1, element:1, role:1, stat:1, groupe:2, region:2, nom:2, espece:2, arme:2, look:2, lore:2, kit:3};
+var CX_PATTERNS = [[1,1,2,2,3,3,4],[1,2,2,2,3,3,4],[1,1,2,2,3,3,3],[1,1,2,3,3,3,4],[1,2,2,3,3,4,4],[1,1,2,2,2,3,4]];
+function cxShuffle(a, rand){ for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rand() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+function cxCountSolutions(tiles, crits, limit){
+  var opts = tiles.map(function(id){ return crits.map(function(c, k){ return c.mset[id] ? k : -1; }).filter(function(k){ return k >= 0; }); });
+  var order = tiles.map(function(_, i){ return i; }).sort(function(a, b){ return opts[a].length - opts[b].length; });
+  var cap = crits.map(function(){ return CX_K; }), found = 0;
+  (function go(p){
+    if (found >= limit) return;
+    if (p === order.length) { found++; return; }
+    var o = opts[order[p]];
+    for (var i = 0; i < o.length; i++) { var k = o[i]; if (!cap[k]) continue; cap[k]--; go(p + 1); cap[k]++; if (found >= limit) return; }
+  })(0);
+  return found;
+}
+function cxGenerate(D, rand, opt){
+  opt = opt || {};
+  var crit = D.crit.map(function(c){
+    var mset = {}, xset = {}; c.m.forEach(function(id){ mset[id] = 1; }); c.x.forEach(function(id){ xset[id] = 1; });
+    return {c: c, mset: mset, xset: xset};
+  });
+  var byD = {1: [], 2: [], 3: [], 4: []}; crit.forEach(function(k){ byD[k.c.d].push(k); });
+  function inter(a, b){ var n = 0; a.c.m.forEach(function(id){ if (b.mset[id]) n++; }); return n; }
+  for (var attempt = 0; attempt < 600; attempt++) {
+    var pattern = CX_PATTERNS[Math.floor(rand() * CX_PATTERNS.length)].slice();
+    var chosen = [], fam = {}, ok = true;
+    for (var p = 0; p < pattern.length && ok; p++) {
+      var pool = cxShuffle(byD[pattern[p]].slice(), rand), pick = null;
+      for (var q = 0; q < pool.length && !pick; q++) {
+        var k = pool[q];
+        if (chosen.indexOf(k) >= 0) continue;
+        if ((fam[k.c.f] || 0) >= (CX_FAMMAX[k.c.f] || 2)) continue;
+        if (chosen.some(function(o){ var n = inter(k, o); return n * 2 > Math.min(k.c.m.length, o.c.m.length) || n > 4; })) continue;
+        pick = k;
+      }
+      if (!pick) { ok = false; break; }
+      chosen.push(pick); fam[pick.c.f] = (fam[pick.c.f] || 0) + 1;
+    }
+    if (!ok) continue;
+    /* champions shown: never a debatable one (x) of any criterion of the grid */
+    function allowed(id){ return !chosen.some(function(k){ return k.xset[id]; }); }
+    var used = {}, groups = [], herrings = 0, maxH = opt.maxHerrings == null ? 4 : opt.maxHerrings;
+    var order = chosen.slice().sort(function(a, b){ return a.c.m.length - b.c.m.length; });
+    for (var g = 0; g < order.length && ok; g++) {
+      var k2 = order[g];
+      var cand = cxShuffle(k2.c.m.filter(function(id){ return !used[id] && allowed(id); }), rand);
+      /* prefer champions that fit only this criterion, keep a few red herrings */
+      var solo = cand.filter(function(id){ return !chosen.some(function(o){ return o !== k2 && o.mset[id]; }); });
+      var multi = cand.filter(function(id){ return solo.indexOf(id) < 0; });
+      var take = [];
+      var wantH = Math.min(multi.length, maxH - herrings, rand() < 0.5 ? 1 : 0);
+      take = multi.slice(0, wantH).concat(solo).slice(0, CX_K);
+      if (take.length < CX_K) take = take.concat(multi.slice(wantH)).slice(0, CX_K);
+      if (take.length < CX_K) { ok = false; break; }
+      take.forEach(function(id){ used[id] = 1; if (chosen.some(function(o){ return o !== k2 && o.mset[id]; })) herrings++; });
+      groups.push({k: k2, ids: take});
+    }
+    if (!ok) continue;
+    var tiles = [];
+    groups.forEach(function(gr){ tiles = tiles.concat(gr.ids); });
+    if (cxCountSolutions(tiles, chosen, 2) !== 1) continue;
+    /* colours: easiest first (difficulty, then the bigger the family the easier) */
+    groups.sort(function(a, b){ return a.k.c.d - b.k.c.d || b.k.c.m.length - a.k.c.m.length; });
+    return {groups: groups.map(function(gr){ return {c: gr.k.c, ids: gr.ids}; }), tiles: cxShuffle(tiles, rand), attempts: attempt + 1};
+  }
+  return null;
+}
+function cxRng(seed){ /* mulberry32 */
+  var a = seed >>> 0;
+  return function(){ a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+function cxHash(s){ var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+(function(){
+"use strict";
+var D = JSON.parse(document.getElementById("cx-data").textContent);
+var NAMES = D.names, TITLES = D.titles, VER = D.v;
+var MAXERR = 5, FIRST_DAY = "2026-11-18";
+var EMO = ["🟨","🟧","🟩","🟦","🟥","🟪","🟫"];
+function $(s){ return document.querySelector(s); }
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function ls(k, v){ try { if (arguments.length > 1) { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); return v; } var r = localStorage.getItem(k); return r == null ? null : JSON.parse(r); } catch(e){ return null; } }
+function icon(id){ return "https://ddragon.leagueoflegends.com/cdn/" + VER + "/img/champion/" + id + ".png"; }
+function img(id, cls){ return '<img src="' + icon(id) + '" alt="" loading="lazy" decoding="async" onerror="this.outerHTML=\'<i class=&quot;ph&quot;>' + esc(NAMES[id].charAt(0)) + '</i>\'">'; }
+/* today in Paris (the same grid for everyone) */
+function today(){ try { return new Intl.DateTimeFormat("fr-CA", {timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit"}).format(new Date()); } catch(e){ return new Date().toISOString().slice(0, 10); } }
+function dayNum(d){ return Math.round((Date.parse(d + "T12:00:00Z") - Date.parse(FIRST_DAY + "T12:00:00Z")) / 864e5) + 1; }
+
+var mode = ls("cx.mode") === "free" ? "free" : "day";
+var P = null, S = null;   /* P = puzzle, S = state of the current game */
+var sel = [], busy = false, justSolved = -1;
+
+function build(seedStr){
+  var r = cxGenerate(D, cxRng(cxHash(seedStr)));
+  if (!r) r = cxGenerate(D, cxRng(cxHash(seedStr + "+")));
+  var gOf = {};
+  r.groups.forEach(function(g, i){ g.ids.forEach(function(id){ gOf[id] = i; }); });
+  return {groups: r.groups, tiles: r.tiles, gOf: gOf};
+}
+function stateKey(){ return mode === "day" ? "cx.day." + today() : "cx.free"; }
+function load(){
+  var key = stateKey(), st = ls(key);
+  if (mode === "day") {
+    var d = today();
+    if (!st || st.seed !== "jour-" + d) st = {seed: "jour-" + d, order: null, solved: [], guesses: [], err: 0, done: false};
+  } else {
+    if (!st || !st.seed) st = {seed: "libre-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), order: null, solved: [], guesses: [], err: 0, done: false};
+  }
+  S = st; P = build(S.seed);
+  if (!S.order || S.order.length !== P.tiles.length) S.order = P.tiles.slice();
+  sel = [];
+  save();
+  /* tidy old daily saves */
+  try { Object.keys(localStorage).forEach(function(k){ if (/^cx\.day\./.test(k) && k !== "cx.day." + today()) localStorage.removeItem(k); }); } catch(e){}
+  render();
+}
+function save(){ ls(stateKey(), S); }
+
+function render(){
+  $("#m-day").setAttribute("aria-pressed", mode === "day");
+  $("#m-free").setAttribute("aria-pressed", mode === "free");
+  var dl = ""; try { dl = new Intl.DateTimeFormat("fr-FR", {timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long"}).format(new Date()); } catch(e){}
+  $("#label").innerHTML = mode === "day" ? "<b>#" + dayNum(today()) + "</b> · " + esc(dl) : "Grille aléatoire";
+  document.body.classList.toggle("titles", !!ls("cx.titles"));
+  $("#t-titles").checked = !!ls("cx.titles");
+  /* groups found (in the order found), then, at the end, the ones missed */
+  var shown = S.solved.slice();
+  if (S.done) P.groups.forEach(function(g, i){ if (shown.indexOf(i) < 0) shown.push(i); });
+  $("#solved").innerHTML = shown.map(function(i){
+    var g = P.groups[i], missed = S.solved.indexOf(i) < 0;
+    return '<div class="grp' + (missed ? " missed" : "") + (i === justSolved || (S.done && missed) ? " new" : "") + '" style="background:var(--g' + i + ')"><div class="gt"><b>' + esc(g.c.t) + '</b><small>' + (missed ? "Groupe non trouvé" : diffLabel(g.c.d)) + '</small></div><div class="gm">' +
+      g.ids.map(function(id){ return '<span title="' + esc(NAMES[id] + " · " + TITLES[id]) + '">' + img(id) + esc(NAMES[id]) + '</span>'; }).join("") + '</div></div>';
+  }).join("");
+  var left = S.order.filter(function(id){ return S.solved.indexOf(P.gOf[id]) < 0; });
+  $("#board").hidden = S.done || !left.length;
+  $("#board").innerHTML = S.done ? "" : left.map(function(id){
+    return '<button type="button" class="tile" data-id="' + id + '" aria-pressed="' + (sel.indexOf(id) >= 0) + '" title="' + esc(NAMES[id] + " · " + TITLES[id]) + '">' + img(id) + '<span class="nm">' + esc(NAMES[id]) + '</span><span class="ti">' + esc(TITLES[id]) + '</span></button>';
+  }).join("");
+  $("#foot").hidden = S.done;
+  var lv = "Erreurs restantes : ";
+  for (var k = 0; k < MAXERR; k++) lv += '<i class="' + (k < MAXERR - S.err ? "" : "off") + '"></i>';
+  $("#lives").innerHTML = lv;
+  renderSel();
+  renderEnd();
+  justSolved = -1;
+}
+function diffLabel(d){ return ["", "Facile", "Moyen", "Difficile", "Expert"][d] || ""; }
+function renderSel(){
+  document.querySelectorAll("#board .tile").forEach(function(b){ b.setAttribute("aria-pressed", sel.indexOf(b.getAttribute("data-id")) >= 0); });
+  $("#count").textContent = sel.length + "/5";
+  $("#b-submit").disabled = sel.length !== 5 || busy;
+  $("#b-clear").disabled = !sel.length || busy;
+}
+function shareText(){
+  var head = "Connexions LoL " + (mode === "day" ? "#" + dayNum(today()) : "(partie libre)") + " · " + S.solved.length + "/7" + (S.err ? " · " + S.err + " erreur" + (S.err > 1 ? "s" : "") : " · sans faute");
+  return head + "\n" + S.guesses.map(function(g){ return g.map(function(id){ return EMO[P.gOf[id]]; }).join(""); }).join("\n");
+}
+function renderEnd(){
+  var box = $("#end");
+  if (!S.done) { box.innerHTML = ""; return; }
+  var win = S.solved.length === P.groups.length;
+  box.innerHTML = '<div class="end"><h2>' + (win ? (S.err ? "Bravo !" : "Parfait !") : "Perdu…") + '</h2><p>' +
+    (win ? "Les 7 groupes trouvés" + (S.err ? " avec " + S.err + " erreur" + (S.err > 1 ? "s" : "") : " sans la moindre erreur") + "." : S.solved.length + " groupe" + (S.solved.length > 1 ? "s" : "") + " sur 7. Les groupes manquants sont affichés en pointillés.") +
+    (mode === "day" ? " Nouvelle grille demain." : "") + '</p><div class="rows">' + S.guesses.map(function(g){ return g.map(function(id){ return EMO[P.gOf[id]]; }).join(""); }).join("<br>") + '</div>' +
+    '<div class="actions"><button type="button" class="btn primary" id="b-share">Copier le résultat</button><button type="button" class="btn" id="b-new">' + (mode === "day" ? "Jouer une partie libre" : "Nouvelle grille") + '</button></div></div>';
+  $("#b-share").onclick = function(){
+    var t = shareText();
+    (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ toast("Résultat copié"); }, function(){
+      var ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); toast("Résultat copié"); } catch(e){ toast("Copie impossible"); }
+      ta.remove();
+    });
+  };
+  $("#b-new").onclick = function(){ if (mode === "day") setMode("free"); else newFree(); };
+}
+var tT = null;
+function toast(msg){ var t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(tT); tT = setTimeout(function(){ t.hidden = true; }, 1800); }
+
+function submit(){
+  if (sel.length !== 5 || busy || S.done) return;
+  var key = sel.slice().sort().join(",");
+  if (S.guesses.some(function(g){ return g.slice().sort().join(",") === key; })) { toast("Déjà essayé !"); return; }
+  S.guesses.push(sel.slice());
+  var cnt = {}; sel.forEach(function(id){ var g = P.gOf[id]; cnt[g] = (cnt[g] || 0) + 1; });
+  var best = 0, bestG = -1; Object.keys(cnt).forEach(function(g){ if (cnt[g] > best) { best = cnt[g]; bestG = +g; } });
+  if (best === 5) {
+    S.solved.push(bestG); sel = []; justSolved = bestG;
+    if (S.solved.length === P.groups.length) finish(true);
+    save(); render();
+    return;
+  }
+  S.err++;
+  var lost = S.err >= MAXERR;
+  toast(lost ? "Plus d’essais…" : best === 4 ? "Presque ! Il en manque un" : "Raté");
+  busy = true; renderSel();
+  document.querySelectorAll("#board .tile[aria-pressed='true']").forEach(function(b){ b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake"); });
+  save();
+  setTimeout(function(){
+    busy = false;
+    if (lost) { sel = []; finish(false); save(); render(); }
+    else { renderSel(); $("#lives").querySelectorAll("i")[MAXERR - S.err].classList.add("off"); }
+  }, 450);
+}
+function finish(win){
+  S.done = true;
+  if (mode !== "day") return;
+  var st = ls("cx.stats") || {played: 0, won: 0, streak: 0, best: 0, last: null, dist: {}};
+  var d = today();
+  if (st.last === d) return;
+  st.played++;
+  if (win) {
+    st.won++;
+    var y = new Date(Date.parse(d + "T12:00:00Z") - 864e5).toISOString().slice(0, 10);
+    st.streak = st.lastWin === y ? st.streak + 1 : 1; st.lastWin = d;
+    st.best = Math.max(st.best, st.streak);
+    st.dist[S.err] = (st.dist[S.err] || 0) + 1;
+  } else { st.streak = 0; st.dist.x = (st.dist.x || 0) + 1; }
+  st.last = d;
+  ls("cx.stats", st);
+}
+function showStats(){
+  var st = ls("cx.stats") || {played: 0, won: 0, streak: 0, best: 0, dist: {}};
+  var mine = S && S.done && mode === "day" ? (S.solved.length === 7 ? String(S.err) : "x") : null;
+  var rows = [];
+  for (var k = 0; k < MAXERR; k++) rows.push([String(k), k + (k > 1 ? " erreurs" : " erreur")]);
+  rows.push(["x", "Perdu"]);
+  var mx = 1; rows.forEach(function(r){ mx = Math.max(mx, st.dist[r[0]] || 0); });
+  dlg.innerHTML = '<h2>Statistiques</h2><p style="margin-top:0">Grilles du jour uniquement.</p><div class="stats"><div><b>' + st.played + '</b><small>Jouées</small></div><div><b>' + (st.played ? Math.round(st.won * 100 / st.played) : 0) + '%</b><small>Gagnées</small></div><div><b>' + st.streak + '</b><small>Série</small></div><div><b>' + st.best + '</b><small>Record</small></div></div><div class="dist">' +
+    rows.map(function(r){ var n = st.dist[r[0]] || 0; return '<div><span>' + r[1] + '</span><em class="' + (mine === r[0] ? "me" : "") + '" style="width:' + Math.max(8, Math.round(n * 100 / mx)) + '%">' + n + '</em></div>'; }).join("") +
+    '</div><div class="row"><button type="button" class="btn" id="dlg-x">Fermer</button></div>';
+  $("#dlg-x").onclick = function(){ dlg.close(); };
+  dlg.showModal();
+}
+function showHelp(){
+  dlg.innerHTML = '<h2>Comment jouer</h2><p style="margin-top:0">Les 35 champions forment <b>7 groupes de 5</b> qui partagent un point commun : région, lore, kit, skins, date de sortie, nom…</p><ul>' +
+    '<li>Sélectionne 5 champions puis <b>Valider</b>.</li><li>Un groupe juste se range en haut, avec sa couleur. Du jaune (le plus facile) au marron (le plus dur).</li>' +
+    '<li>Attention aux pièges : un champion peut sembler aller dans plusieurs groupes, mais il n’existe qu’une seule répartition qui marche.</li>' +
+    '<li>Tu as droit à <b>' + MAXERR + ' erreurs</b>. « Presque ! » veut dire que 4 des 5 champions vont ensemble.</li>' +
+    '<li>La <b>grille du jour</b> est la même pour tout le monde et change à minuit. La <b>partie libre</b> en génère autant que tu veux.</li>' +
+    '<li>Survole un champion (ou coche « Afficher les titres ») pour voir son titre officiel.</li></ul><div class="row"><button type="button" class="btn primary" id="dlg-x">C’est parti</button></div>';
+  $("#dlg-x").onclick = function(){ dlg.close(); };
+  dlg.showModal();
+}
+function setMode(m){ mode = m; ls("cx.mode", m); load(); window.scrollTo(0, 0); }
+function newFree(){ ls("cx.free", null); load(); window.scrollTo(0, 0); }
+
+var dlg = $("#dlg");
+$("#board").addEventListener("click", function(e){
+  var b = e.target.closest(".tile"); if (!b || busy || S.done) return;
+  var id = b.getAttribute("data-id"), i = sel.indexOf(id);
+  if (i >= 0) sel.splice(i, 1); else if (sel.length < 5) sel.push(id); else return;
+  renderSel();
+});
+$("#b-submit").onclick = submit;
+$("#b-clear").onclick = function(){ sel = []; renderSel(); };
+$("#b-shuffle").onclick = function(){
+  var left = S.order.filter(function(id){ return S.solved.indexOf(P.gOf[id]) < 0; }), r = cxRng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
+  cxShuffle(left, r);
+  S.order = S.order.filter(function(id){ return S.solved.indexOf(P.gOf[id]) >= 0; }).concat(left);
+  save(); render();
+};
+$("#m-day").onclick = function(){ if (mode !== "day") setMode("day"); };
+$("#m-free").onclick = function(){ if (mode !== "free") setMode("free"); };
+$("#b-stats").onclick = showStats;
+$("#b-help").onclick = showHelp;
+$("#t-titles").onchange = function(){ ls("cx.titles", this.checked ? 1 : null); document.body.classList.toggle("titles", this.checked); };
+document.addEventListener("keydown", function(e){ if (e.key === "Enter" && !dlg.open && sel.length === 5 && !(e.target.closest && e.target.closest(".tile"))) submit(); });
+/* the daily grid changes at midnight: reload it if the tab stayed open */
+setInterval(function(){ if (mode === "day" && S && S.seed !== "jour-" + today()) load(); }, 60000);
+if (!ls("cx.seen")) { ls("cx.seen", 1); setTimeout(showHelp, 300); }
+window.__cx = {state: function(){ return S; }, puzzle: function(){ return P; }};
+load();
+})();
+</script>
+</body></html>
