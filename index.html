@@ -2013,7 +2013,7 @@ function gInvites(){
     var list = s.docs.map(function(x){ return x.data(); }).filter(function(d){ return d && d.st === "wait" && Date.now() - (d.created || 0) < 10 * 60e3 && !(d.p || []).some(function(x){ return x && x.id === GTOK; }); });
     if (!list.length) { box.hidden = true; box.innerHTML = ""; return; }
     var d = list[list.length - 1], who = d.p && d.p[0] ? d.p[0].name : "Quelqu’un", cx = d.game === "cx";   /* game "cx" = a Connexions 1v1 */
-    box.innerHTML = '<div class="gi-t"><b>' + esc(who) + '</b> ' + (cx ? 't’invite à un 1v1 Connexions<small>même grille pour vous deux, le premier à trouver les 7 groupes gagne</small>' : 't’invite à la Grille (' + (d.np || 2) + ' joueurs)<small>' + (d.T ? d.T + " s par tour" : "sans chrono") + '</small>') + '</div><button type="button" class="btn quiet" id="gi-no">Refuser</button><button type="button" class="btn primary" id="gi-yes">Accepter</button>';
+    box.innerHTML = '<div class="gi-t"><b>' + esc(who) + '</b> ' + (cx ? 't’invite à un 1v1 Connexions<small>même grille pour vous deux, pas de limite d’erreurs, le premier à 7 groupes gagne</small>' : 't’invite à la Grille (' + (d.np || 2) + ' joueurs)<small>' + (d.T ? d.T + " s par tour" : "sans chrono") + '</small>') + '</div><button type="button" class="btn quiet" id="gi-no">Refuser</button><button type="button" class="btn primary" id="gi-yes">Accepter</button>';
     box.hidden = false;
     $("#gi-yes").onclick = function(){ box.hidden = true; if (cx) cxJoin(d.code); else grilleJoin(d.code); };
     $("#gi-no").onclick = function(){

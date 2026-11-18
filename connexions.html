@@ -422,6 +422,8 @@ function cxHash(s){ var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^
 var D = JSON.parse(document.getElementById("cx-data").textContent);
 var NAMES = D.names, TITLES = D.titles, VER = D.v;
 var MAXERR = 5, FIRST_DAY = "2026-11-18";
+/* errors allowed: 5 in solo, no limit in 1v1 (a race: only finding the 7 groups, or giving up, ends it) */
+function maxErr(){ return mode === "vs" ? Infinity : MAXERR; }
 var EMO = ["🟨","🟧","🟩","🟦","🟥","🟪","🟫"];
 function $(s){ return document.querySelector(s); }
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
@@ -507,7 +509,8 @@ function render(){
   }).join("");
   $("#foot").hidden = S.done;
   var lv = "Erreurs restantes : ";
-  for (var k = 0; k < MAXERR; k++) lv += '<i class="' + (k < MAXERR - S.err ? "" : "off") + '"></i>';
+  if (mode === "vs") lv = "Erreurs : <b>" + S.err + "</b>";
+  else for (var k = 0; k < MAXERR; k++) lv += '<i class="' + (k < MAXERR - S.err ? "" : "off") + '"></i>';
   $("#lives").innerHTML = lv;
   renderSel();
   renderEnd();
@@ -563,7 +566,7 @@ function submit(){
     return;
   }
   S.err++;
-  var lost = S.err >= MAXERR;
+  var lost = S.err >= maxErr();
   var hinted = !lost && vsHint();
   toast(lost ? "Plus d’essais…" : hinted ? (best === 4 ? "Presque ! Et voici un indice" : "Raté… voici un indice") : best === 4 ? "Presque ! Il en manque un" : "Raté");
   busy = true; renderSel(); vsPush();
@@ -573,6 +576,7 @@ function submit(){
     busy = false;
     if (lost) { sel = []; finish(false); save(); render(); }
     else if (hinted) render();
+    else if (mode === "vs") { renderSel(); $("#lives").innerHTML = "Erreurs : <b>" + S.err + "</b>"; }
     else { renderSel(); $("#lives").querySelectorAll("i")[MAXERR - S.err].classList.add("off"); }
   }, 450);
 }
@@ -613,7 +617,7 @@ function showHelp(){
     '<li>Attention aux pièges : un champion peut sembler aller dans plusieurs groupes, mais il n’existe qu’une seule répartition qui marche.</li>' +
     '<li>Tu as droit à <b>' + MAXERR + ' erreurs</b>. « Presque ! » veut dire que 4 des 5 personnages vont ensemble. À ta 2e puis à ta 4e erreur, un indice te révèle le thème d’un groupe.</li>' +
     '<li>La <b>grille du jour</b> est la même pour tout le monde et change à minuit. La <b>partie libre</b> en génère autant que tu veux.</li>' +
-    '<li>En <b>1v1</b>, défie un pote en ligne sur le site : même grille au même moment, le premier à trouver les 7 groupes gagne.</li>' +
+    '<li>En <b>1v1</b>, défie un pote en ligne sur le site : même grille au même moment, pas de limite d’erreurs, le premier à trouver les 7 groupes gagne.</li>' +
     '<li>Survole un personnage (ou coche « Afficher les titres ») pour voir son titre officiel, ou sa série pour Smash.</li></ul><div class="row"><button type="button" class="btn primary" id="dlg-x">C’est parti</button></div>';
   $("#dlg-x").onclick = function(){ dlg.close(); };
   dlg.showModal();
@@ -640,10 +644,7 @@ function vsOutcome(d){
   var a = d.p[0].id, b = d.p[1].id, ra = vsR(d, a), rb = vsR(d, b), na = (ra.s || []).length, nb = (rb.s || []).length;
   if (ra.ab || rb.ab) return {over: true, winner: ra.ab && rb.ab ? "" : ra.ab ? b : a, why: "ab"};
   if (na === 7 || nb === 7) return {over: true, winner: na === 7 && nb === 7 ? ((ra.ft || 0) <= (rb.ft || 0) ? a : b) : na === 7 ? a : b, why: "7"};
-  if ((ra.e || 0) < MAXERR || (rb.e || 0) < MAXERR) return {over: false};
-  if (na !== nb) return {over: true, winner: na > nb ? a : b, why: "count"};
-  if (!na || (ra.lt || 0) === (rb.lt || 0)) return {over: true, winner: "", why: "draw"};
-  return {over: true, winner: (ra.lt || 0) < (rb.lt || 0) ? a : b, why: "time"};
+  return {over: false};   /* no error limit in 1v1: only the 7th group or giving up ends the game */
 }
 function vsStarted(){ return !!(VS && VS.doc && (VS.doc.st === "play" || VS.doc.st === "end") && P && S && Date.now() >= (VS.doc.start || 0)); }
 function vsPresence(){
@@ -722,7 +723,7 @@ function vsSync(){
   if ((mine.s || []).length > S.solved.length) S.solved = mine.s.slice();
   if ((mine.e || 0) > S.err) S.err = mine.e;
   vsHint();
-  if (S.solved.length === 7 || S.err >= MAXERR || vsOutcome(d).over) S.done = true;
+  if (S.solved.length === 7 || vsOutcome(d).over) S.done = true;
   save();
 }
 /* hints (every mode): at the 2nd and the 4th error, the theme of the hardest group not found yet */
@@ -797,7 +798,7 @@ function vsHTML(){
     var me = TOK(), seen = {}, nm = myName();
     var peers = PEERS.map(function(x){ return x && x.presence; }).filter(function(p){ if (!p || !p.tok || p.tok === me || seen[p.tok]) return false; seen[p.tok] = 1; return true; });
     var rec = ls("cx.vs.rec");
-    return '<div class="vsp"><h3>Défier un pote</h3><p>Vous recevez la même grille au même moment : le premier à trouver les 7 groupes gagne. Si vous êtes bloqués tous les deux (' + MAXERR + ' erreurs), celui qui a trouvé le plus de groupes l’emporte. À ta 2e puis à ta 4e erreur, un indice te révèle le thème d’un groupe. Univers de la partie : <b>' + esc(UNI_NAME[UNI]) + '</b> (à choisir juste au-dessus).</p>' +
+    return '<div class="vsp"><h3>Défier un pote</h3><p>Vous recevez la même grille au même moment : le premier à trouver les 7 groupes gagne. Pas de limite d’erreurs. À ta 2e puis à ta 4e erreur, un indice te révèle le thème d’un groupe. Univers de la partie : <b>' + esc(UNI_NAME[UNI]) + '</b> (à choisir juste au-dessus).</p>' +
       (nm ? "" : '<div class="row"><input id="vs-name" maxlength="20" placeholder="Ton pseudo" autocomplete="nickname"><button type="button" class="btn primary" data-act="name">OK</button></div>') +
       '<div class="row"><b>En ligne sur le site</b></div>' +
       (peers.length ? '<ul class="peers">' + peers.map(function(p){
@@ -824,7 +825,7 @@ function vsHTML(){
   function line(nm, r, tok, isMe){
     var e = r.e || 0;
     return '<div class="pl' + (isMe ? " me" : "") + '"><span class="nm">' + esc(nm) + (isMe ? " (toi)" : "") + '</span><span class="sq">' + vsSquares(d, tok) + '</span><span class="er">' +
-      (r.h ? "💡×" + r.h + " · " : "") + (r.ab ? "abandon" : (r.s || []).length === 7 ? "7/7 ✓" : e >= MAXERR ? "plus d’essais" : (MAXERR - e) + " essai" + (MAXERR - e > 1 ? "s" : "") + " restant" + (MAXERR - e > 1 ? "s" : "")) + '</span></div>';
+      (r.h ? "💡×" + r.h + " · " : "") + (r.ab ? "abandon" : (r.s || []).length === 7 ? "7/7 ✓" : e + " erreur" + (e > 1 ? "s" : "")) + '</span></div>';
   }
   return '<div class="sb"><div class="top"><span>1v1 · ' + esc(UNI_NAME[d.u || "lol"]) + ' · code <b>' + esc(d.code) + '</b></span><span class="sp"></span><span>⏱ <b id="vs-clock">' + vsTime(d) + '</b></span>' +
     (o.over || (S && S.done) ? "" : '<button type="button" class="btn small danger" data-act="abandon">' + (abandonArm ? "Confirmer l’abandon" : "Abandonner") + '</button>') + '</div>' +
