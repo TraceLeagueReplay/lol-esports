@@ -129,6 +129,15 @@ dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
 #hints:empty{display:none}
 .hint{border:1px dashed var(--accent);background:var(--accent-soft);border-radius:10px;padding:8px 12px;font-size:14px;animation:pop .35s ease-out}
 .hint b{color:var(--fg)}
+.tile.hinted{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+.tile.hinted::after{content:"💡";position:absolute;top:4px;right:6px;font-size:13px}
+.sb .turn{border-radius:12px;padding:9px 12px;text-align:center;font-size:15px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted)}
+.sb .turn b{color:var(--fg)}
+.sb .turn.me{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.sb .turn.me b{color:var(--accent-ink)}
+.sb .turn .tl{font-variant-numeric:tabular-nums;font-weight:700}
+.sb .turn .tl.low,#vs-turn2 .tl.low{color:var(--bad)}
+.sb .turn.me .tl.low{color:inherit;text-decoration:underline}
 .vsp{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:16px 18px;margin-bottom:12px}
 .vsp h3{margin:0 0 6px;font-family:var(--f-display);font-size:22px;text-transform:uppercase;letter-spacing:.02em}
 .vsp p{margin:0 0 10px;color:var(--muted)}
@@ -458,7 +467,8 @@ function img(id){ return '<img' + (id.slice(0, 2) === "s-" ? ' class="si"' : "")
 
 /* ---------- settings (the "Réglages" window) ----------
    u: universe "lol" | "smash" | "mix"; diff: 0 easy, 1 normal, 2 hard; err: errors allowed in solo (0 = no limit);
-   hints: a hint at the 2nd and the 4th error; vm: 1v1 "race" (each on his own board) | "shared" (one board for both); titles: show the titles */
+   hx: a hint every hx failed attempts (0 = no hints); vm: 1v1 "race" (each on his own board) | "shared" (one board for both);
+   T: seconds per turn in a match (0 = no limit); titles: show the titles */
 var UNI_NAME = {lol: "LoL", smash: "Smash", mix: "Mix LoL × Smash"};
 var DIFF_NAME = ["Facile", "Normal", "Difficile"];
 var VM_NAME = {race: "chacun sa grille", shared: "grille commune"};
@@ -469,20 +479,24 @@ var cfg = (function(){
   if (!UNI_NAME[c.u]) c.u = "mix";
   if ([0, 1, 2].indexOf(c.diff) < 0) c.diff = 1;
   if ([0, 3, 5, 7].indexOf(c.err) < 0) c.err = 5;
-  if (c.hints == null) c.hints = 1;
+  if ([0, 2, 3, 4, 5].indexOf(c.hx) < 0) c.hx = c.hints === 0 ? 0 : 3;
+  if ([0, 30, 60, 90].indexOf(c.T) < 0) c.T = 60;
+  delete c.hints;
   if (!VM_NAME[c.vm]) c.vm = "race";
   return c;
 })();
 function saveCfg(){ ls("cx.cfg", cfg); }
 function errText(n){ return n ? n + " erreurs" : "erreurs illimitées"; }
+function hintText(x){ return x ? "un indice toutes les " + x + " erreurs" : "sans indices"; }
+function turnText(t){ return t ? t + " s par tour" : "sans chrono"; }
 function summary(){
   if (mode === "vs") {
     var d = VS && VS.doc;
-    if (d && d.st !== "wait") return "Match · " + UNI_NAME[d.u || "lol"] + " · " + DIFF_NAME[d.diff == null ? 1 : d.diff] + " · " + VM_NAME[d.vm || "race"] + (d.hints === false ? " · sans indices" : " · indices");
-    return "Match · " + UNI_NAME[cfg.u] + " · " + DIFF_NAME[cfg.diff] + " · " + VM_NAME[cfg.vm] + (cfg.hints ? " · indices" : " · sans indices");
+    var c = d && d.st !== "wait" ? {u: d.u || "lol", diff: d.diff == null ? 1 : d.diff, vm: d.vm || "race", hx: d.hx == null ? 3 : d.hx, T: d.T || 0} : cfg;
+    return "Match · " + UNI_NAME[c.u] + " · " + DIFF_NAME[c.diff] + " · " + VM_NAME[c.vm] + " · à tour de rôle · " + turnText(c.T) + " · " + hintText(c.hx);
   }
   var s = S || {};
-  return UNI_NAME[s.uni || cfg.u] + " · " + DIFF_NAME[s.diff == null ? cfg.diff : s.diff] + " · " + errText(s.me == null ? cfg.err : s.me) + ((s.hn == null ? cfg.hints : s.hn) ? " · indices" : " · sans indices");
+  return UNI_NAME[s.uni || cfg.u] + " · " + DIFF_NAME[s.diff == null ? cfg.diff : s.diff] + " · " + errText(s.me == null ? cfg.err : s.me) + " · " + hintText(s.hx == null ? cfg.hx : s.hx);
 }
 
 var mode = ls("cx.mode") === "vs" ? "vs" : "free";   /* "free" = solo, "vs" = 1v1 */
@@ -515,7 +529,36 @@ function load(){
   try { Object.keys(localStorage).forEach(function(k){ if (/^cx\.day\./.test(k)) localStorage.removeItem(k); }); } catch(e){}   /* the daily grid is gone */
   render();
 }
-function newState(){ return {seed: "libre-" + cfg.u + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uni: cfg.u, diff: cfg.diff, me: cfg.err, hn: cfg.hints ? 1 : 0, order: null, solved: [], guesses: [], err: 0, done: false, hints: []}; }
+function newState(){ return {seed: "libre-" + cfg.u + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uni: cfg.u, diff: cfg.diff, me: cfg.err, hx: cfg.hx, order: null, solved: [], guesses: [], err: 0, done: false, hint: [], hstep: 0}; }
+
+/* ---------- hints: every X failed attempts, a hint on the easiest group not found yet ----------
+   1st hint on a group: its theme; the next ones (while it is still not found): its characters, one by one (up to 4).
+   Once that group is found, the hints move on to the easiest group left. S.hint = [{g, lv}] (lv 1 = theme, lv n = theme + n-1 characters). */
+function hintEvery(){
+  if (mode === "vs") { var d = VS && VS.doc; return d ? (d.hx == null ? 3 : d.hx) : 0; }
+  return S ? (S.hx == null ? (S.hn === 0 ? 0 : 3) : S.hx) : 0;
+}
+function hintStep(){
+  for (var g = 0; g < P.groups.length; g++) {
+    if (S.solved.indexOf(g) >= 0) continue;
+    var h = (S.hint || []).filter(function(x){ return x.g === g; })[0];
+    if (!h) { S.hint.push({g: g, lv: 1}); return true; }
+    if (h.lv < 5) { h.lv++; return true; }
+  }
+  return false;
+}
+/* apply the hints due (also after a reload, or when the errors come from the server) */
+function hintCatchUp(){
+  var X = hintEvery(); if (!X || !S || !P) return false;
+  S.hint = S.hint || []; S.hstep = S.hstep || 0;
+  var due = Math.floor(S.err / X), added = false;
+  while (S.hstep < due) { if (!hintStep()) break; S.hstep++; added = true; }
+  return added;
+}
+function hintedIds(){
+  var out = {}; (S && S.hint || []).forEach(function(h){ if (S.solved.indexOf(h.g) < 0) P.groups[h.g].ids.slice(0, h.lv - 1).forEach(function(id){ out[id] = 1; }); });
+  return out;
+}
 function save(){ if (S && (mode !== "vs" || VS)) ls(stateKey(), S); }
 
 function render(){
@@ -539,13 +582,15 @@ function render(){
     return '<div class="grp' + (missed ? " missed" : "") + (i === justSolved || (S.done && missed) ? " new" : "") + '" style="background:var(--g' + i + ')"><div class="gt"><b>' + esc(g.c.t) + '</b><small>' + (missed ? "Groupe non trouvé" : by || diffLabel(g.c.d)) + '</small></div><div class="gm">' +
       g.ids.map(function(id){ return '<span title="' + esc(NAMES[id] + " · " + TITLES[id]) + '">' + img(id) + esc(NAMES[id]) + '</span>'; }).join("") + '</div></div>';
   }).join("");
-  $("#hints").innerHTML = !S.done ? (S.hints || []).filter(function(g){ return S.solved.indexOf(g) < 0; }).map(function(g){
-    return '<div class="hint">💡 Indice : un des groupes est <b>« ' + esc(P.groups[g].c.t) + ' »</b></div>';
+  $("#hints").innerHTML = !S.done ? (S.hint || []).filter(function(h){ return S.solved.indexOf(h.g) < 0; }).map(function(h){
+    var shown = P.groups[h.g].ids.slice(0, h.lv - 1).map(function(id){ return NAMES[id]; });
+    return '<div class="hint">💡 Indice : un des groupes est <b>« ' + esc(P.groups[h.g].c.t) + ' »</b>' + (shown.length ? ' et il contient <b>' + esc(shown.join(", ")) + '</b>' : "") + '</div>';
   }).join("") : "";
+  var hid = S.done ? {} : hintedIds();
   var left = S.order.filter(function(id){ return S.solved.indexOf(P.gOf[id]) < 0; });
   $("#board").hidden = S.done || !left.length;
   $("#board").innerHTML = S.done ? "" : left.map(function(id){
-    return '<button type="button" class="tile" data-id="' + id + '" aria-pressed="' + (sel.indexOf(id) >= 0) + '" title="' + esc(NAMES[id] + " · " + TITLES[id]) + '">' + img(id) + '<span class="nm">' + esc(NAMES[id]) + '</span><span class="ti">' + esc(TITLES[id]) + '</span></button>';
+    return '<button type="button" class="tile' + (hid[id] ? " hinted" : "") + '" data-id="' + id + '" aria-pressed="' + (sel.indexOf(id) >= 0) + '" title="' + esc(NAMES[id] + " · " + TITLES[id]) + '">' + img(id) + '<span class="nm">' + esc(NAMES[id]) + '</span><span class="ti">' + esc(TITLES[id]) + '</span></button>';
   }).join("");
   $("#foot").hidden = S.done;
   renderLives();
@@ -555,7 +600,7 @@ function render(){
 }
 function renderLives(){
   var m = maxErr(), lv;
-  if (m === Infinity) lv = "Erreurs : <b>" + S.err + "</b>";
+  if (m === Infinity) lv = "Erreurs : <b>" + S.err + "</b>" + (mode === "vs" && VS && VS.doc ? ' · <span id="vs-turn2">' + vsTurnHTML(VS.doc) + '</span>' : "");
   else { lv = "Erreurs restantes : "; for (var k = 0; k < m; k++) lv += '<i class="' + (k < m - S.err ? "" : "off") + '"></i>'; }
   $("#lives").innerHTML = lv;
 }
@@ -564,7 +609,7 @@ function renderSel(){
   if (!S) return;
   document.querySelectorAll("#board .tile").forEach(function(b){ b.setAttribute("aria-pressed", sel.indexOf(b.getAttribute("data-id")) >= 0); });
   $("#count").textContent = sel.length + "/5";
-  $("#b-submit").disabled = sel.length !== 5 || busy;
+  $("#b-submit").disabled = sel.length !== 5 || busy || (mode === "vs" && !vsMyTurn());
   $("#b-clear").disabled = !sel.length || busy;
 }
 function shareText(){
@@ -598,6 +643,7 @@ function toast(msg){ var t = $("#toast"); t.textContent = msg; t.hidden = false;
 function submit(){
   if (!S || sel.length !== 5 || busy || S.done) return;
   if (mode === "vs" && (!vsStarted() || vsOutcome(VS.doc).over)) return;
+  if (mode === "vs" && !vsMyTurn()) { toast("Ce n’est pas ton tour"); return; }
   var key = sel.slice().sort().join(",");
   if (S.guesses.some(function(g){ return g.slice().sort().join(",") === key; })) { toast("Déjà essayé !"); return; }
   S.guesses.push(sel.slice());
@@ -606,14 +652,14 @@ function submit(){
   if (best === 5) {
     S.solved.push(bestG); sel = []; justSolved = bestG; S.lt = Date.now();
     if (S.solved.length === P.groups.length) { S.ft = S.lt; finish(true); }
-    save(); vsFound(bestG); vsPush(); render();
+    save(); vsSend(bestG); render();
     return;
   }
   S.err++;
   var lost = S.err >= maxErr();
-  var hinted = !lost && vsHint();
+  var hinted = !lost && hintCatchUp();
   toast(lost ? "Plus d’essais…" : hinted ? (best === 4 ? "Presque ! Et voici un indice" : "Raté… voici un indice") : best === 4 ? "Presque ! Il en manque un" : "Raté");
-  busy = true; renderSel(); vsPush();
+  busy = true; renderSel(); vsSend(null);
   document.querySelectorAll("#board .tile[aria-pressed='true']").forEach(function(b){ b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake"); });
   save();
   setTimeout(function(){
@@ -659,9 +705,10 @@ function showHelp(){
   dlg.innerHTML = '<h2>Comment jouer</h2><p style="margin-top:0">Les 35 personnages forment <b>7 groupes de 5</b> qui partagent un point commun : région, lore, kit, skins, série, date de sortie, nom…</p><ul>' +
     '<li>Sélectionne 5 personnages puis <b>Valider</b>. Un groupe juste se range en haut, avec sa couleur, du jaune (le plus facile) au marron (le plus dur).</li>' +
     '<li>Attention aux pièges : un personnage peut sembler aller dans plusieurs groupes, mais il n’existe qu’une seule répartition qui marche.</li>' +
-    '<li>« Presque ! » veut dire que 4 des 5 personnages vont ensemble. Avec les indices, ta 2e puis ta 4e erreur te révèlent le thème d’un groupe.</li>' +
-    '<li><b>Réglages</b> : univers (LoL, Smash ou Mix des deux), difficulté, erreurs autorisées, indices, et le type de match en 1v1.</li>' +
-    '<li><b>Match</b> : défie un pote en ligne sur le site. Soit chacun sa grille (la même pour les deux, le premier à 7 groupes gagne), soit une grille commune (un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne). Pas de limite d’erreurs en match.</li>' +
+    '<li>« Presque ! » veut dire que 4 des 5 personnages vont ensemble.</li>' +
+    '<li><b>Indices</b> : toutes les X erreurs (réglable), un indice tombe sur le groupe le plus simple qu’il te reste. Le 1er donne son thème, les suivants révèlent ses personnages un par un tant qu’il n’est pas trouvé, puis on passe au groupe le plus simple suivant.</li>' +
+    '<li><b>Réglages</b> : univers (LoL, Smash ou Mix des deux), difficulté, erreurs autorisées en solo, fréquence des indices, type de match et temps par tour.</li>' +
+    '<li><b>Match</b> : défie un pote en ligne sur le site. On joue à tour de rôle : un essai par tour, bon ou mauvais, puis c’est à l’autre. Chacun sa grille (la même pour les deux, le premier à 7 groupes gagne) ou grille commune (un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne). Pas de limite d’erreurs en match.</li>' +
     '<li>Survole un personnage (ou active « Afficher les titres » dans les réglages) pour voir son titre officiel, ou sa série pour Smash.</li></ul><div class="row"><button type="button" class="btn primary" id="dlg-x">C’est parti</button></div>';
   $("#dlg-x").onclick = function(){ dlg.close(); };
   dlg.showModal();
@@ -673,16 +720,18 @@ function openCfg(){
     '<div class="f"><span class="lb">Univers</span>' + chips("u", [["lol", "LoL"], ["smash", "Smash"], ["mix", "Mix LoL × Smash"]], cfg.u) + '<small>Champions de LoL, combattants de Smash Bros. Ultimate, ou les deux mélangés avec des critères communs.</small></div>' +
     '<div class="f"><span class="lb">Difficulté</span>' + chips("df", [[0, "Facile"], [1, "Normal"], [2, "Difficile"]], cfg.diff) + '<small>Toujours un mélange de groupes faciles et durs. Facile : aucun critère expert, peu de pièges. Difficile : plus de critères pointus et de pièges.</small></div>' +
     '<div class="f"><span class="lb">Erreurs autorisées (solo)</span>' + chips("er", [[3, "3"], [5, "5"], [7, "7"], [0, "Illimitées"]], cfg.err) + '<small>En match, il n’y a pas de limite.</small></div>' +
-    '<div class="f"><span class="lb">Aide</span><div class="chips"><label><input type="checkbox" id="c-hints"' + (cfg.hints ? " checked" : "") + '>Indices à la 2e et à la 4e erreur</label><label><input type="checkbox" id="c-titles"' + (cfg.titles ? " checked" : "") + '>Afficher les titres</label></div><small>L’indice révèle le thème du groupe le plus dur qu’il te reste. Les titres : titre officiel des champions, série des combattants Smash.</small></div>' +
-    '<div class="f wide"><span class="lb">Match 1v1</span>' + chips("vm", [["race", "Chacun sa grille"], ["shared", "Grille commune"]], cfg.vm) + '<small>Chacun sa grille : la même grille pour les deux, chacun avance de son côté, le premier à trouver les 7 groupes gagne. Grille commune : les deux joueurs sont sur la même grille, un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne.</small></div>' +
+    '<div class="f"><span class="lb">Indices</span>' + chips("hx", [[2, "Toutes les 2 erreurs"], [3, "Toutes les 3"], [4, "Toutes les 4"], [5, "Toutes les 5"], [0, "Aucun"]], cfg.hx) + '<small>Un indice tombe sur le groupe le plus simple qu’il te reste : d’abord son thème, puis ses personnages un par un tant qu’il n’est pas trouvé. Ensuite, on passe au groupe le plus simple suivant.</small></div>' +
+    '<div class="f"><span class="lb">Affichage</span><div class="chips"><label><input type="checkbox" id="c-titles"' + (cfg.titles ? " checked" : "") + '>Afficher les titres</label></div><small>Titre officiel des champions, série des combattants Smash.</small></div>' +
+    '<div class="f"><span class="lb">Match 1v1</span>' + chips("vm", [["race", "Chacun sa grille"], ["shared", "Grille commune"]], cfg.vm) + '<small>À tour de rôle : un essai par tour, bon ou mauvais. Chacun sa grille : la même grille pour les deux, le premier à trouver les 7 groupes gagne. Grille commune : un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne.</small></div>' +
+    '<div class="f"><span class="lb">Temps par tour (match)</span>' + chips("tt", [[30, "30 s"], [60, "1 min"], [90, "1 min 30"], [0, "Sans"]], cfg.T) + '<small>Quand le temps est écoulé, le tour passe (ça compte comme un essai raté).</small></div>' +
     '<div class="ft"><button type="button" class="btn" data-close>Annuler</button><button type="submit" class="btn primary">' + (solo ? "Nouvelle grille" : "Enregistrer") + '</button></div></form>';
   dlg.showModal();
   dlg.querySelectorAll("[data-close]").forEach(function(b){ b.onclick = function(){ dlg.close(); }; });
   dlg.querySelector("form").onsubmit = function(e){
     e.preventDefault();
     function v(n){ var x = dlg.querySelector('[name=' + n + ']:checked'); return x ? x.value : null; }
-    cfg.u = v("u") || cfg.u; cfg.diff = +v("df"); cfg.err = +v("er"); cfg.vm = v("vm") || cfg.vm;
-    cfg.hints = $("#c-hints").checked ? 1 : 0; cfg.titles = $("#c-titles").checked ? 1 : 0;
+    cfg.u = v("u") || cfg.u; cfg.diff = +v("df"); cfg.err = +v("er"); cfg.vm = v("vm") || cfg.vm; cfg.hx = +v("hx"); cfg.T = +v("tt");
+    cfg.titles = $("#c-titles").checked ? 1 : 0;
     saveCfg(); dlg.close();
     if (solo) newFree(); else render();
   };
@@ -692,12 +741,14 @@ function newFree(){ if (mode !== "free") { setMode("free"); } ls("cx.free", newS
 
 /* ---------- 1v1 (on the site only: the page lends Firebase through window.parent.__grilleHost) ----------
    vs/<CODE>, the same collection as the Grille's games, marked game: "cx" (the Grille ignores them):
-   {game: "cx", code, st: "wait" | "play" | "end" | "declined", created, np: 2, seed, u: universe, diff, hints: bool, vm: "race" | "shared",
+   {game: "cx", code, st: "wait" | "play" | "end" | "declined", created, np: 2, seed, u: universe, diff, hx: a hint every hx misses (0 = none), vm: "race" | "shared",
+    T: seconds per turn (0 = no limit), turn: tok of the player to play, tn: turn number, tt: ms the turn started,
     p: [{id, name}], invs: [tok], inm: name invited, start: ms,
     r: {<tok>: {s: [groups found, in order], e: errors, n: guesses, h: hints, lt: ms of the last group found, ft: ms of the 7th, ab: true = gave up}},
     f: {<group>: {by: tok, t: ms}} (shared board only)}
    "race": both play the same grid at the same time, each on his own board: the first to find the 7 groups wins.
    "shared": one board for both, a group found disappears for both: the first to 4 groups wins.
+   Turn by turn: one attempt per turn, right or wrong, then the other plays (a turn past its time passes by itself).
    No error limit in 1v1: only the end of the race, or giving up, ends a game. */
 var HOST = null;
 try { if (window.parent !== window && window.parent.__grilleHost) HOST = window.parent.__grilleHost; } catch(e){}
@@ -768,6 +819,9 @@ function vsEnter(code){
     if (d.st === "play" && !VS.startedShown && Date.now() >= (d.start || 0)) { VS.startedShown = true; render(); return; }
     if (d.st === "play" && Date.now() < (d.start || 0)) { render(); return; }
     var c = document.getElementById("vs-clock"); if (c) c.textContent = vsTime(d);
+    var t2 = document.getElementById("vs-turn2"); if (t2) t2.innerHTML = vsTurnHTML(d);
+    var tl = document.getElementById("vs-turn"); if (tl) { tl.innerHTML = vsTurnHTML(d); tl.className = "turn" + (vsMyTurn() && !vsOutcome(d).over ? " me" : ""); }
+    vsTimeout();
   }, 250);
   render();
 }
@@ -797,7 +851,7 @@ function vsSync(){
   if (!P || VS.pseed !== d.seed) {
     P = build(d.seed, d.u || "lol", d.diff == null ? 1 : d.diff); VS.pseed = d.seed; sel = [];
     S = ls("cx.vs." + d.code);
-    if (!S || S.seed !== d.seed) S = {seed: d.seed, order: null, solved: [], guesses: [], err: 0, done: false, hints: []};
+    if (!S || S.seed !== d.seed) S = {seed: d.seed, order: null, solved: [], guesses: [], err: 0, done: false, hint: [], hstep: 0};
     if (!S.order || S.order.length !== P.tiles.length) S.order = P.tiles.slice();
   }
   var mine = vsR(d, TOK());
@@ -808,38 +862,36 @@ function vsSync(){
     sel = sel.filter(function(id){ return S.solved.indexOf(P.gOf[id]) < 0; });
   } else if ((mine.s || []).length > S.solved.length) S.solved = mine.s.slice();
   if ((mine.e || 0) > S.err) S.err = mine.e;
-  vsHint();
+  hintCatchUp();
   if (S.solved.length === 7 || vsOutcome(d).over) S.done = true;
   save();
 }
-/* hints (every mode): at the 2nd and the 4th error, the theme of the hardest group not found yet */
-var HINT_AT = [2, 4];
-function vsHint(){
-  if (!S || !P) return false;
-  if (mode === "vs" ? (VS && VS.doc && VS.doc.hints === false) : !S.hn) return false;   /* hints switched off in the settings */
-  S.hints = S.hints || [];
-  var want = HINT_AT.filter(function(n){ return S.err >= n; }).length, added = false;
-  while (S.hints.length < want) {
-    var g = -1;
-    for (var i = P.groups.length - 1; i >= 0; i--) if (S.solved.indexOf(i) < 0 && S.hints.indexOf(i) < 0) { g = i; break; }
-    if (g < 0) break;
-    S.hints.push(g); added = true;
-  }
-  return added;
-}
-function vsPush(){
+/* whose turn */
+function vsMyTurn(){ var d = VS && VS.doc; return !!(d && d.turn === TOK()); }
+function vsLeft(d){ return d && d.T ? Math.max(0, Math.ceil(((d.tt || 0) + d.T * 1000 - Date.now()) / 1000)) : null; }
+/* after an attempt (found = the group found, or null): my progress, the group claimed on a shared board, and the turn passes, in one write */
+function vsSend(found){
   if (mode !== "vs" || !VS || !VS.doc || !HOST) return;
-  var shared = vsShared(VS.doc);
-  var r = {}; r[TOK()] = {s: shared ? vsMine(VS.doc, TOK()) : S.solved.slice(), e: S.err, n: S.guesses.length, lt: S.lt || 0, ft: S.ft || 0, h: (S.hints || []).length};
-  HOST.db.doc("vs/" + VS.code).update({r: r}).catch(function(){ toast("Envoi impossible, vérifie ta connexion"); });
+  var d = VS.doc, me = TOK(), opp = vsOpp(d), shared = vsShared(d), upd = {};
+  if (shared && found != null && !(d.f && d.f[found])) { upd.f = {}; upd.f[found] = {by: me, t: Date.now()}; d.f = Object.assign({}, d.f || {}, upd.f); }
+  upd.r = {}; upd.r[me] = {s: shared ? vsMine(d, me) : S.solved.slice(), e: S.err, n: S.guesses.length, lt: S.lt || 0, ft: S.ft || 0, h: S.hstep || 0};
+  if (opp) { upd.turn = opp.id; upd.tn = (d.tn || 0) + 1; upd.tt = Date.now(); d.turn = upd.turn; d.tn = upd.tn; d.tt = upd.tt; }
+  d.r = Object.assign({}, d.r || {}); d.r[me] = upd.r[me];
+  HOST.db.doc("vs/" + VS.code).update(upd).catch(function(){ toast("Envoi impossible, vérifie ta connexion"); });
 }
-/* shared board: claim a group found (the board of the other player loses it too) */
-function vsFound(g){
-  if (mode !== "vs" || !VS || !VS.doc || !HOST || !vsShared(VS.doc)) return;
-  if (VS.doc.f && VS.doc.f[g]) return;
-  var f = {}; f[g] = {by: TOK(), t: Date.now()};
-  VS.doc.f = Object.assign({}, VS.doc.f || {}, f);
-  HOST.db.doc("vs/" + VS.code).update({f: f}).catch(function(){ toast("Envoi impossible, vérifie ta connexion"); });
+/* the time of a turn ran out: the player passes (a missed attempt); if he is gone, the other one takes the turn after a few seconds */
+function vsTimeout(){
+  var d = VS && VS.doc; if (!d || d.st !== "play" || !d.T || vsOutcome(d).over || Date.now() < (d.start || 0)) return;
+  var late = Date.now() - ((d.tt || 0) + d.T * 1000);
+  if (late < 0) return;
+  if (vsMyTurn()) {
+    if (VS.passedTn === d.tn) return; VS.passedTn = d.tn;
+    S.err++; hintCatchUp(); sel = []; save(); toast("Temps écoulé : le tour passe"); vsSend(null); render();
+  } else if (late > 5000 && VS.forcedTn !== d.tn) {
+    VS.forcedTn = d.tn;
+    var upd = {turn: TOK(), tn: (d.tn || 0) + 1, tt: Date.now()};
+    HOST.db.doc("vs/" + VS.code).update(upd).catch(function(){});
+  }
 }
 function vsRecord(d, o){
   var rec = ls("cx.vs.rec") || {w: 0, l: 0, d: 0, seen: []};
@@ -849,11 +901,11 @@ function vsRecord(d, o){
   ls("cx.vs.rec", rec);
 }
 function vsCreate(peer, set){
-  set = set || {u: cfg.u, diff: cfg.diff, hints: !!cfg.hints, vm: cfg.vm};
+  set = set || {u: cfg.u, diff: cfg.diff, hx: cfg.hx, vm: cfg.vm, T: cfg.T};
   if (!HOST || vsBusy) return;
   var nm = myName(); if (!nm) { toast("Choisis d’abord ton pseudo"); return; }
   var code = vsNewCode();
-  var d = {game: "cx", code: code, st: "wait", created: Date.now(), np: 2, u: set.u || "mix", diff: set.diff == null ? 1 : set.diff, hints: set.hints !== false, vm: set.vm || "race", seed: "vs-" + code + "-" + Math.random().toString(36).slice(2, 8),
+  var d = {game: "cx", code: code, st: "wait", created: Date.now(), np: 2, u: set.u || "mix", diff: set.diff == null ? 1 : set.diff, hx: set.hx == null ? 3 : set.hx, T: set.T == null ? 60 : set.T, vm: set.vm || "race", seed: "vs-" + code + "-" + Math.random().toString(36).slice(2, 8),
     p: [{id: TOK(), name: nm}], invs: peer ? [peer.tok] : [], inm: peer ? peer.nm : "", r: {}, f: {}};
   vsBusy = true; render();
   HOST.db.doc("vs/" + code).set(d).then(function(){ vsBusy = false; vsEnter(code); }, function(e){ vsBusy = false; render(); toast("Création impossible (" + ((e && e.code) || "erreur") + ")"); });
@@ -873,7 +925,7 @@ function vsJoin(code){
     if (d.game !== "cx") { toast("Ce code est une partie de Grille"); render(); return; }
     if ((d.p || []).some(function(x){ return x && x.id === me; })) { vsEnter(code); return; }
     if (d.st !== "wait" || (d.p || []).length >= 2) { toast("Cette partie a déjà commencé"); render(); return; }
-    return ref.update({p: d.p.concat([{id: me, name: nm}]), invs: (d.invs || []).filter(function(t){ return t !== me; }), st: "play", start: Date.now() + 3500}).then(function(){ vsEnter(code); });
+    return ref.update({p: d.p.concat([{id: me, name: nm}]), invs: (d.invs || []).filter(function(t){ return t !== me; }), st: "play", start: Date.now() + 3500, tt: Date.now() + 3500, tn: 1, turn: Math.random() < 0.5 ? me : d.p[0].id}).then(function(){ vsEnter(code); });
   }).catch(function(e){ vsBusy = false; render(); toast("Impossible de rejoindre (" + ((e && e.code) || "erreur") + ")"); });
 }
 function vsCancel(){ if (!VS) return; var code = VS.code; HOST.db.doc("vs/" + code).update({st: "declined", invs: []}).catch(function(){}); vsGone("Partie annulée."); }
@@ -895,7 +947,7 @@ function vsHTML(){
     var me = TOK(), seen = {}, nm = myName();
     var peers = PEERS.map(function(x){ return x && x.presence; }).filter(function(p){ if (!p || !p.tok || p.tok === me || seen[p.tok]) return false; seen[p.tok] = 1; return true; });
     var rec = ls("cx.vs.rec");
-    return '<div class="vsp"><h3>Défier un pote</h3><p>' + (cfg.vm === "shared" ? "<b>Grille commune</b> : vous jouez tous les deux sur la même grille, un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne." : "<b>Chacun sa grille</b> : vous recevez la même grille au même moment, le premier à trouver les 7 groupes gagne.") + ' Pas de limite d’erreurs. Partie en <b>' + esc(UNI_NAME[cfg.u]) + '</b>, <b>' + esc(DIFF_NAME[cfg.diff].toLowerCase()) + '</b>' + (cfg.hints ? ", avec indices" : ", sans indices") + ' : change-les dans les <b>Réglages</b>.</p>' +
+    return '<div class="vsp"><h3>Défier un pote</h3><p>' + (cfg.vm === "shared" ? "<b>Grille commune</b> : vous jouez tous les deux sur la même grille, un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne." : "<b>Chacun sa grille</b> : vous avez la même grille, chacun la sienne, le premier à trouver les 7 groupes gagne.") + ' À tour de rôle : un essai par tour, bon ou mauvais (' + esc(turnText(cfg.T)) + '). Pas de limite d’erreurs. Partie en <b>' + esc(UNI_NAME[cfg.u]) + '</b>, <b>' + esc(DIFF_NAME[cfg.diff].toLowerCase()) + '</b>, ' + esc(hintText(cfg.hx)) + ' : change-les dans les <b>Réglages</b>.</p>' +
       (nm ? "" : '<div class="row"><input id="vs-name" maxlength="20" placeholder="Ton pseudo" autocomplete="nickname"><button type="button" class="btn primary" data-act="name">OK</button></div>') +
       '<div class="row"><b>En ligne sur le site</b></div>' +
       (peers.length ? '<ul class="peers">' + peers.map(function(p){
@@ -924,9 +976,14 @@ function vsHTML(){
     return '<div class="pl' + (isMe ? " me" : "") + '"><span class="nm">' + esc(nm) + (isMe ? " (toi)" : "") + '</span><span class="sq">' + vsSquares(d, tok) + '</span><span class="er">' +
       (r.h ? "💡×" + r.h + " · " : "") + (r.ab ? "abandon" : !vsShared(d) && (r.s || []).length === 7 ? "7/7 ✓" : (vsShared(d) ? vsMine(d, tok).length + "/4 · " : "") + e + " erreur" + (e > 1 ? "s" : "")) + '</span></div>';
   }
-  return '<div class="sb"><div class="top"><span>' + (vsShared(d) ? "Grille commune : le premier à 4 groupes gagne" : "Chacun sa grille : le premier à 7 groupes gagne") + ' · code <b>' + esc(d.code) + '</b></span><span class="sp"></span><span>⏱ <b id="vs-clock">' + vsTime(d) + '</b></span>' +
+  return '<div class="sb"><div class="turn' + (vsMyTurn() && !o.over ? " me" : "") + '" id="vs-turn">' + vsTurnHTML(d) + '</div><div class="top"><span>' + (vsShared(d) ? "Grille commune : le premier à 4 groupes gagne" : "Chacun sa grille : le premier à 7 groupes gagne") + ' · code <b>' + esc(d.code) + '</b></span><span class="sp"></span><span>⏱ <b id="vs-clock">' + vsTime(d) + '</b></span>' +
     (o.over || (S && S.done) ? "" : '<button type="button" class="btn small danger" data-act="abandon">' + (abandonArm ? "Confirmer l’abandon" : "Abandonner") + '</button>') + '</div>' +
     line(myName() || "Moi", meR, TOK(), true) + line(opp.name, opR, opp.id, false) + '</div>';
+}
+function vsTurnHTML(d){
+  if (vsOutcome(d).over) return "Partie terminée";
+  var opp = vsOpp(d) || {name: "l’adversaire"}, left = vsLeft(d);
+  return (vsMyTurn() ? "<b>À toi de jouer</b>" : "Au tour de <b>" + esc(opp.name) + "</b>") + (left == null ? "" : ' · <span class="tl' + (left <= 10 ? " low" : "") + '">' + left + ' s</span>');
 }
 function vsEndHTML(){
   var d = VS && VS.doc; if (!d) return "";
@@ -955,7 +1012,7 @@ document.addEventListener("click", function(e){
   else if (a === "cancel") vsCancel();
   else if (a === "abandon") vsAbandon();
   else if (a === "lobby") vsLeave();
-  else if (a === "rematch") { var od = VS.doc, op = vsOpp(od); vsLeave(); vsCreate({tok: op.id, nm: op.name}, {u: od.u, diff: od.diff, hints: od.hints, vm: od.vm}); }   /* same settings as the game just played */
+  else if (a === "rematch") { var od = VS.doc, op = vsOpp(od); vsLeave(); vsCreate({tok: op.id, nm: op.name}, {u: od.u, diff: od.diff, hx: od.hx, vm: od.vm, T: od.T}); }   /* same settings as the game just played */
 });
 document.addEventListener("keydown", function(e){
   if (e.key !== "Enter" || !e.target || !e.target.id) return;
@@ -988,7 +1045,7 @@ $("#b-stats").onclick = showStats;
 $("#b-help").onclick = showHelp;
 document.addEventListener("keydown", function(e){ if (e.key === "Enter" && !dlg.open && sel.length === 5 && !(e.target.closest && e.target.closest(".tile, input"))) submit(); });
 if (!ls("cx.seen")) { ls("cx.seen", 1); setTimeout(showHelp, 300); }
-window.__cx = {state: function(){ return S; }, puzzle: function(){ return P; }, vs: function(){ return VS; }, cfg: function(){ return cfg; }};
+window.__cx = {state: function(){ return S; }, puzzle: function(){ return P; }, vs: function(){ return VS; }, cfg: function(){ return cfg; }, myTurn: vsMyTurn};
 /* a 1v1 invitation accepted on the site (index.html calls this, or leaves the code in cx.vs.join if this page was not loaded yet) */
 window.__cxJoin = function(code){ ls("cx.vs.join", null); if (mode !== "vs") setMode("vs"); vsJoin(code); };
 var pend = ls("cx.vs.join");
