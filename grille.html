@@ -2086,7 +2086,7 @@ function vsLobby(){
   });
 }
 /* invitations sent to me: a banner with Accepter / Refuser (on the site, the page itself shows them) */
-function inviteFresh(d){ return d && d.st === "wait" && Date.now() - (d.created || 0) < 10 * 60e3 && !(d.p || []).some(function(x){ return x && x.id === vsTok(); }); }
+function inviteFresh(d){ return d && d.st === "wait" && d.game !== "cx" && Date.now() - (d.created || 0) < 10 * 60e3 && !(d.p || []).some(function(x){ return x && x.id === vsTok(); }); }
 function watchInvites(db){
   db.collection("vs").where("invs", "array-contains", vsTok()).onSnapshot(function(s){
     var box = $("#invite"); if (!box) return;

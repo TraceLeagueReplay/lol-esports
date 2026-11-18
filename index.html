@@ -1990,6 +1990,12 @@ function cxShow(on){
 }
 function cxFit(){ if (!cxFrame || $("#cx-host").hidden) return; var top = $("#cx-host").getBoundingClientRect().top + window.scrollY; cxFrame.style.height = Math.max(560, window.innerHeight - top - 8) + "px"; }
 window.addEventListener("resize", cxFit);
+/* a Connexions 1v1 invitation accepted here: open the tab, the game takes the seat (or picks the code up when it loads) */
+function cxJoin(code){
+  ls("cx.vs.join", code);
+  ui.tab = "connexions"; render(); window.scrollTo(0, 0);
+  try { if (cxFrame && cxFrame.contentWindow && cxFrame.contentWindow.__cxJoin) { ls("cx.vs.join", null); cxFrame.contentWindow.__cxJoin(code); } } catch(e){}
+}
 function grilleOpen(code){
   ls("grille.vs.cur", code);
   ui.tab = "grille"; render(); window.scrollTo(0, 0);
@@ -2006,10 +2012,10 @@ function gInvites(){
     var box = $("#ginvite"); if (!box) return;
     var list = s.docs.map(function(x){ return x.data(); }).filter(function(d){ return d && d.st === "wait" && Date.now() - (d.created || 0) < 10 * 60e3 && !(d.p || []).some(function(x){ return x && x.id === GTOK; }); });
     if (!list.length) { box.hidden = true; box.innerHTML = ""; return; }
-    var d = list[list.length - 1], who = d.p && d.p[0] ? d.p[0].name : "Quelqu’un";
-    box.innerHTML = '<div class="gi-t"><b>' + esc(who) + '</b> t’invite à la Grille (' + (d.np || 2) + ' joueurs)<small>' + (d.T ? d.T + " s par tour" : "sans chrono") + '</small></div><button type="button" class="btn quiet" id="gi-no">Refuser</button><button type="button" class="btn primary" id="gi-yes">Accepter</button>';
+    var d = list[list.length - 1], who = d.p && d.p[0] ? d.p[0].name : "Quelqu’un", cx = d.game === "cx";   /* game "cx" = a Connexions 1v1 */
+    box.innerHTML = '<div class="gi-t"><b>' + esc(who) + '</b> ' + (cx ? 't’invite à un 1v1 Connexions<small>même grille pour vous deux, le premier à trouver les 7 groupes gagne</small>' : 't’invite à la Grille (' + (d.np || 2) + ' joueurs)<small>' + (d.T ? d.T + " s par tour" : "sans chrono") + '</small>') + '</div><button type="button" class="btn quiet" id="gi-no">Refuser</button><button type="button" class="btn primary" id="gi-yes">Accepter</button>';
     box.hidden = false;
-    $("#gi-yes").onclick = function(){ box.hidden = true; grilleJoin(d.code); };
+    $("#gi-yes").onclick = function(){ box.hidden = true; if (cx) cxJoin(d.code); else grilleJoin(d.code); };
     $("#gi-no").onclick = function(){
       box.hidden = true;
       gDb.doc("vs/" + d.code).get().then(function(s2){ if (!s2.exists) return; var x = s2.data(); return gDb.doc("vs/" + d.code).update({invs: (x.invs || []).filter(function(t){ return t !== GTOK; })}); }).catch(function(){});
