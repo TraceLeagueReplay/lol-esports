@@ -325,7 +325,8 @@ dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
    but the split into 7 groups must be unique; "debatable" champions (x) of a criterion are never shown elsewhere. */
 var CX_N = 7, CX_K = 5;
 var CX_FAMMAX = {ult:1, annee:1, titre:1, ressource:1, element:1, role:1, stat:1, groupe:2, worlds:2, region:2, nom:2, espece:2, arme:2, look:2, lore:2, kit:3, sserie:2, sjeu:1, slore:1, skit:1, lettre:1};
-var CX_PATTERNS = [[1,1,2,2,3,3,4],[1,2,2,2,3,3,4],[1,1,2,2,3,3,3],[1,1,2,3,3,3,4],[1,2,2,3,3,4,4],[1,1,2,2,2,3,4]];
+/* difficulty mix of a grid (1 easy … 4 expert): mostly easy and medium groups, at most one expert */
+var CX_PATTERNS = [[1,1,1,2,2,2,3],[1,1,2,2,2,3,3],[1,1,1,2,2,3,4],[1,1,2,2,2,3,4],[1,1,2,2,3,3,4]];
 function cxShuffle(a, rand){ for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rand() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 function cxCountSolutions(tiles, crits, limit){
   var opts = tiles.map(function(id){ return crits.map(function(c, k){ return c.mset[id] ? k : -1; }).filter(function(k){ return k >= 0; }); });
@@ -374,7 +375,7 @@ function cxGenerate(D, rand, opt){
     if (!ok) continue;
     /* champions shown: never a debatable one (x) of any criterion of the grid */
     function allowed(id){ return !chosen.some(function(k){ return k.xset[id]; }); }
-    var used = {}, groups = [], herrings = 0, maxH = opt.maxHerrings == null ? 4 : opt.maxHerrings;
+    var used = {}, groups = [], herrings = 0, maxH = opt.maxHerrings == null ? 2 : opt.maxHerrings;
     var order = chosen.slice().sort(function(a, b){ return a.c.m.length - b.c.m.length; });
     for (var g = 0; g < order.length && ok; g++) {
       var k2 = order[g];
@@ -489,7 +490,7 @@ function render(){
     return '<div class="grp' + (missed ? " missed" : "") + (i === justSolved || (S.done && missed) ? " new" : "") + '" style="background:var(--g' + i + ')"><div class="gt"><b>' + esc(g.c.t) + '</b><small>' + (missed ? "Groupe non trouvé" : diffLabel(g.c.d)) + '</small></div><div class="gm">' +
       g.ids.map(function(id){ return '<span title="' + esc(NAMES[id] + " · " + TITLES[id]) + '">' + img(id) + esc(NAMES[id]) + '</span>'; }).join("") + '</div></div>';
   }).join("");
-  $("#hints").innerHTML = mode === "vs" && !S.done ? (S.hints || []).filter(function(g){ return S.solved.indexOf(g) < 0; }).map(function(g){
+  $("#hints").innerHTML = !S.done ? (S.hints || []).filter(function(g){ return S.solved.indexOf(g) < 0; }).map(function(g){
     return '<div class="hint">💡 Indice : un des groupes est <b>« ' + esc(P.groups[g].c.t) + ' »</b></div>';
   }).join("") : "";
   var left = S.order.filter(function(id){ return S.solved.indexOf(P.gOf[id]) < 0; });
@@ -603,7 +604,7 @@ function showHelp(){
     '<li>Trois univers : <b>LoL</b> (champions), <b>Smash</b> (combattants de Smash Bros. Ultimate) ou <b>Mix</b> des deux, avec des critères communs (épée, feu, chapeau…). La grille du jour est en Mix.</li>' +
     '<li>Sélectionne 5 champions puis <b>Valider</b>.</li><li>Un groupe juste se range en haut, avec sa couleur. Du jaune (le plus facile) au marron (le plus dur).</li>' +
     '<li>Attention aux pièges : un champion peut sembler aller dans plusieurs groupes, mais il n’existe qu’une seule répartition qui marche.</li>' +
-    '<li>Tu as droit à <b>' + MAXERR + ' erreurs</b>. « Presque ! » veut dire que 4 des 5 champions vont ensemble.</li>' +
+    '<li>Tu as droit à <b>' + MAXERR + ' erreurs</b>. « Presque ! » veut dire que 4 des 5 personnages vont ensemble. À ta 2e puis à ta 4e erreur, un indice te révèle le thème d’un groupe.</li>' +
     '<li>La <b>grille du jour</b> est la même pour tout le monde et change à minuit. La <b>partie libre</b> en génère autant que tu veux.</li>' +
     '<li>En <b>1v1</b>, défie un pote en ligne sur le site : même grille au même moment, le premier à trouver les 7 groupes gagne.</li>' +
     '<li>Survole un personnage (ou coche « Afficher les titres ») pour voir son titre officiel, ou sa série pour Smash.</li></ul><div class="row"><button type="button" class="btn primary" id="dlg-x">C’est parti</button></div>';
@@ -717,10 +718,10 @@ function vsSync(){
   if (S.solved.length === 7 || S.err >= MAXERR || vsOutcome(d).over) S.done = true;
   save();
 }
-/* 1v1 hints: at the 2nd and the 4th error, the theme of the hardest group not found yet */
+/* hints (every mode): at the 2nd and the 4th error, the theme of the hardest group not found yet */
 var HINT_AT = [2, 4];
 function vsHint(){
-  if (mode !== "vs" || !S || !P) return false;
+  if (!S || !P) return false;
   S.hints = S.hints || [];
   var want = HINT_AT.filter(function(n){ return S.err >= n; }).length, added = false;
   while (S.hints.length < want) {
