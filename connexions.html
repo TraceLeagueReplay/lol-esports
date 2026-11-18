@@ -47,22 +47,35 @@ header.top .sp{flex:1}
 .bar b{color:var(--fg)}
 #cfgsum{font-weight:600;color:var(--fg)}
 #giveup.arm{border-color:var(--bad);color:var(--bad)}
-/* settings window (same look as the Grille's) */
-dialog:has(form.cfg){width:min(820px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 16px);overflow:auto;padding:0}
-form.cfg{padding:16px 20px 14px;margin:0;display:grid;grid-template-columns:1fr 1fr;column-gap:28px;font-size:15px}
-form.cfg > .ph, form.cfg > .ft, form.cfg > .wide{grid-column:1/-1}
-.cfg .ph{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+/* settings and match windows: the same rules as the Grille's */
+dialog:has(form.cfg){width:min(700px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 16px);overflow:auto;padding:0;border:1px solid var(--line-2)}
+dialog:has(form.cfg:not(.vsl)){width:min(820px,calc(100vw - 24px))}
+dialog form.cfg{padding:16px 18px 18px;margin:0}
+.cfg{font-size:16px}
+form.cfg:not(.vsl){display:grid;grid-template-columns:1fr 1fr;column-gap:28px}
+form.cfg:not(.vsl) > .ph, form.cfg:not(.vsl) > .ft, form.cfg:not(.vsl) > .wide{grid-column:1/-1}
+.cfg .ph{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .cfg .ph .pc{flex:1;font-family:var(--f-display);font-size:26px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;line-height:1.1}
 .cfg .ph .x{border:0;background:none;font-size:18px;cursor:pointer;color:var(--muted)}
 .cfg .f{margin-bottom:18px}
 .cfg .lb{display:block;font-size:13.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
 .cfg .chips{display:flex;flex-wrap:wrap;gap:8px}
-.cfg .chips label{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);border-radius:999px;padding:8px 14px;font-size:15px;font-weight:600;cursor:pointer;color:var(--fg)}
-.cfg .chips label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
-.cfg .chips input{margin:0;width:16px;height:16px;accent-color:var(--accent)}
-.cfg small{display:block;color:var(--muted);font-size:13px;margin-top:7px;line-height:1.35}
-.cfg .ft{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--panel);padding:12px 0 4px;border-top:1px solid var(--line);z-index:1}
-@media (max-width:640px){ form.cfg{grid-template-columns:1fr} }
+.cfg .chips label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);border-radius:999px;padding:8px 15px;font-size:16px;font-weight:600;cursor:pointer}
+.cfg .chips input{margin:0;width:17px;height:17px}
+.cfg small{display:block;color:var(--muted);font-size:13.5px;margin-top:6px}
+.cfg .btn{font-size:16px;padding:10px 18px}
+.cfg .ft{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--panel);padding:12px 0 4px;margin-top:6px;border-top:1px solid var(--line);z-index:1}
+.vsl .inp{width:100%;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line-2);border-radius:8px;background:var(--panel-2);color:var(--fg)}
+.vsl .row{display:flex;gap:8px}
+.vsl .row .inp{flex:1}
+.peers{display:flex;flex-direction:column;gap:6px}
+.peer{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--panel-2)}
+.peer b{font-size:15px}
+.peer .ps{flex:1;font-size:12.5px;color:var(--muted);min-width:0}
+.peer .btn{padding:6px 12px}
+.pdot{width:10px;height:10px;border-radius:50%;background:var(--ok);flex:none}
+.pdot.busy{background:var(--faint)}
+@media (max-width:640px){ form.cfg:not(.vsl){grid-template-columns:1fr} }
 .toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
 .toggle input{accent-color:var(--accent);width:16px;height:16px;margin:0}
 
@@ -144,11 +157,6 @@ dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
 .vsp .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
 .vsp input{font:inherit;color:var(--fg);background:var(--panel-2);border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;min-width:0}
 .vsp input.code{width:120px;text-transform:uppercase;letter-spacing:.12em;font-weight:700}
-.peers{list-style:none;margin:6px 0 4px;padding:0;display:grid;gap:6px}
-.peers li{display:flex;align-items:center;gap:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
-.peers li b{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-size:13px;flex:none}
-.peers li span{flex:1;min-width:0;font-weight:600}
-.peers li em{font-style:normal;color:var(--muted);font-size:12.5px}
 .bigcode{font-family:var(--f-display);font-size:40px;letter-spacing:.18em;color:var(--accent);line-height:1}
 .count3{font-family:var(--f-display);font-size:80px;line-height:1;text-align:center;color:var(--accent);padding:10px 0}
 .sb{display:grid;gap:6px;margin-bottom:12px}
@@ -563,8 +571,9 @@ function save(){ if (S && (mode !== "vs" || VS)) ls(stateKey(), S); }
 
 function render(){
   document.body.classList.toggle("titles", !!cfg.titles);
-  $("#b-vs").textContent = mode === "vs" ? "Solo" : "Match";
-  $("#b-vs").title = mode === "vs" ? "Revenir aux parties en solo" : "Défier un pote en 1v1";
+  var inMatch = !!(VS && VS.doc && VS.doc.st !== "declined" && !vsOutcome(VS.doc).over);
+  $("#b-vs").textContent = mode === "vs" ? "Solo" : inMatch ? "Reprendre le match" : "Match";
+  $("#b-vs").title = mode === "vs" ? "Revenir aux parties en solo" : inMatch ? "Revenir au match en cours" : "Défier un pote";
   $("#b-new").hidden = mode === "vs";
   $("#cfgsum").textContent = summary();
   $("#giveup").hidden = mode === "vs" || !S || S.done;
@@ -720,17 +729,16 @@ function openCfg(){
     '<div class="f"><span class="lb">Univers</span>' + chips("u", [["lol", "LoL"], ["smash", "Smash"], ["mix", "Mix LoL × Smash"]], cfg.u) + '<small>Champions de LoL, combattants de Smash Bros. Ultimate, ou les deux mélangés avec des critères communs.</small></div>' +
     '<div class="f"><span class="lb">Difficulté</span>' + chips("df", [[0, "Facile"], [1, "Normal"], [2, "Difficile"]], cfg.diff) + '<small>Toujours un mélange de groupes faciles et durs. Facile : aucun critère expert, peu de pièges. Difficile : plus de critères pointus et de pièges.</small></div>' +
     '<div class="f"><span class="lb">Erreurs autorisées (solo)</span>' + chips("er", [[3, "3"], [5, "5"], [7, "7"], [0, "Illimitées"]], cfg.err) + '<small>En match, il n’y a pas de limite.</small></div>' +
-    '<div class="f"><span class="lb">Indices</span>' + chips("hx", [[2, "Toutes les 2 erreurs"], [3, "Toutes les 3"], [4, "Toutes les 4"], [5, "Toutes les 5"], [0, "Aucun"]], cfg.hx) + '<small>Un indice tombe sur le groupe le plus simple qu’il te reste : d’abord son thème, puis ses personnages un par un tant qu’il n’est pas trouvé. Ensuite, on passe au groupe le plus simple suivant.</small></div>' +
+    '<div class="f"><span class="lb">Un indice toutes les X erreurs</span>' + chips("hx", [[2, "2"], [3, "3"], [4, "4"], [5, "5"], [0, "Aucun indice"]], cfg.hx) + '<small>Un indice tombe sur le groupe le plus simple qu’il te reste : d’abord son thème, puis ses personnages un par un tant qu’il n’est pas trouvé. Ensuite, on passe au groupe le plus simple suivant.</small></div>' +
     '<div class="f"><span class="lb">Affichage</span><div class="chips"><label><input type="checkbox" id="c-titles"' + (cfg.titles ? " checked" : "") + '>Afficher les titres</label></div><small>Titre officiel des champions, série des combattants Smash.</small></div>' +
-    '<div class="f"><span class="lb">Match 1v1</span>' + chips("vm", [["race", "Chacun sa grille"], ["shared", "Grille commune"]], cfg.vm) + '<small>À tour de rôle : un essai par tour, bon ou mauvais. Chacun sa grille : la même grille pour les deux, le premier à trouver les 7 groupes gagne. Grille commune : un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne.</small></div>' +
-    '<div class="f"><span class="lb">Temps par tour (match)</span>' + chips("tt", [[30, "30 s"], [60, "1 min"], [90, "1 min 30"], [0, "Sans"]], cfg.T) + '<small>Quand le temps est écoulé, le tour passe (ça compte comme un essai raté).</small></div>' +
+
     '<div class="ft"><button type="button" class="btn" data-close>Annuler</button><button type="submit" class="btn primary">' + (solo ? "Nouvelle grille" : "Enregistrer") + '</button></div></form>';
   dlg.showModal();
   dlg.querySelectorAll("[data-close]").forEach(function(b){ b.onclick = function(){ dlg.close(); }; });
   dlg.querySelector("form").onsubmit = function(e){
     e.preventDefault();
     function v(n){ var x = dlg.querySelector('[name=' + n + ']:checked'); return x ? x.value : null; }
-    cfg.u = v("u") || cfg.u; cfg.diff = +v("df"); cfg.err = +v("er"); cfg.vm = v("vm") || cfg.vm; cfg.hx = +v("hx"); cfg.T = +v("tt");
+    cfg.u = v("u") || cfg.u; cfg.diff = +v("df"); cfg.err = +v("er"); cfg.hx = +v("hx");
     cfg.titles = $("#c-titles").checked ? 1 : 0;
     saveCfg(); dlg.close();
     if (solo) newFree(); else render();
@@ -787,24 +795,24 @@ function vsPresence(){
 function vsWatchPeers(){
   if (!HOST || !HOST.room || vsWatchPeers.on) return;
   vsWatchPeers.on = true;
-  try { HOST.room.onPeers(function(ch){ PEERS = (ch && ch.peers) || []; if (mode === "vs" && !VS) render(); }); } catch(e){}
+  try { HOST.room.onPeers(function(ch){ PEERS = (ch && ch.peers) || []; var box = document.getElementById("mx-peers"); if (box) box.innerHTML = peersHTML(); }); } catch(e){}
 }
 function vsLoad(){
   P = null; S = null; sel = [];
-  if (HOST) {
-    vsWatchPeers();
-    var cur = ls("cx.vs.cur");
-    if (VS) vsSync(); else if (cur) vsEnter(cur);
-  }
+  var cur = HOST ? ls("cx.vs.cur") : null;
+  if (!VS && !cur) { mode = "free"; ls("cx.mode", "free"); load(); return; }   /* no match in progress: solo */
+  vsWatchPeers();
+  if (VS) vsSync(); else vsEnter(cur);
   render();
 }
 function vsStop(){ if (VS && VS.off) { try { VS.off(); } catch(e){} } VS = null; clearInterval(vsClock); vsClock = null; abandonArm = false; }
-function vsGone(msg){ vsStop(); ls("cx.vs.cur", null); P = null; S = null; sel = []; if (msg) toast(msg); vsPresence(); if (mode === "vs") render(); }
+function vsGone(msg){ vsStop(); ls("cx.vs.cur", null); P = null; S = null; sel = []; if (msg) toast(msg); vsPresence(); if (mode === "vs") setMode("free"); }
 function vsEnter(code){
   if (!HOST) return;
   if (VS && VS.code === code) return;
   vsStop();
   VS = {code: code, doc: null, pseed: null};
+  P = null; S = null; sel = [];   /* nothing of the solo game stays on screen */
   ls("cx.vs.cur", code);
   /* tidy the saves of older games */
   try { Object.keys(localStorage).forEach(function(k){ if (/^cx\.vs\.[A-Z0-9]{5}$/.test(k) && k !== "cx.vs." + code) localStorage.removeItem(k); }); } catch(e){}
@@ -907,15 +915,15 @@ function vsCreate(peer, set){
   var code = vsNewCode();
   var d = {game: "cx", code: code, st: "wait", created: Date.now(), np: 2, u: set.u || "mix", diff: set.diff == null ? 1 : set.diff, hx: set.hx == null ? 3 : set.hx, T: set.T == null ? 60 : set.T, vm: set.vm || "race", seed: "vs-" + code + "-" + Math.random().toString(36).slice(2, 8),
     p: [{id: TOK(), name: nm}], invs: peer ? [peer.tok] : [], inm: peer ? peer.nm : "", r: {}, f: {}};
-  vsBusy = true; render();
-  HOST.db.doc("vs/" + code).set(d).then(function(){ vsBusy = false; vsEnter(code); }, function(e){ vsBusy = false; render(); toast("Création impossible (" + ((e && e.code) || "erreur") + ")"); });
+  vsBusy = true; if (dlg.open) dlg.close();
+  HOST.db.doc("vs/" + code).set(d).then(function(){ vsBusy = false; mode = "vs"; ls("cx.mode", "vs"); vsEnter(code); }, function(e){ vsBusy = false; render(); toast("Création impossible (" + ((e && e.code) || "erreur") + ")"); });
 }
 function vsJoin(code){
   code = String(code || "").trim().toUpperCase();
   if (!HOST) { toast("Le 1v1 se joue depuis l’onglet Connexions du site"); return; }
   if (!/^[A-Z0-9]{4,8}$/.test(code)) { toast("Code invalide"); return; }
-  var nm = myName(); if (!nm) { toast("Choisis d’abord ton pseudo"); render(); return; }
-  if (VS && VS.code === code) return;
+  var nm = myName(); if (!nm) { toast("Choisis d’abord ton pseudo"); return; }
+  if (VS && VS.code === code) { mode = "vs"; render(); return; }
   vsBusy = true;
   var ref = HOST.db.doc("vs/" + code);
   ref.get().then(function(snap){
@@ -923,9 +931,10 @@ function vsJoin(code){
     if (!snap.exists) { toast("Aucune partie avec ce code"); render(); return; }
     var d = snap.data(), me = TOK();
     if (d.game !== "cx") { toast("Ce code est une partie de Grille"); render(); return; }
-    if ((d.p || []).some(function(x){ return x && x.id === me; })) { vsEnter(code); return; }
+    if (dlg.open) dlg.close();
+    if ((d.p || []).some(function(x){ return x && x.id === me; })) { mode = "vs"; ls("cx.mode", "vs"); vsEnter(code); return; }
     if (d.st !== "wait" || (d.p || []).length >= 2) { toast("Cette partie a déjà commencé"); render(); return; }
-    return ref.update({p: d.p.concat([{id: me, name: nm}]), invs: (d.invs || []).filter(function(t){ return t !== me; }), st: "play", start: Date.now() + 3500, tt: Date.now() + 3500, tn: 1, turn: Math.random() < 0.5 ? me : d.p[0].id}).then(function(){ vsEnter(code); });
+    return ref.update({p: d.p.concat([{id: me, name: nm}]), invs: (d.invs || []).filter(function(t){ return t !== me; }), st: "play", start: Date.now() + 3500, tt: Date.now() + 3500, tn: 1, turn: Math.random() < 0.5 ? me : d.p[0].id}).then(function(){ mode = "vs"; ls("cx.mode", "vs"); vsEnter(code); });
   }).catch(function(e){ vsBusy = false; render(); toast("Impossible de rejoindre (" + ((e && e.code) || "erreur") + ")"); });
 }
 function vsCancel(){ if (!VS) return; var code = VS.code; HOST.db.doc("vs/" + code).update({st: "declined", invs: []}).catch(function(){}); vsGone("Partie annulée."); }
@@ -941,24 +950,39 @@ function vsSquares(d, tok){
   for (var i = 0; i < n; i++) h += i < s.length ? '<i style="background:var(--g' + s[i] + ')"></i>' : "<i></i>";
   return h;
 }
+/* ---------- the Match window (same layout as the Grille's) ---------- */
+function peersHTML(){
+  var me = TOK(), seen = {}, nm = myName();
+  var peers = PEERS.map(function(x){ return x && x.presence; }).filter(function(p){ if (!p || !p.tok || p.tok === me || seen[p.tok]) return false; seen[p.tok] = 1; return true; });
+  if (!peers.length) return '<small style="margin-top:0">Personne d’autre n’est connecté pour l’instant. Tu peux créer une partie avec un code (plus bas) et l’envoyer.</small>';
+  return peers.map(function(p){
+    var busy = p.st === "busy";
+    return '<div class="peer"><span class="pdot' + (busy ? " busy" : "") + '"></span><b>' + esc(p.nm || "?") + '</b><span class="ps">' + (busy ? "en partie" : "disponible") + '</span>' +
+      '<button type="button" class="btn primary" data-act="invite" data-tok="' + esc(p.tok) + '" data-nm="' + esc(p.nm || "") + '"' + (nm && !vsBusy ? "" : " disabled") + '>Défier</button></div>';
+  }).join("");
+}
+function openMatch(){
+  if (!HOST) { toast("Le mode Match marche sur le site (il a besoin de la base partagée)."); return; }
+  vsWatchPeers();
+  function chips(name, list, cur){ return '<div class="chips">' + list.map(function(o){ return '<label><input type="radio" name="' + name + '" value="' + o[0] + '"' + (String(o[0]) === String(cur) ? " checked" : "") + '>' + o[1] + '</label>'; }).join("") + '</div>'; }
+  var rec = ls("cx.vs.rec");
+  dlg.innerHTML = '<form method="dialog" class="cfg vsl"><div class="ph"><div class="pc">Match</div><button type="button" class="x" data-close aria-label="Fermer">✕</button></div>' +
+    '<div class="f"><label class="lb" for="mx-name">Ton pseudo</label><input id="mx-name" class="inp" maxlength="16" value="' + esc(myName()) + '" placeholder="Pseudo"></div>' +
+    '<div class="f"><span class="lb">Type de match</span>' + chips("vm", [["race", "Chacun sa grille"], ["shared", "Grille commune"]], cfg.vm) + '<small>Chacun sa grille : la même grille pour les deux, le premier à trouver les 7 groupes gagne. Grille commune : un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne. À tour de rôle : un essai par tour, bon ou mauvais. Pas de limite d’erreurs.</small></div>' +
+    '<div class="f"><span class="lb">Chrono par tour</span>' + chips("tt", [[30, "30 s"], [60, "1 min"], [90, "1 min 30"], [0, "Sans"]], cfg.T) + '<small>Grille faite avec tes réglages actuels : ' + esc(UNI_NAME[cfg.u] + " · " + DIFF_NAME[cfg.diff] + " · " + hintText(cfg.hx)) + '</small></div>' +
+    '<div class="f"><span class="lb">Connectés sur le site</span><div id="mx-peers" class="peers">' + peersHTML() + '</div></div>' +
+    '<details class="f"><summary class="lb" style="cursor:pointer">Avec un code</summary><div class="row" style="margin-top:6px"><button type="button" class="btn" data-act="create">Créer une partie avec un code</button></div><div class="row" style="margin-top:8px"><input id="mx-code" class="inp" maxlength="8" placeholder="CODE" style="text-transform:uppercase"><button type="button" class="btn" data-act="join">Rejoindre</button></div></details>' +
+    (rec && (rec.w || rec.l || rec.d) ? '<small>Ton bilan : ' + rec.w + ' victoire' + (rec.w > 1 ? "s" : "") + ' · ' + rec.l + ' défaite' + (rec.l > 1 ? "s" : "") + (rec.d ? ' · ' + rec.d + ' nul' + (rec.d > 1 ? "s" : "") : "") + '</small>' : "") +
+    '</form>';
+  dlg.showModal();
+  dlg.querySelectorAll("[data-close]").forEach(function(b){ b.onclick = function(){ dlg.close(); }; });
+  /* the choices are kept right away (they make the next match) */
+  dlg.querySelectorAll("input[name=vm], input[name=tt]").forEach(function(x){ x.onchange = function(){ if (x.name === "vm") cfg.vm = x.value; else cfg.T = +x.value; saveCfg(); render(); }; });
+  $("#mx-name").onchange = function(){ var v = this.value.trim().slice(0, 16); if (v && HOST.setName) { HOST.setName(v); var box = document.getElementById("mx-peers"); if (box) box.innerHTML = peersHTML(); } };
+  $("#mx-code").onkeydown = function(e){ if (e.key === "Enter") { e.preventDefault(); vsJoin(this.value); } };
+}
 function vsHTML(){
-  if (!HOST) return '<div class="vsp"><h3>1v1</h3><p>Le 1v1 se joue depuis l’onglet <b>Connexions</b> du site LoL Esports, où tes potes connectés apparaissent.</p></div>';
-  if (!VS) {
-    var me = TOK(), seen = {}, nm = myName();
-    var peers = PEERS.map(function(x){ return x && x.presence; }).filter(function(p){ if (!p || !p.tok || p.tok === me || seen[p.tok]) return false; seen[p.tok] = 1; return true; });
-    var rec = ls("cx.vs.rec");
-    return '<div class="vsp"><h3>Défier un pote</h3><p>' + (cfg.vm === "shared" ? "<b>Grille commune</b> : vous jouez tous les deux sur la même grille, un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne." : "<b>Chacun sa grille</b> : vous avez la même grille, chacun la sienne, le premier à trouver les 7 groupes gagne.") + ' À tour de rôle : un essai par tour, bon ou mauvais (' + esc(turnText(cfg.T)) + '). Pas de limite d’erreurs. Partie en <b>' + esc(UNI_NAME[cfg.u]) + '</b>, <b>' + esc(DIFF_NAME[cfg.diff].toLowerCase()) + '</b>, ' + esc(hintText(cfg.hx)) + ' : change-les dans les <b>Réglages</b>.</p>' +
-      (nm ? "" : '<div class="row"><input id="vs-name" maxlength="20" placeholder="Ton pseudo" autocomplete="nickname"><button type="button" class="btn primary" data-act="name">OK</button></div>') +
-      '<div class="row"><b>En ligne sur le site</b></div>' +
-      (peers.length ? '<ul class="peers">' + peers.map(function(p){
-        return '<li><b>' + esc((p.nm || "?").charAt(0).toUpperCase()) + '</b><span>' + esc(p.nm || "?") + '</span>' + (p.st === "busy" ? "<em>en partie</em>" : "") +
-          '<button type="button" class="btn small primary" data-act="invite" data-tok="' + esc(p.tok) + '" data-nm="' + esc(p.nm || "") + '"' + (nm && !vsBusy ? "" : " disabled") + '>Défier</button></li>';
-      }).join("") + '</ul>' : '<p>Personne d’autre n’est en ligne pour l’instant. Tu peux créer une partie et envoyer le code.</p>') +
-      '<div class="row"><button type="button" class="btn" data-act="create"' + (nm && !vsBusy ? "" : " disabled") + '>Créer une partie avec un code</button>' +
-      '<span class="sp" style="flex:1"></span><input id="vs-code" class="code" maxlength="8" placeholder="CODE" autocomplete="off"><button type="button" class="btn" data-act="join"' + (nm ? "" : " disabled") + '>Rejoindre</button></div>' +
-      (rec && (rec.w || rec.l || rec.d) ? '<p style="margin:8px 0 0">Ton bilan en 1v1 : <b>' + rec.w + '</b> victoire' + (rec.w > 1 ? "s" : "") + ' · <b>' + rec.l + '</b> défaite' + (rec.l > 1 ? "s" : "") + (rec.d ? ' · <b>' + rec.d + '</b> nul' + (rec.d > 1 ? "s" : "") : "") + '</p>' : "") +
-      '</div>';
-  }
+  if (!VS) return "";
   var d = VS.doc;
   if (!d) return '<div class="vsp"><p>Connexion à la partie…</p></div>';
   if (d.st === "wait") {
@@ -999,25 +1023,20 @@ function vsEndHTML(){
     : "Autant de groupes chacun : égalité parfaite.";
   return '<div class="end"><h2>' + (draw ? "Égalité" : win ? "Victoire !" : "Défaite…") + '</h2><p>' + why + '</p>' +
     '<div class="rows">' + S.guesses.map(function(g){ return g.map(function(id){ return EMO[P.gOf[id]]; }).join(""); }).join("<br>") + '</div>' +
-    '<div class="actions"><button type="button" class="btn primary" data-act="rematch"' + (opp.id ? "" : " disabled") + '>Revanche</button><button type="button" class="btn" data-act="lobby">Retour au lobby</button><button type="button" class="btn" id="b-share">Copier le résultat</button></div></div>';
+    '<div class="actions"><button type="button" class="btn primary" data-act="rematch"' + (opp.id ? "" : " disabled") + '>Revanche</button><button type="button" class="btn" data-act="lobby">Nouveau match</button><button type="button" class="btn" data-act="quit">Quitter</button><button type="button" class="btn" id="b-share">Copier le résultat</button></div></div>';
 }
 /* buttons of the 1v1 panels */
 document.addEventListener("click", function(e){
   var b = e.target.closest && e.target.closest("[data-act]"); if (!b || b.disabled) return;
   var a = b.getAttribute("data-act");
-  if (a === "name") { var v = ($("#vs-name").value || "").trim().slice(0, 20); if (v && HOST && HOST.setName) { HOST.setName(v); render(); } }
-  else if (a === "invite") vsCreate({tok: b.getAttribute("data-tok"), nm: b.getAttribute("data-nm")});
+  if (a === "invite") vsCreate({tok: b.getAttribute("data-tok"), nm: b.getAttribute("data-nm")});
   else if (a === "create") vsCreate(null);
-  else if (a === "join") vsJoin($("#vs-code").value);
+  else if (a === "join") vsJoin($("#mx-code") ? $("#mx-code").value : "");
   else if (a === "cancel") vsCancel();
   else if (a === "abandon") vsAbandon();
-  else if (a === "lobby") vsLeave();
+  else if (a === "lobby") { vsLeave(); openMatch(); }
+  else if (a === "quit") vsLeave();
   else if (a === "rematch") { var od = VS.doc, op = vsOpp(od); vsLeave(); vsCreate({tok: op.id, nm: op.name}, {u: od.u, diff: od.diff, hx: od.hx, vm: od.vm, T: od.T}); }   /* same settings as the game just played */
-});
-document.addEventListener("keydown", function(e){
-  if (e.key !== "Enter" || !e.target || !e.target.id) return;
-  if (e.target.id === "vs-code") vsJoin(e.target.value);
-  if (e.target.id === "vs-name") { var b = document.querySelector('[data-act="name"]'); if (b) b.click(); }
 });
 document.addEventListener("click", function(e){ if (e.target && e.target.id === "b-share" && mode === "vs") copyShare(); });
 
@@ -1037,7 +1056,12 @@ $("#b-shuffle").onclick = function(){
   S.order = S.order.filter(function(id){ return S.solved.indexOf(P.gOf[id]) >= 0; }).concat(left);
   save(); render();
 };
-$("#b-vs").onclick = function(){ setMode(mode === "vs" ? "free" : "vs"); };
+/* Match: back to solo from a match, back to the match in progress, or the Match window */
+$("#b-vs").onclick = function(){
+  if (mode === "vs") { setMode("free"); return; }
+  if ((VS && VS.doc && VS.doc.st !== "declined" && !vsOutcome(VS.doc).over) || (!VS && HOST && ls("cx.vs.cur"))) { setMode("vs"); return; }
+  openMatch();
+};
 $("#b-cfg").onclick = openCfg;
 $("#b-new").onclick = newFree;
 $("#giveup").onclick = giveUp;
