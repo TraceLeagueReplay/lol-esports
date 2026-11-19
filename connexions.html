@@ -839,7 +839,7 @@ function submit(){
   var best = 0, bestG = -1; Object.keys(cnt).forEach(function(g){ if (cnt[g] > best) { best = cnt[g]; bestG = +g; } });
   if (best === 5) {
     S.solved.push(bestG); sel = []; justSolved = bestG; S.lt = Date.now();
-    if (S.solved.length === P.groups.length) { S.ft = S.lt; finish(true); }
+    if (S.solved.length === P.groups.length) { S.ft = S.lt; finish(true); SFX.win(); } else SFX.ok(P.groups[bestG].c.d);
     save(); vsSend(bestG); render();
     return;
   }
@@ -847,6 +847,7 @@ function submit(){
   if (mode === "vs" && VS && VS.doc && !vsShared(VS.doc)) S.lock = Date.now() + VS_LOCK * 1000;   /* race: a miss blocks the player 10 s */
   var lost = S.err >= maxErr();
   var hinted = !lost && hintCatchUp();
+  if (lost) SFX.lose(); else if (best === 4) SFX.near(); else SFX.miss();
   toast(lost ? "Plus d’essais…" : hinted ? (best === 4 ? "Presque ! Et voici un indice" : "Raté… voici un indice") : best === 4 ? "Presque ! Il en manque un" : "Raté");
   busy = true; renderSel(); vsSend(null);
   document.querySelectorAll("#board .tile[aria-pressed='true']").forEach(function(b){ b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake"); });
@@ -1051,12 +1052,15 @@ function vsSync(){
   var d = VS && VS.doc;
   if (!d || (d.st !== "play" && d.st !== "end")) return;
   if (!P || VS.pseed !== d.seed) {
-    P = build(d.seed, d.u || "lol", d.diff == null ? 1 : d.diff, d.mx); VS.pseed = d.seed; sel = [];
+    P = build(d.seed, d.u || "lol", d.diff == null ? 1 : d.diff, d.mx); VS.pseed = d.seed; sel = []; VS.oppN = null;
     S = ls("cx.vs." + d.code);
     if (!S || S.seed !== d.seed) S = {seed: d.seed, order: null, solved: [], guesses: [], err: 0, done: false, hint: [], hstep: 0};
     if (!S.order || !sameTiles(S.order, P.tiles)) S.order = P.tiles.slice();
   }
-  var mine = vsR(d, TOK());
+  var mine = vsR(d, TOK()), op = vsOpp(d), me = TOK();
+  var on = vsShared(d) ? Object.keys(d.f || {}).filter(function(g){ return d.f[g].by !== me; }).length : op ? (vsR(d, op.id).s || []).length : 0;
+  if (VS.oppN != null && on > VS.oppN && d.st === "play") SFX.opp();   /* the opponent found a group */
+  VS.oppN = on;
   if (vsShared(d)) {
     /* shared board: every group found, by either player, leaves the board */
     var f = d.f || {}, all = Object.keys(f).sort(function(x, y){ return (f[x].t || 0) - (f[y].t || 0); }).map(Number);
@@ -1099,10 +1103,36 @@ function synth(notes){
     });
   } catch(e){}
 }
+function noise(t, d, v, hp){
+  if (!SND.on) return;
+  try { var A = actx(), st = A.currentTime + 0.01 + t, len = Math.floor(A.sampleRate * d), buf = A.createBuffer(1, len, A.sampleRate), ch = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    var s = A.createBufferSource(), f = A.createBiquadFilter(), g = A.createGain(); s.buffer = buf; f.type = "highpass"; f.frequency.value = hp || 2500; g.gain.value = v;
+    s.connect(f); f.connect(g); g.connect(MST); s.start(st);
+  } catch(e){}
+}
 var SFX = {
   turn: function(){ synth([{f: 880, t: 0, d: 0.07, w: "square", v: 0.028, cut: 5000, cut2: 2500}, {f: 1760, t: 0.09, d: 0.12, w: "square", v: 0.028, cut: 6000, cut2: 2000}]); },   /* your turn (same as the Grille) */
-  tick: function(){ synth([{f: 2200, t: 0, d: 0.03, w: "square", v: 0.012, cut: 8000, cut2: 4000, dry: 1}]); },   /* last 5 seconds of your turn */
-  ready: function(){ synth([{f: 1319, t: 0, d: 0.09, v: 0.03, cut: 6000, cut2: 2000}]); }   /* the block after a miss is over */
+  tick: function(){ noise(0, 0.025, 0.06, 5000); synth([{f: 2200, t: 0, d: 0.03, w: "square", v: 0.012, cut: 8000, cut2: 4000, dry: 1}]); },   /* last 5 seconds of your turn */
+  ready: function(){ synth([{f: 1319, t: 0, d: 0.09, v: 0.03, cut: 6000, cut2: 2000}]); },   /* the block after a miss is over */
+  /* same family as the Grille: bright chime / rising arpeggio for a hit, square buzz + clicks for a miss, low square for the opponent */
+  ok: function(d){   /* a group found: fast rising arpeggio, longer for a harder group */
+    var sc = [523, 659, 784, 1047, 1319, 1568, 2093], k = Math.min(sc.length, 3 + (d || 1)), seq = [], v = 0.03 + (d || 1) * 0.004;
+    for (var x = 0; x < k; x++) seq.push({f: sc[x], t: x * 0.055, d: x === k - 1 ? 0.42 : 0.1, v: v, cut: 2500 + x * 700, cut2: x === k - 1 ? 700 : 1500});
+    if (d >= 4) seq.push({f: sc[k - 1] / 2, t: (k - 1) * 0.055, d: 0.5, w: "square", v: v * 0.6, cut: 1200, cut2: 300});
+    synth(seq);
+  },
+  near: function(){ SFX.miss(); synth([{f: 1319, t: 0.2, d: 0.09, v: 0.03, cut: 6000, cut2: 2000}]); },   /* 4 out of 5: the miss, then a small "almost" blip */
+  miss: function(){ synth([{f: 220, f2: 70, t: 0, d: 0.22, w: "square", v: 0.03, cut: 1800, cut2: 300, dry: 1}]); noise(0, 0.06, 0.05, 3000); noise(0.09, 0.04, 0.035, 3000); },   /* a wrong guess (the Grille's "refused") */
+  opp: function(){ synth([{f: 330, t: 0, d: 0.13, w: "square", v: 0.03, cut: 1600, cut2: 500}, {f: 247, t: 0.08, d: 0.2, w: "square", v: 0.028, cut: 1400, cut2: 400}]); },   /* the opponent found a group */
+  win: function(){   /* the 7 groups: the long arpeggio twice, with the bass */
+    var sc = [523, 659, 784, 1047, 1319, 1568, 2093], seq = [];
+    sc.forEach(function(f, x){ seq.push({f: f, t: x * 0.055, d: 0.1, v: 0.045, cut: 2500 + x * 700, cut2: 1500}); });
+    [1047, 1568, 2093].forEach(function(f, x){ seq.push({f: f, t: 0.45 + x * 0.1, d: x === 2 ? 0.6 : 0.12, v: 0.045, cut: 6000, cut2: 1200}); });
+    seq.push({f: 262, t: 0.45, d: 0.8, w: "square", v: 0.028, cut: 1200, cut2: 300});
+    synth(seq);
+  },
+  lose: function(){ SFX.miss(); synth([{f: 294, t: 0.25, d: 0.2, w: "square", v: 0.03, cut: 1600, cut2: 500}, {f: 247, t: 0.42, d: 0.2, w: "square", v: 0.03, cut: 1400, cut2: 400}, {f: 196, f2: 165, t: 0.6, d: 0.6, w: "square", v: 0.03, cut: 1200, cut2: 250}]); }   /* out of tries */
 };
 Object.keys(SFX).forEach(function(k){ var f = SFX[k]; SFX[k] = function(){ (window.__cxSnd = window.__cxSnd || []).push(k); f(); }; });   /* log for the tests */
 function sndBtn(){ var b = $("#snd"); if (!b) return; b.textContent = SND.on ? "🔊" : "🔇"; b.title = SND.on ? "Couper les sons" : "Activer les sons"; }
