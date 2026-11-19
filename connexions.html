@@ -684,13 +684,15 @@ function load(){
   var st = ls("cx.free");
   if (!st || !st.seed || st.uni == null || st.diff == null || st.gv !== CX_GEN) st = newState();   /* a grid of the old generator: a new one */
   S = st; P = build(S.seed, S.uni, S.diff, S.mx);
+  if (S.order && !sameTiles(S.order, P.tiles)) { S = newState(); P = build(S.seed, S.uni, S.diff, S.mx); }   /* saved with other data (characters since removed): a new grid */
   if (!S.order || S.order.length !== P.tiles.length) S.order = P.tiles.slice();
   sel = [];
   save();
   try { Object.keys(localStorage).forEach(function(k){ if (/^cx\.day\./.test(k)) localStorage.removeItem(k); }); } catch(e){}   /* the daily grid is gone */
   render();
 }
-var CX_GEN = 3;   /* generator version: 2 = traps capped (Très facile/Facile 0, Normal 1, Difficile 2, Expert 3); 3 = new themes, Mario characters with the Smash fighters */
+function sameTiles(a, b){ return a.length === b.length && a.slice().sort().join() === b.slice().sort().join(); }
+var CX_GEN = 4;   /* generator version: 2 = traps capped (Très facile/Facile 0, Normal 1, Difficile 2, Expert 3); 3 = new themes, Mario characters with the Smash fighters; 4 = Mario cast trimmed, new themes */
 function newState(){ return {gv: CX_GEN, seed: "libre-" + cfg.u + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uni: cfg.u, diff: cfg.diff, mx: cfg.mx, me: cfg.err, hx: cfg.hx, order: null, solved: [], guesses: [], err: 0, done: false, hint: [], hstep: 0}; }
 
 /* ---------- hints: every X failed attempts, a hint on the easiest group not found yet ----------
@@ -1050,7 +1052,7 @@ function vsSync(){
     P = build(d.seed, d.u || "lol", d.diff == null ? 1 : d.diff, d.mx); VS.pseed = d.seed; sel = [];
     S = ls("cx.vs." + d.code);
     if (!S || S.seed !== d.seed) S = {seed: d.seed, order: null, solved: [], guesses: [], err: 0, done: false, hint: [], hstep: 0};
-    if (!S.order || S.order.length !== P.tiles.length) S.order = P.tiles.slice();
+    if (!S.order || !sameTiles(S.order, P.tiles)) S.order = P.tiles.slice();
   }
   var mine = vsR(d, TOK());
   if (vsShared(d)) {
