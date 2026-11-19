@@ -1997,7 +1997,7 @@ function presWrite(){
 }
 function presOnline(){
   var now = Date.now(), byName = {};
-  Object.keys(presAll).forEach(function(id){
+  Object.keys(presAll || {}).forEach(function(id){   /* presAll is set further down: the first render (opened on the Mini-jeux page) comes before it */
     var p = presAll[id]; if (!p || !p.name || now - (p.t || 0) > PRES_TTL) return;
     var k = p.name.toLowerCase(), cur = byName[k];
     if (!cur || (p.t || 0) > cur.t) byName[k] = {name:p.name, tab:p.tab, t:p.t || 0, me:!!(id === PRES_ID || (cur && cur.me))};
