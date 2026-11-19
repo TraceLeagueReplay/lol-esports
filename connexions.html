@@ -643,7 +643,13 @@ function miStyle(img, o){
 }
 function icon(id){ return id.slice(0, 2) === "s-" ? "https://ssb.wiki.gallery/images/" + D.si[id] : id.slice(0, 2) === "m-" ? (miCached(id) || miSpec(id).url) : "https://ddragon.leagueoflegends.com/cdn/" + VER + "/img/champion/" + id + ".png"; }
 function img(id){ if (id.slice(0, 2) === "m-" && !miCached(id)) setTimeout(function(){ miDraw(id); }, 0);
-  return '<img' + (id.slice(0, 2) === "s-" ? ' class="si"' : id.slice(0, 2) === "m-" ? ' class="si" data-mi="' + id + '"' : "") + ' src="' + icon(id) + '" alt="" loading="lazy" decoding="async" onerror="this.outerHTML=\'<i class=&quot;ph&quot;>' + esc(NAMES[id].charAt(0)) + '</i>\'">'; }
+  return '<img' + (id.slice(0, 2) === "s-" ? ' class="si"' : id.slice(0, 2) === "m-" ? ' class="si" data-mi="' + id + '"' : "") + ' src="' + icon(id) + '" alt="" loading="lazy" decoding="async" data-l="' + esc(NAMES[id].charAt(0)) + '" onerror="cxImgErr(this)">'; }
+/* an icon that fails (network hiccup): two more tries, a little later, then the initial letter */
+window.cxImgErr = function(el){
+  var n = +(el.getAttribute("data-try") || 0);
+  if (n < 2 && !/^data:/.test(el.src)) { el.setAttribute("data-try", n + 1); setTimeout(function(){ var u = el.src.replace(/[?&]r=\d+$/, ""); el.src = u + (u.indexOf("?") < 0 ? "?" : "&") + "r=" + (n + 1); }, 1200 * (n + 1)); return; }
+  var i = document.createElement("i"); i.className = "ph"; i.textContent = el.getAttribute("data-l") || ""; if (el.parentNode) el.parentNode.replaceChild(i, el);
+};
 
 /* ---------- settings (the "Réglages" window) ----------
    u: universe "lol" | "smash" | "mix"; diff: -1 very easy, 0 easy, 1 normal, 2 hard, 3 expert; err: errors allowed in solo (0 = no limit);
