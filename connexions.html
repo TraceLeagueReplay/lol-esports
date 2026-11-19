@@ -906,7 +906,7 @@ function openCfg(){
   var solo = mode !== "vs";
   dlg.innerHTML = '<form method="dialog" class="cfg"><div class="ph"><div class="pc">Réglages</div><button type="button" class="x" data-close aria-label="Fermer">✕</button></div>' +
     '<div class="f"><span class="lb">Univers</span>' + chips("u", [["lol", "LoL"], ["smash", "Smash"], ["mix", "Mix LoL × Smash"]], cfg.u) + '<small>Champions de LoL, combattants de Smash Bros. Ultimate, ou les deux mélangés avec des critères communs.</small></div>' +
-    '<div class="f"><span class="lb">Persos Mario en plus</span>' + chips("mx", [[0, "Non"], [1, "Oui"]], cfg.mx) + '<small>Ajoute 40 personnages et ennemis de l’univers Mario qui ne sont pas dans Smash (Toad, Goomba, Boo, Bob-omb…) aux grilles Smash et Mix.</small></div>' +
+    '<div class="f"><span class="lb">Persos Mario en plus</span>' + chips("mx", [[0, "Non"], [1, "Oui"]], cfg.mx) + '<small>Ajoute ' + Object.keys(D.mi).length + ' personnages et ennemis de l’univers Mario qui ne sont pas dans Smash (Toad, Goomba, Boo, Bob-omb…) aux grilles Smash et Mix.</small></div>' +
     '<div class="f"><span class="lb">Difficulté</span>' + chips("df", [[-1, "Très facile"], [0, "Facile"], [1, "Normal"], [2, "Difficile"], [3, "Expert"]], cfg.diff) + '<small>Très facile : des thèmes simples (un dur au plus en Smash), aucun piège. Facile : un ou deux thèmes durs, aucun piège. Normal : un personnage piège. Difficile : thèmes plus pointus, deux pièges. Expert : surtout des thèmes pointus, trois pièges.</small></div>' +
     '<div class="f"><span class="lb">Erreurs autorisées (solo)</span>' + chips("er", [[3, "3"], [5, "5"], [7, "7"], [0, "Illimitées"]], cfg.err) + '<small>En match, il n’y a pas de limite.</small></div>' +
     '<div class="f"><span class="lb">Un indice toutes les X erreurs</span>' + chips("hx", [[2, "2"], [3, "3"], [4, "4"], [5, "5"], [0, "Aucun indice"]], cfg.hx) + '<small>Un indice tombe sur le groupe le plus simple qu’il te reste : d’abord son thème, puis ses personnages un par un tant qu’il n’est pas trouvé. Ensuite, on passe au groupe le plus simple suivant.</small></div>' +
@@ -922,7 +922,8 @@ function openCfg(){
     cfg.titles = $("#c-titles").checked ? 1 : 0;
     saveCfg(); dlg.close();
     var keep = !solo || (e.submitter && e.submitter.getAttribute("data-keep"));
-    if (!keep) { newFree(); return; }
+    var changed = solo && S && (S.uni !== cfg.u || S.diff !== cfg.diff || !S.mx !== !cfg.mx);
+    if (!keep || (changed && (S.done || (!S.guesses.length && !S.solved.length)))) { newFree(); return; }   /* nothing played yet on this grid: the new settings apply right away */
     /* "Valider": the grid in progress stays; titles and hints apply now, the errors too if that does not end the game; universe and difficulty make the next grid */
     if (solo && S && !S.done) {
       S.hx = cfg.hx; hintCatchUp();
