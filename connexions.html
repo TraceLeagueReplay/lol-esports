@@ -548,6 +548,8 @@ var cfg = (function(){
   if ([0, 3, 5, 7].indexOf(c.err) < 0) c.err = 5;
   if ([0, 2, 3, 4, 5].indexOf(c.hx) < 0) c.hx = c.hints === 0 ? 0 : 3;
   if ([0, 30, 60, 90].indexOf(c.T) < 0) c.T = 60;
+  if (c.u === "smash" && c.mx == null && ls("cx.cfg") && ls("cx.cfg").u === "mario") c.mx = 1;
+  c.mx = c.mx ? 1 : 0;
   delete c.hints;
   if (!VM_NAME[c.vm]) c.vm = "race";
   return c;
@@ -556,25 +558,29 @@ function saveCfg(){ ls("cx.cfg", cfg); }
 function errText(n){ return n ? n + " erreurs" : "erreurs illimitées"; }
 function hintText(x){ return x ? "un indice toutes les " + x + " erreurs" : "sans indices"; }
 function turnText(t){ return t ? t + " s par tour" : "sans chrono"; }
+function uniText(u, mx){ return UNI_NAME[u] + (mx && u !== "lol" ? " + Mario" : ""); }
 function summary(){
   if (mode === "vs") {
     var d = VS && VS.doc;
     var c = d && d.st !== "wait" ? {u: d.u || "lol", diff: d.diff == null ? 1 : d.diff, vm: d.vm || "race", hx: d.hx == null ? 3 : d.hx, T: d.T || 0} : cfg;
-    return "Match · " + UNI_NAME[c.u] + " · " + DIFF_NAME[c.diff] + " · " + VM_NAME[c.vm] + (c.vm === "shared" ? " · à tour de rôle · " + turnText(c.T) : " · en même temps") + " · " + hintText(c.hx);
+    return "Match · " + uniText(c.u, c.mx) + " · " + DIFF_NAME[c.diff] + " · " + VM_NAME[c.vm] + (c.vm === "shared" ? " · à tour de rôle · " + turnText(c.T) : " · en même temps") + " · " + hintText(c.hx);
   }
   var s = S || {};
-  return UNI_NAME[s.uni || cfg.u] + " · " + DIFF_NAME[s.diff == null ? cfg.diff : s.diff] + " · " + errText(s.me == null ? cfg.err : s.me) + " · " + hintText(s.hx == null ? cfg.hx : s.hx);
+  return uniText(s.uni || cfg.u, s.uni ? s.mx : cfg.mx) + " · " + DIFF_NAME[s.diff == null ? cfg.diff : s.diff] + " · " + errText(s.me == null ? cfg.err : s.me) + " · " + hintText(s.hx == null ? cfg.hx : s.hx);
 }
 
 var mode = ls("cx.mode") === "vs" ? "vs" : "free";   /* "free" = solo, "vs" = 1v1 */
 var P = null, S = null;   /* P = puzzle, S = state of the current game */
 var sel = [], busy = false, justSolved = -1;
-var POOLS = {lol: {}, smash: {}, mix: null};   /* smash: the Smash fighters and the Mario characters that are not fighters (m-) */
-Object.keys(NAMES).forEach(function(id){ var p = id.slice(0, 2); POOLS[p === "s-" || p === "m-" ? "smash" : "lol"][id] = 1; });
+/* the Mario characters that are not Smash fighters (m-) join Smash and the Mix only with the "Persos Mario en plus" option */
+var POOLS = {lol: {}, smash: {}, mix: {}, smashM: {}, mixM: {}};
+Object.keys(NAMES).forEach(function(id){ var p = id.slice(0, 2);
+  if (p === "m-") { POOLS.smashM[id] = POOLS.mixM[id] = 1; return; }
+  POOLS[p === "s-" ? "smash" : "lol"][id] = 1; POOLS.mix[id] = POOLS.mixM[id] = 1; if (p === "s-") POOLS.smashM[id] = 1; });
 
-function build(seedStr, uni, diff){
-  uni = POOLS.hasOwnProperty(uni) ? uni : "lol";
-  var opt = {pool: POOLS[uni], mix: uni === "mix", diff: diff == null ? 1 : diff};
+function build(seedStr, uni, diff, mx){
+  uni = UNI_NAME.hasOwnProperty(uni) ? uni : "lol";
+  var opt = {pool: POOLS[uni + (mx && uni !== "lol" ? "M" : "")], mix: uni === "mix", diff: diff == null ? 1 : diff};
   var r = cxGenerate(D, cxRng(cxHash(seedStr)), opt);
   if (!r) r = cxGenerate(D, cxRng(cxHash(seedStr + "+")), opt);
   if (!r) { opt.relax = true; r = cxGenerate(D, cxRng(cxHash(seedStr)), opt); }   /* never stuck: the variety rules give way first */
@@ -589,7 +595,7 @@ function load(){
   if (mode === "vs") { vsLoad(); return; }
   var st = ls("cx.free");
   if (!st || !st.seed || st.uni == null || st.diff == null || st.gv !== CX_GEN) st = newState();   /* a grid of the old generator: a new one */
-  S = st; P = build(S.seed, S.uni, S.diff);
+  S = st; P = build(S.seed, S.uni, S.diff, S.mx);
   if (!S.order || S.order.length !== P.tiles.length) S.order = P.tiles.slice();
   sel = [];
   save();
@@ -597,7 +603,7 @@ function load(){
   render();
 }
 var CX_GEN = 3;   /* generator version: 2 = traps capped (Très facile/Facile 0, Normal 1, Difficile 2, Expert 3); 3 = new themes, Mario characters with the Smash fighters */
-function newState(){ return {gv: CX_GEN, seed: "libre-" + cfg.u + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uni: cfg.u, diff: cfg.diff, me: cfg.err, hx: cfg.hx, order: null, solved: [], guesses: [], err: 0, done: false, hint: [], hstep: 0}; }
+function newState(){ return {gv: CX_GEN, seed: "libre-" + cfg.u + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uni: cfg.u, diff: cfg.diff, mx: cfg.mx, me: cfg.err, hx: cfg.hx, order: null, solved: [], guesses: [], err: 0, done: false, hint: [], hstep: 0}; }
 
 /* ---------- hints: every X failed attempts, a hint on the easiest group not found yet ----------
    1st hint on a group: its theme; the next ones (while it is still not found): its characters, one by one (up to 4).
@@ -684,7 +690,7 @@ function renderSel(){
   $("#b-clear").disabled = !sel.length || busy;
 }
 function shareText(){
-  var head = "Connexions " + (mode === "vs" ? "1v1" + (VS && VS.doc && vsOpp(VS.doc) ? " contre " + vsOpp(VS.doc).name : "") + " (" + summary().replace(/^Match · /, "") + ")" : "(" + UNI_NAME[S.uni || "lol"] + " · " + DIFF_NAME[S.diff == null ? 1 : S.diff] + ")") +
+  var head = "Connexions " + (mode === "vs" ? "1v1" + (VS && VS.doc && vsOpp(VS.doc) ? " contre " + vsOpp(VS.doc).name : "") + " (" + summary().replace(/^Match · /, "") + ")" : "(" + uniText(S.uni || "lol", S.mx) + " · " + DIFF_NAME[S.diff == null ? 1 : S.diff] + ")") +
     " · " + S.solved.length + "/7" + (S.err ? " · " + S.err + " erreur" + (S.err > 1 ? "s" : "") : " · sans faute");
   return head + "\n" + S.guesses.map(function(g){ return g.map(function(id){ return EMO[P.gOf[id]]; }).join(""); }).join("\n");
 }
@@ -790,7 +796,8 @@ function openCfg(){
   function chips(name, list, cur){ return '<div class="chips">' + list.map(function(o){ return '<label><input type="radio" name="' + name + '" value="' + o[0] + '"' + (String(o[0]) === String(cur) ? " checked" : "") + '>' + o[1] + '</label>'; }).join("") + '</div>'; }
   var solo = mode !== "vs";
   dlg.innerHTML = '<form method="dialog" class="cfg"><div class="ph"><div class="pc">Réglages</div><button type="button" class="x" data-close aria-label="Fermer">✕</button></div>' +
-    '<div class="f"><span class="lb">Univers</span>' + chips("u", [["lol", "LoL"], ["smash", "Smash"], ["mix", "Mix LoL × Smash"]], cfg.u) + '<small>Champions de LoL, combattants de Smash Bros. Ultimate (plus des personnages et ennemis de l’univers Mario), ou les deux mélangés avec des critères communs.</small></div>' +
+    '<div class="f"><span class="lb">Univers</span>' + chips("u", [["lol", "LoL"], ["smash", "Smash"], ["mix", "Mix LoL × Smash"]], cfg.u) + '<small>Champions de LoL, combattants de Smash Bros. Ultimate, ou les deux mélangés avec des critères communs.</small></div>' +
+    '<div class="f"><span class="lb">Persos Mario en plus</span>' + chips("mx", [[0, "Non"], [1, "Oui"]], cfg.mx) + '<small>Ajoute 40 personnages et ennemis de l’univers Mario qui ne sont pas dans Smash (Toad, Goomba, Boo, Bob-omb…) aux grilles Smash et Mix.</small></div>' +
     '<div class="f"><span class="lb">Difficulté</span>' + chips("df", [[-1, "Très facile"], [0, "Facile"], [1, "Normal"], [2, "Difficile"], [3, "Expert"]], cfg.diff) + '<small>Très facile : des thèmes simples (un dur au plus en Smash), aucun piège. Facile : un ou deux thèmes durs, aucun piège. Normal : un personnage piège. Difficile : thèmes plus pointus, deux pièges. Expert : surtout des thèmes pointus, trois pièges.</small></div>' +
     '<div class="f"><span class="lb">Erreurs autorisées (solo)</span>' + chips("er", [[3, "3"], [5, "5"], [7, "7"], [0, "Illimitées"]], cfg.err) + '<small>En match, il n’y a pas de limite.</small></div>' +
     '<div class="f"><span class="lb">Un indice toutes les X erreurs</span>' + chips("hx", [[2, "2"], [3, "3"], [4, "4"], [5, "5"], [0, "Aucun indice"]], cfg.hx) + '<small>Un indice tombe sur le groupe le plus simple qu’il te reste : d’abord son thème, puis ses personnages un par un tant qu’il n’est pas trouvé. Ensuite, on passe au groupe le plus simple suivant.</small></div>' +
@@ -802,7 +809,7 @@ function openCfg(){
   dlg.querySelector("form").onsubmit = function(e){
     e.preventDefault();
     function v(n){ var x = dlg.querySelector('[name=' + n + ']:checked'); return x ? x.value : null; }
-    cfg.u = v("u") || cfg.u; cfg.diff = +v("df"); cfg.err = +v("er"); cfg.hx = +v("hx");
+    cfg.u = v("u") || cfg.u; cfg.mx = +v("mx") ? 1 : 0; cfg.diff = +v("df"); cfg.err = +v("er"); cfg.hx = +v("hx");
     cfg.titles = $("#c-titles").checked ? 1 : 0;
     saveCfg(); dlg.close();
     var keep = !solo || (e.submitter && e.submitter.getAttribute("data-keep"));
@@ -812,7 +819,7 @@ function openCfg(){
       S.hx = cfg.hx; hintCatchUp();
       if (!cfg.err || cfg.err > S.err) S.me = cfg.err;
       save();
-      if (S.uni !== cfg.u || S.diff !== cfg.diff) toast("Réglages enregistrés : univers et difficulté pour la prochaine grille.");
+      if (S.uni !== cfg.u || S.diff !== cfg.diff || !S.mx !== !cfg.mx) toast("Réglages enregistrés : univers et difficulté pour la prochaine grille.");
       else toast("Réglages enregistrés.");
     } else toast(solo ? "Réglages enregistrés : ils serviront pour la prochaine grille." : "Réglages enregistrés : ils serviront pour le prochain match.");
     render();
@@ -933,7 +940,7 @@ function vsSync(){
   var d = VS && VS.doc;
   if (!d || (d.st !== "play" && d.st !== "end")) return;
   if (!P || VS.pseed !== d.seed) {
-    P = build(d.seed, d.u || "lol", d.diff == null ? 1 : d.diff); VS.pseed = d.seed; sel = [];
+    P = build(d.seed, d.u || "lol", d.diff == null ? 1 : d.diff, d.mx); VS.pseed = d.seed; sel = [];
     S = ls("cx.vs." + d.code);
     if (!S || S.seed !== d.seed) S = {seed: d.seed, order: null, solved: [], guesses: [], err: 0, done: false, hint: [], hstep: 0};
     if (!S.order || S.order.length !== P.tiles.length) S.order = P.tiles.slice();
@@ -1035,11 +1042,11 @@ function vsRecord(d, o){
   ls("cx.vs.rec", rec);
 }
 function vsCreate(peer, set){
-  set = set || {u: cfg.u, diff: cfg.diff, hx: cfg.hx, vm: cfg.vm, T: cfg.T};
+  set = set || {u: cfg.u, mx: cfg.mx, diff: cfg.diff, hx: cfg.hx, vm: cfg.vm, T: cfg.T};
   if (!HOST || vsBusy) return;
   var nm = myName(); if (!nm) { toast("Choisis d’abord ton pseudo"); return; }
   var code = vsNewCode();
-  var d = {game: "cx", code: code, st: "wait", created: Date.now(), np: 2, u: set.u || "mix", diff: set.diff == null ? 1 : set.diff, hx: set.hx == null ? 3 : set.hx, T: set.T == null ? 60 : set.T, vm: set.vm || "race", seed: "vs-" + code + "-" + Math.random().toString(36).slice(2, 8),
+  var d = {game: "cx", code: code, st: "wait", created: Date.now(), np: 2, u: set.u || "mix", mx: set.mx ? 1 : 0, diff: set.diff == null ? 1 : set.diff, hx: set.hx == null ? 3 : set.hx, T: set.T == null ? 60 : set.T, vm: set.vm || "race", seed: "vs-" + code + "-" + Math.random().toString(36).slice(2, 8),
     p: [{id: TOK(), name: nm}], invs: peer ? [peer.tok] : [], inm: peer ? peer.nm : "", r: {}, f: {}};
   vsBusy = true; if (dlg.open) dlg.close();
   HOST.db.doc("vs/" + code).set(d).then(function(){ vsBusy = false; mode = "vs"; ls("cx.mode", "vs"); vsEnter(code); }, function(e){ vsBusy = false; render(); toast("Création impossible (" + ((e && e.code) || "erreur") + ")"); });
@@ -1095,7 +1102,7 @@ function openMatch(){
   dlg.innerHTML = '<form method="dialog" class="cfg vsl"><div class="ph"><div class="pc">Match</div><button type="button" class="x" data-close aria-label="Fermer">✕</button></div>' +
     '<div class="f"><label class="lb" for="mx-name">Ton pseudo</label><input id="mx-name" class="inp" maxlength="16" value="' + esc(myName()) + '" placeholder="Pseudo"></div>' +
     '<div class="f"><span class="lb">Type de match</span>' + chips("vm", [["race", "Chacun sa grille"], ["shared", "Grille commune"]], cfg.vm) + '<small>Chacun sa grille : la même grille pour les deux, vous jouez en même temps, le premier à trouver les 7 groupes gagne ; une erreur bloque 10 s. Grille commune : un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne ; à tour de rôle, un essai par tour. Pas de limite d’erreurs.</small></div>' +
-    '<div class="f"><span class="lb">Chrono par tour (grille commune)</span>' + chips("tt", [[30, "30 s"], [60, "1 min"], [90, "1 min 30"], [0, "Sans"]], cfg.T) + '<small>Grille faite avec tes réglages actuels : ' + esc(UNI_NAME[cfg.u] + " · " + DIFF_NAME[cfg.diff] + " · " + hintText(cfg.hx)) + '</small></div>' +
+    '<div class="f"><span class="lb">Chrono par tour (grille commune)</span>' + chips("tt", [[30, "30 s"], [60, "1 min"], [90, "1 min 30"], [0, "Sans"]], cfg.T) + '<small>Grille faite avec tes réglages actuels : ' + esc(uniText(cfg.u, cfg.mx) + " · " + DIFF_NAME[cfg.diff] + " · " + hintText(cfg.hx)) + '</small></div>' +
     '<div class="f"><span class="lb">Connectés sur le site</span><div id="mx-peers" class="peers">' + peersHTML() + '</div></div>' +
     '<details class="f"><summary class="lb" style="cursor:pointer">Avec un code</summary><div class="row" style="margin-top:6px"><button type="button" class="btn" data-act="create">Créer une partie avec un code</button></div><div class="row" style="margin-top:8px"><input id="mx-code" class="inp" maxlength="8" placeholder="CODE" style="text-transform:uppercase"><button type="button" class="btn" data-act="join">Rejoindre</button></div></details>' +
     (rec && (rec.w || rec.l || rec.d) ? '<small>Ton bilan : ' + rec.w + ' victoire' + (rec.w > 1 ? "s" : "") + ' · ' + rec.l + ' défaite' + (rec.l > 1 ? "s" : "") + (rec.d ? ' · ' + rec.d + ' nul' + (rec.d > 1 ? "s" : "") : "") + '</small>' : "") +
@@ -1163,7 +1170,7 @@ document.addEventListener("click", function(e){
   else if (a === "abandon") vsAbandon();
   else if (a === "lobby") { vsLeave(); openMatch(); }
   else if (a === "quit") vsLeave();
-  else if (a === "rematch") { var od = VS.doc, op = vsOpp(od); vsLeave(); vsCreate({tok: op.id, nm: op.name}, {u: od.u, diff: od.diff, hx: od.hx, vm: od.vm, T: od.T}); }   /* same settings as the game just played */
+  else if (a === "rematch") { var od = VS.doc, op = vsOpp(od); vsLeave(); vsCreate({tok: op.id, nm: op.name}, {u: od.u, mx: od.mx, diff: od.diff, hx: od.hx, vm: od.vm, T: od.T}); }   /* same settings as the game just played */
 });
 document.addEventListener("click", function(e){ if (e.target && e.target.id === "b-share" && mode === "vs") copyShare(); });
 
