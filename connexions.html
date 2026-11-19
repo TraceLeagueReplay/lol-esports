@@ -465,9 +465,12 @@ function cxGenerate(D, rand, opt){
     var m = c.m.filter(function(id){ return pool[id]; });
     return m.length >= CX_K ? {id: c.id, f: c.f, d: c.d, t: c.t, m: m, x: c.x.filter(function(id){ return pool[id]; })} : null;
   }).filter(Boolean);
+  /* Mix: LoL on one side, Nintendo (Smash fighters and Mario characters) on the other */
+  function nin(id){ return /^[sm]-/.test(id); }
+  var MIXMIN = opt.mix ? (opt.relax ? 1 : (opt.mixMin == null ? 5 : opt.mixMin)) : 0;   /* groups that must mix both sides */
   var crit = src.map(function(c){
-    var mset = {}, xset = {}; c.m.forEach(function(id){ mset[id] = 1; }); c.x.forEach(function(id){ xset[id] = 1; });
-    return {c: c, mset: mset, xset: xset};
+    var mset = {}, xset = {}, nn = 0; c.m.forEach(function(id){ mset[id] = 1; if (nin(id)) nn++; }); c.x.forEach(function(id){ xset[id] = 1; });
+    return {c: c, mset: mset, xset: xset, both: nn > 0 && nn < c.m.length};
   });
   var byD = {1: [], 2: [], 3: [], 4: []}; crit.forEach(function(k){ byD[k.c.d].push(k); });
   function inter(a, b){ var n = 0; a.c.m.forEach(function(id){ if (b.mset[id]) n++; }); return n; }
@@ -494,6 +497,7 @@ function cxGenerate(D, rand, opt){
         var k = cands[q];
         if (chosen.indexOf(k) >= 0) continue;
         if ((fam[k.c.f] || 0) >= (CX_FAMMAX[k.c.f] || 2)) continue;
+        if (MIXMIN && !k.both && chosen.filter(function(o){ return !o.both; }).length >= pattern.length - MIXMIN) continue;   /* Mix: few one-sided themes */
         var kind = cxKind(k.c); if (!opt.relax && kind && chosen.some(function(o){ return cxKind(o.c) === kind; })) continue;
         if (chosen.some(function(o){ var n = inter(k, o); return n * 2 > Math.min(k.c.m.length, o.c.m.length) || n > 4; })) continue;
         if (deficit(chosen.concat([k])) > maxH) continue;
@@ -513,6 +517,11 @@ function cxGenerate(D, rand, opt){
     for (var g = 0; g < order.length && ok; g++) {
       var k2 = order[g];
       var cand = cxShuffle(k2.c.m.filter(function(id){ return !used[id] && allowed(id); }), rand);
+      if (MIXMIN && k2.both) {   /* Mix: alternate the sides, so a theme shared by both games shows both */
+        var cl = cand.filter(function(id){ return !nin(id); }), cn = cand.filter(nin), alt = [], first = rand() < 0.5;
+        while (cl.length || cn.length) { var a1 = first ? cn : cl, a2 = first ? cl : cn; if (a1.length) alt.push(a1.shift()); if (a2.length) alt.push(a2.shift()); }
+        cand = alt;
+      }
       /* prefer champions that fit only this criterion, keep a few red herrings */
       var solo = cand.filter(function(id){ return !chosen.some(function(o){ return o !== k2 && o.mset[id]; }); });
       var multi = cand.filter(function(id){ return solo.indexOf(id) < 0; });
@@ -531,8 +540,11 @@ function cxGenerate(D, rand, opt){
     if (opt.mix) {   /* at least 10 of each game, and a group where they meet */
       var ns = tiles.filter(function(id){ return /^[sm]-/.test(id); }).length;
       if (ns < 10 || ns > 25) continue;
-      if (groups.filter(function(gr){ var s = gr.ids.filter(function(id){ return /^[sm]-/.test(id); }).length; return s && s < CX_K; }).length < (opt.relax ? 1 : 2)) continue;   /* at least two groups mixing both games */
+      if (groups.filter(function(gr){ var s = gr.ids.filter(nin).length; return s && s < CX_K; }).length < MIXMIN) continue;   /* groups mixing both games */
     }
+    /* Mario characters: a group made of them needs a few others elsewhere, or the odd ones out give it away */
+    var nm = tiles.filter(function(id){ return id.slice(0, 2) === "m-"; }).length;
+    if (!opt.relax && nm && groups.some(function(gr){ var c = gr.ids.filter(function(id){ return id.slice(0, 2) === "m-"; }).length; return c >= 4 && nm - c < 3; })) continue;
     /* every theme: at most one extra tile on the board that also fits it */
     if (groups.some(function(gr){ return tiles.filter(function(id){ return gr.k.mset[id]; }).length > CX_K + 1; })) continue;
     if (cxCountSolutions(tiles, chosen, 2) !== 1) continue;
@@ -694,7 +706,7 @@ function load(){
   render();
 }
 function sameTiles(a, b){ return a.length === b.length && a.slice().sort().join() === b.slice().sort().join(); }
-var CX_GEN = 4;   /* generator version: 2 = traps capped (Très facile/Facile 0, Normal 1, Difficile 2, Expert 3); 3 = new themes, Mario characters with the Smash fighters; 4 = Mario cast trimmed, new themes */
+var CX_GEN = 5;   /* generator version: 2 = traps capped (Très facile/Facile 0, Normal 1, Difficile 2, Expert 3); 3 = new themes, Mario characters with the Smash fighters; 4 = Mario cast trimmed, new themes; 5 = Mix: at least 5 groups mixing LoL and Nintendo */
 function newState(){ return {gv: CX_GEN, seed: "libre-" + cfg.u + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uni: cfg.u, diff: cfg.diff, mx: cfg.mx, me: cfg.err, hx: cfg.hx, order: null, solved: [], guesses: [], err: 0, done: false, hint: [], hstep: 0}; }
 
 /* ---------- hints: every X failed attempts, a hint on the easiest group not found yet ----------
