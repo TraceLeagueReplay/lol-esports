@@ -370,6 +370,7 @@ dialog .row{display:flex;justify-content:flex-end;margin-top:12px}
   {"id":"vent","f":"element","d":2,"t":"Pouvoirs du vent","m":["Janna","Yasuo","Galio","s-sora","s-meta_knight"],"x":["Yone","Volibear","s-kirby","s-king_dedede"]},
   {"id":"m-mansion","f":"lore","d":3,"t":"Personnages de Luigi’s Mansion","m":["s-luigi","s-mario","m-king_boo","m-boo","m-gadd"],"x":["m-toad","s-peach","s-bowser"]},
   {"id":"m-ecrase","f":"kit","d":3,"t":"Ennemis de Mario qu’on ne peut pas écraser en sautant dessus","m":["m-spiny","m-thwomp","m-boo","m-chomp","m-pokey","s-packun_flower"],"x":["m-blooper","m-bullet_bill","m-petey","m-king_boo","s-bowser"]},
+  {"id":"m-roi","f":"lore","d":3,"t":"Leur espèce a un roi","m":["m-goomba","m-boo","m-bobomb","m-koopa","m-whomp"],"x":[]},
   {"id":"contre","f":"kit","d":3,"t":"Ont une contre-attaque (parade)","m":["Jax","Fiora","s-marth","s-lucina","s-roy","s-chrom","s-ike","s-shulk","s-corrin","s-greninja","s-little_mac","s-peach","s-daisy","s-palutena","s-joker"],"x":[]},
   {"id":"haches","f":"arme","d":2,"t":"Manient une hache","m":["Olaf","Draven","Darius","Sion","Kled","s-steve","s-byleth"],"x":[]},
   {"id":"poison","f":"element","d":2,"t":"Utilisent du poison","m":["Singed","Twitch","Teemo","Cassiopeia","s-packun_flower"],"x":["Renata","Zac","KogMaw"]},
@@ -897,8 +898,10 @@ function showHelp(){
     '<li>Pièges : en Normal, un personnage de la grille colle à deux thèmes (deux en Difficile, trois en Expert, aucun en Facile et Très facile). Il n’existe qu’une seule répartition qui marche.</li>' +
     '<li>« Presque ! » veut dire que 4 des 5 personnages vont ensemble.</li>' +
     '<li><b>Indices</b> : toutes les X erreurs (réglable), un indice tombe sur le groupe le plus simple qu’il te reste. Le 1er donne son thème, les suivants révèlent ses personnages un par un tant qu’il n’est pas trouvé, puis on passe au groupe le plus simple suivant.</li>' +
-    '<li><b>Réglages</b> : univers (LoL, Smash ou Mix des deux), difficulté, erreurs autorisées en solo, fréquence des indices, type de match et temps par tour (grille commune).</li>' +
+    '<li><b>Marqueurs</b> : touche une pastille de couleur sous la grille, puis les personnages que tu penses grouper, pour t’en souvenir (retouche la pastille pour revenir à la sélection ; sur ordi, un clic droit sur un personnage change aussi sa couleur). Ils ne servent qu’à toi, même en match.</li>' +
+    '<li><b>Réglages</b> : univers (LoL, Smash ou Mix des deux), persos Mario en plus (Toad, Goomba, Boo… qui ne sont pas dans Smash, ajoutés aux grilles Smash et Mix), difficulté, erreurs autorisées en solo, fréquence des indices, type de match et temps par tour (grille commune).</li>' +
     '<li><b>Match</b> : défie un pote en ligne sur le site. Chacun sa grille : la même pour les deux, vous jouez en même temps et le premier à 7 groupes gagne ; après une erreur, tu ne peux plus valider pendant 10 s. Grille commune : un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne, et on joue à tour de rôle (un essai par tour, bon ou mauvais). Pas de limite d’erreurs en match.</li>' +
+    '<li><b>Sons</b> (bouton 🔊) : groupe trouvé, presque, erreur, fin de partie, et en match ton tour, les 5 dernières secondes et les groupes trouvés par l’adversaire.</li>' +
     '<li>Survole un personnage (ou active « Afficher les titres » dans les réglages) pour voir son titre officiel, ou sa série pour Smash.</li></ul><div class="row"><button type="button" class="btn primary" id="dlg-x">C’est parti</button></div>';
   $("#dlg-x").onclick = function(){ dlg.close(); };
   dlg.showModal();
