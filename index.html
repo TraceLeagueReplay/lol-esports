@@ -63,6 +63,10 @@ button{cursor:pointer}
 /* Toolbar */
 .toolbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding-block:16px 6px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
+/* tier lists reordered by drag and drop */
+.tl-bar .chip[data-act="tl-pick"]{touch-action:none}
+.tl-bar .chip[data-act="tl-pick"].dragging{position:relative;z-index:5;cursor:grabbing;box-shadow:0 6px 18px rgba(0,0,0,.28);opacity:.95}
+body.tl-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
 .chip{border:1px solid var(--line-2);background:var(--panel);padding:5px 11px;border-radius:999px;font-size:13px;font-weight:600;letter-spacing:.03em}
 .chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .search{flex:1 1 200px;max-width:320px;display:flex;align-items:center;gap:8px;border:1px solid var(--line-2);background:var(--panel);border-radius:8px;padding:0 10px}
@@ -998,6 +1002,59 @@ function bindSeg(form){
   return vals;
 }
 function footer(primary, extra){ return (extra||"") + '<span class="sp"></span><button type="button" class="btn" data-close>Annuler</button><button type="submit" class="btn primary">'+esc(primary)+'</button>'; }
+/* ---------- tier lists: change their order by dragging their chips (mouse: drag; touch: hold then drag) ---------- */
+(function(){
+  var st = null, eat = false;
+  function chipAt(x, y, self){
+    var cs = [].slice.call(document.querySelectorAll('.tl-bar .chip[data-act="tl-pick"]')).filter(function(c){ return c !== self; });
+    for (var i = 0; i < cs.length; i++) { var r = cs[i].getBoundingClientRect(); if (x >= r.left - 3 && x <= r.right + 3 && y >= r.top - 3 && y <= r.bottom + 3) return {c: cs[i], after: x > r.left + r.width / 2}; }
+    return null;
+  }
+  function begin(){
+    if (!st || st.on) return;
+    if (readOnly) { st = null; return; }
+    st.on = true; st.el.classList.add("dragging"); document.body.classList.add("tl-dragging");
+    var r = st.el.getBoundingClientRect(); st.ox = st.x - r.left; st.oy = st.y - r.top;
+  }
+  function move(x, y){
+    var el = st.el, hit = chipAt(x, y, el);
+    if (hit) { var ref = hit.after ? hit.c.nextSibling : hit.c; if (ref !== el) el.parentNode.insertBefore(el, ref); }
+    var r0 = el.getBoundingClientRect(), cur = new DOMMatrix(getComputedStyle(el).transform);
+    var bx = r0.left - cur.m41, by = r0.top - cur.m42;
+    el.style.transform = "translate(" + (x - st.ox - bx) + "px," + (y - st.oy - by) + "px)";
+  }
+  function end(){
+    if (!st) return;
+    var s0 = st; st = null; clearTimeout(s0.hold);
+    if (!s0.on) return;
+    eat = true; setTimeout(function(){ eat = false; }, 0);
+    s0.el.classList.remove("dragging"); s0.el.style.transform = ""; document.body.classList.remove("tl-dragging");
+    var ids = [].map.call(document.querySelectorAll('.tl-bar .chip[data-act="tl-pick"]'), function(c){ return c.getAttribute("data-id"); });
+    var before = state.tierlists.map(function(x){ return x.id; }).join("|");
+    if (ids.join("|") === before) return;
+    if (guard()) { render(); return; }
+    var byId = {}; state.tierlists.forEach(function(x){ byId[x.id] = x; });
+    state.tierlists = ids.map(function(id){ return byId[id]; }).filter(Boolean).concat(state.tierlists.filter(function(x){ return ids.indexOf(x.id) < 0; }));
+    changed();
+  }
+  document.addEventListener("pointerdown", function(e){
+    var c = e.target.closest && e.target.closest('.tl-bar .chip[data-act="tl-pick"]');
+    if (!c || e.button > 0 || readOnly) return;
+    st = {el: c, x: e.clientX, y: e.clientY, touch: e.pointerType !== "mouse", on: false};
+    if (st.touch) st.hold = setTimeout(function(){ if (st) { begin(); if (navigator.vibrate) try { navigator.vibrate(15); } catch(_){} } }, 320);
+  });
+  document.addEventListener("pointermove", function(e){
+    if (!st) return;
+    var d = Math.abs(e.clientX - st.x) + Math.abs(e.clientY - st.y);
+    if (!st.on) { if (st.touch) { if (d > 10) { clearTimeout(st.hold); st = null; } return; } if (d > 6) begin(); else return; }
+    if (st && st.on) { e.preventDefault(); move(e.clientX, e.clientY); }
+  });
+  document.addEventListener("touchmove", function(e){ if (st && st.on) e.preventDefault(); }, {passive: false});
+  document.addEventListener("pointerup", end);
+  document.addEventListener("pointercancel", end);
+  document.addEventListener("click", function(e){ if (eat) { e.stopPropagation(); e.preventDefault(); eat = false; } }, true);
+  document.addEventListener("contextmenu", function(e){ if (st && st.touch) e.preventDefault(); });
+})();
 function guard(){ if (readOnly) { toast("Cette page est en lecture seule pour toi."); return true; } if (saving) { toast("Enregistrement en cours, un instant…"); return true; } return false; }
 
 function editPlayer(lid, tid, role){
@@ -1262,6 +1319,7 @@ function otherLogoOptions(cur, prefix){
    (the tier list's league first, same role first). e.team = "-" means "no logo". */
 function playerTeam(e, role, tl){
   if (e.team === "-") return null;
+  if (e.tm) return e.tm;   /* team frozen with the tier list ("Figer les équipes") */
   if (e.team && e.team.indexOf("logo:") === 0) { var lk = e.team.slice(5); return LOGOS[lk] ? {logo:lk, id:logoLabel(lk), name:logoLabel(lk)} : null; }
   var lg = tlLeague(tl);
   if (e.team) return findTeam(e.team, lg && lg.id);
@@ -1274,6 +1332,58 @@ function playerTeam(e, role, tl){
     if (hit) return hit;
   }
   return null;
+}
+/* "Figer les équipes": each player keeps the team (logo) they had when the tier list was frozen, even after a transfer.
+   Stored in the cell itself (e.tm = {id, name, logo, logoDark}), so nothing changes in the database layout. */
+function teamSnap(t){ var o = {id:t.id || t.name || "", name:t.name || t.id || ""}; if (t.logo) o.logo = t.logo; if (t.logoDark) o.logoDark = t.logoDark; return o; }
+function tlLocked(tl){ return !!tl && tl.people.some(function(p){ return ROLES.some(function(r){ return (p.cols[r[0]] || []).some(function(e){ return e.tm; }); }); }); }
+function lockTL(tl, teamFor){
+  var n = 0;
+  tl.people.forEach(function(p){ ROLES.forEach(function(r){ (p.cols[r[0]] || []).forEach(function(e){
+    if (e.tm || e.team === "-" || !e.n) return;
+    var t = (teamFor && teamFor(e)) || playerTeam(e, r[0], tl);
+    if (t) { e.tm = teamSnap(t); n++; }
+  }); }); });
+  delete tl.sync;   /* a frozen list no longer follows the rosters */
+  return n;
+}
+function unlockTL(tl){ tl.people.forEach(function(p){ ROLES.forEach(function(r){ (p.cols[r[0]] || []).forEach(function(e){ delete e.tm; }); }); }); }
+/* Worlds 2026: the players' teams during the tournament (Liquipedia), so that offseason transfers don't change the list */
+var W26 = {
+  "Gen.G": "Kiin Canyon Chovy Ruler Duro", "Hanwha Life": "Zeus Kanavi Zeka Gumayusi Delight", "T1": "Doran Oner Faker Peyz Keria",
+  "Dplus": "Siwoo Lucid ShowMaker Smash Career", "Anyone's Legend": "Breathe Tarzan Shanks Hope Kael", "Bilibili Gaming": "Bin Xun Knight Viper ON Flandre",
+  "Top Esports": "369 Tian Creme JackeyLove Zhuo ZUIAN", "Invictus Gaming": "TheShy Wei Rookie JiaQi Meiko Assum", "Team Liquid": "Morgan Josedeodo Quid Yeon CoreJJ",
+  "LYON": "Dhokla Inspired Saint Berserker Isles", "G2 Esports": "BrokenBlade SkewMond Caps HansSama Labrov", "Movistar KOI": "Myrwn Elyoya Jojopyun Supa Alvaro",
+  "Secret Whales": "Pun Hizto Dire Eddie Bie", "CTBC Flying Oyster": "Rest Shad0w POUT Doggo Kino", "LOS": "Zest Curse Feisty Duduhh Ackerman",
+  "Cloud9": "Thanatos Blaber Loki Tactical Vulcan APA Zven", "Karmine Corp": "Canna Yike kyeahoo Caliste Busio", "MVK Esports": "Kratos Gury Chika Harky SiuLoong SanSan",
+  "FURIA": "Guigo Tatu Tutsz Ayu Jojo"
+};
+function rosterTeamNamed(name){
+  var k = nkey(name), best = null;
+  state.leagues.forEach(function(l){ l.teams.forEach(function(t){
+    var a = nkey(t.name), b = nkey(t.id);
+    var sc = a === k || b === k ? 3 : (a.indexOf(k) === 0 || k.indexOf(a) === 0 ? 2 : (a.indexOf(k) >= 0 ? 1 : 0));
+    if (a && sc && (!best || sc > best.sc)) best = {t:t, sc:sc};
+  }); });
+  return best ? best.t : null;
+}
+function fixWorlds26(){
+  var byPlayer = {}, n = 0;
+  Object.keys(W26).forEach(function(team){ W26[team].split(" ").forEach(function(pl){ byPlayer[nkey(pl)] = team; }); });
+  state.tierlists.forEach(function(tl){
+    if (!/worlds/i.test(tl.title || "") || !/2026/.test(tl.title || "")) return;
+    var done = tl.people.some(function(p){ return ROLES.some(function(r){ return (p.cols[r[0]] || []).some(function(e){ return e.tm && e.tm.w26; }); }); });
+    if (done) return;
+    tl.people.forEach(function(p){ ROLES.forEach(function(r){ (p.cols[r[0]] || []).forEach(function(e){
+      var team = null; splitNames(e.n || "").some(function(x){ return (team = byPlayer[nkey(x)]); });
+      var t = team && rosterTeamNamed(team);
+      if (t) { e.tm = teamSnap(t); e.tm.w26 = 1; n++; }
+      else if (team) { e.tm = {id:team, name:team, w26:1}; n++; }
+    }); }); });
+    n += lockTL(tl);
+    n++;
+  });
+  return n;
 }
 /* A tier list that follows the rosters (tl.sync): every player / team of its league's rosters is in each
    participant's columns. Newcomers are added at the bottom as "?"; players who left stay (faded) so no ranking is lost. */
@@ -1483,7 +1593,7 @@ function renderTiers(){
     (tlDb && tlDbReady ? '<span class="live" title="Les modifications sont enregistrées tout de suite et visibles en direct par tout le monde">En direct</span>' : "") +
     '<span style="flex:1"></span>' + (tl && !readOnly ? '<button class="btn" data-act="tl-addp">+ Participant</button>' : "") + '</div>';
   h += '<div class="toolbar tl-bar">' + (state.tierlists.length > 1 || !readOnly ? '<div class="chips" role="group" aria-label="Tier lists">' +
-    state.tierlists.map(function(x){ return '<button class="chip" data-act="tl-pick" data-id="'+esc(x.id)+'" aria-pressed="'+(tl && x.id===tl.id)+'">'+esc(x.title)+'</button>'; }).join("") +
+    state.tierlists.map(function(x){ return '<button class="chip" data-act="tl-pick" data-id="'+esc(x.id)+'" aria-pressed="'+(tl && x.id===tl.id)+'"'+(readOnly ? "" : ' title="Glisser pour changer l’ordre des tier lists"')+'>'+esc(x.title)+'</button>'; }).join("") +
     (readOnly ? "" : '<button class="chip add" data-act="tl-new">+ Nouvelle tier list</button>') + '</div>' : "") +
     '<div class="tlegend" aria-label="Tiers">' + TIERS.map(function(t){ return '<span class="tchip" style="--tb:'+t[2]+';--tbfg:'+tierFg(t[2])+'">'+esc(t[1])+'</span>'; }).join("") +
     (readOnly ? "" : '<button type="button" class="ghost legend-edit" data-act="tiers-edit" title="Ajouter, renommer ou recolorer les tiers">✎ Modifier les tiers</button>') + '</div></div>';
@@ -1491,6 +1601,7 @@ function renderTiers(){
   if (!tl.people.length) h += '<p class="note-ro">Ajoute un participant pour commencer le classement.</p>';
   var rsx = rosterSets(tl);
   if (tl.sync) h += '<p class="note-ro tl-sync">Suit les rosters '+esc(tl.league)+' : les nouveaux joueurs arrivent parmi les « ? » par ordre alphabétique, ceux qui sont partis sont retirés.</p>';
+  else if (tlLocked(tl)) h += '<p class="note-ro tl-sync">🔒 Équipes figées : chaque joueur garde l’équipe qu’il avait quand la tier list a été figée, même après un transfert.</p>';
   tl.people.forEach(function(p){
     var n = 0; TCOLS.forEach(function(c){ n = Math.max(n, (p.cols[c[0]]||[]).length); });
     if (avgOpen[tl.id + "|" + p.id]) n = Math.max(n, teamsByPlayers(p, tl).length);
@@ -1537,7 +1648,7 @@ function editTCell(pid, col, i){
       '<div class="field"><label for="f-n">Nom affiché</label><input id="f-n" value="'+esc(e.n)+'" placeholder="G2, KC Blue…"></div></div>' +
       '<div class="field" id="f-olw"'+(e.team?' hidden':'')+'><label for="f-ol">Logo (équipe hors rosters)</label><select id="f-ol"><option value="">Aucun logo</option>'+otherLogoOptions(e.logo||"", "")+'</select></div>'
     : '<div class="two"><div class="field"><label for="f-n">Joueur</label><input id="f-n" value="'+esc(e.n)+'" list="f-names" autocomplete="off" placeholder="Pseudo"><datalist id="f-names">'+rosterNames(tl, col).map(function(n){ return '<option value="'+esc(n)+'">'; }).join("")+'</datalist></div>' +
-      '<div class="field"><label for="f-pt">Équipe (logo)</label><select id="f-pt">'+teamOptions(tl.league, e.team && e.team !== "-" ? e.team : "").replace('<option value="">—</option>', '<option value=""'+(e.team?"":" selected")+'>Automatique (d\'après les rosters)</option><option value="-"'+(e.team==="-"?" selected":"")+'>Aucun logo</option>')+otherLogoOptions(e.team||"", "logo:")+'</select></div></div>';
+      '<div class="field"><label for="f-pt">Équipe (logo)</label><select id="f-pt">'+(e.tm ? '<option value="__tm" selected>🔒 '+esc(e.tm.name || e.tm.id)+' (figée)</option>' : "")+teamOptions(tl.league, !e.tm && e.team && e.team !== "-" ? e.team : "").replace('<option value="">—</option>', '<option value=""'+(e.team||e.tm?"":" selected")+'>Automatique (d\'après les rosters)</option><option value="-"'+(e.team==="-"?" selected":"")+'>Aucun logo</option>')+otherLogoOptions(e.team||"", "logo:")+'</select></div></div>';
   openDlg(p.name + " · " + cn + (isNew ? "" : " · #" + (i+1)),
     nameField +
     '<div class="field"><span class="lbl">Tier</span>'+tierSeg(e.t || "q")+'</div>' +
@@ -1551,7 +1662,8 @@ function editTCell(pid, col, i){
       f.onsubmit = function(ev){
         ev.preventDefault();
         var ne = {n:$("#f-n").value.trim(), t:seg.t || "q"};
-        if (!isTeam) { var pv = $("#f-pt").value; if (pv) ne.team = pv; }
+        if (!isTeam) { var pv = $("#f-pt").value; if (pv === "__tm") { ne.tm = e.tm; if (e.team) ne.team = e.team; } else if (pv) ne.team = pv; }
+        if (!isTeam && !ne.tm && ne.n && ne.team !== "-" && tlLocked(tl)) { var ft = playerTeam(ne, col, tl); if (ft) ne.tm = teamSnap(ft); }   /* a frozen list: a new player is frozen too */
         if (isTeam) { var tv = $("#f-tt").value; if (tv) ne.team = tv; else { var ol = $("#f-ol").value; if (ol) ne.logo = ol; } if (!ne.n && tv) ne.n = tv; }
         var rk = Math.max(1, Math.min(parseInt($("#f-rk").value,10) || (arr.length+1), arr.length + (isNew?1:0))) - 1;
         if (!isNew) arr.splice(i,1);
@@ -1615,10 +1727,12 @@ function editTL(isNew){
     '<div class="field"><label for="f-tll">Ligue</label><select id="f-tll">'+opts+'</select></div>' + intlBox +
     (isNew ? '<div class="field"><label for="f-tlp">Participants (séparés par des virgules)</label><input id="f-tlp" value="'+esc(names)+'"></div>' +
       '<label class="hint"><input type="checkbox" id="f-tlf" checked> Remplir avec les joueurs et équipes du roster de cette ligue</label>' : "") +
-    '<label class="hint"><input type="checkbox" id="f-tls"'+(isNew || tl.sync ? " checked" : "")+'> Suivre les rosters : ajouter automatiquement les nouveaux joueurs et équipes de la ligue</label>',
+    '<label class="hint"><input type="checkbox" id="f-tls"'+((isNew || tl.sync) && !tlLocked(tl) ? " checked" : "")+(tlLocked(tl) ? " disabled" : "")+'> Suivre les rosters : ajouter automatiquement les nouveaux joueurs et équipes de la ligue</label>' +
+    (isNew ? "" : '<label class="hint"><input type="checkbox" id="f-tlk"'+(tlLocked(tl) ? " checked" : "")+'> 🔒 Figer les équipes : chaque joueur garde son équipe actuelle, même s’il est transféré ensuite (la tier list ne suit plus les rosters)</label>'),
     footer(isNew ? "Créer" : "Valider", isNew ? "" : '<button type="button" class="btn danger" id="f-tldel">Supprimer la tier list</button>'),
     function(f){
       $("#f-tll").onchange = function(){ $("#f-tlintl").hidden = this.value !== INTL_TL; };
+      var lkb = $("#f-tlk"); if (lkb) lkb.onchange = function(){ var sy = $("#f-tls"); sy.disabled = lkb.checked; if (lkb.checked) sy.checked = false; };
       if (!isNew) { var del = $("#f-tldel"); del.onclick = function(){ if (del.dataset.ok) { state.tierlists.splice(state.tierlists.indexOf(tl),1); ui.tl = ""; dlg.close(); changed(); return; } del.dataset.ok = "1"; del.textContent = "Confirmer la suppression"; }; }
       f.onsubmit = function(ev){
         ev.preventDefault(); var t = $("#f-tlt").value.trim(); if (!t) { $("#f-tlt").focus(); return; }
@@ -1626,6 +1740,9 @@ function editTL(isNew){
         if (tl.league === INTL_TL) tl.intlTeams = [].map.call(dlg.querySelectorAll("#f-tlintl input:checked"), function(x){ return x.value; });
         else delete tl.intlTeams;
         if ($("#f-tls").checked) tl.sync = true; else delete tl.sync;
+        var lk = $("#f-tlk");
+        if (lk && lk.checked && !tlLocked(tl)) lockTL(tl);
+        else if (lk && !lk.checked && tlLocked(tl)) unlockTL(tl);
         if (isNew) {
           var fill = $("#f-tlf").checked;
           $("#f-tlp").value.split(",").map(function(s){ return s.trim(); }).filter(Boolean).forEach(function(n){
@@ -1755,7 +1872,7 @@ function tlApplyRemote(){
   if (tlFirst && fbBase != null) {
     tlFirst = false;
     /* rosters may have changed while nobody had the tier lists open */
-    if (syncAllTL()) tlFlush();
+    if (syncAllTL() + fixWorlds26()) tlFlush();
   }
   render();
 }
