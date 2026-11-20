@@ -93,6 +93,12 @@ form.cfg:not(.vsl) > .ph, form.cfg:not(.vsl) > .ft, form.cfg:not(.vsl) > .wide{g
 .grp .gm{display:flex;gap:8px;flex-wrap:wrap}
 .grp .gm span{display:flex;flex-direction:column;align-items:center;width:62px;font-size:11.5px;font-weight:600;text-align:center;line-height:1.15}
 .grp .gm img,.grp .gm i{width:40px;height:40px;border-radius:8px;margin-bottom:3px;background:rgba(0,0,0,.12);display:block;object-fit:cover}
+/* the characters of a group just found fly in: their slots show as they land */
+.grp.fly-wait .gm span{opacity:0}
+.grp.fly-wait .gm span.landed{opacity:1;animation:land .25s ease-out}
+@keyframes land{from{transform:scale(1.25)}to{transform:none}}
+.flyer{position:fixed;z-index:60;pointer-events:none;transform-origin:0 0;margin:0}
+.flyer .tile{width:100%;height:100%;box-sizing:border-box;box-shadow:0 10px 26px rgba(0,0,0,.35)}
 .grp.missed{outline:3px dashed rgba(0,0,0,.28);outline-offset:-3px}
 @keyframes pop{from{transform:scale(.97);opacity:.4}to{transform:none;opacity:1}}
 
@@ -793,13 +799,22 @@ function render(){
   if (vsOn) $("#vs").innerHTML = vsHTML();
   $("#game").hidden = vsOn && !vsStarted();
   if ($("#game").hidden || !S || !P) { renderSel(); return; }
+  /* positions before the update: the group just found flies into its band, the other tiles slide to their new places */
+  var oldPos = {}, fly = null;
+  if (!REDUCED) {
+    document.querySelectorAll("#board .tile").forEach(function(t){ oldPos[t.getAttribute("data-id")] = t.getBoundingClientRect(); });
+    if (justSolved >= 0) fly = P.groups[justSolved].ids.filter(function(id){ return oldPos[id] && oldPos[id].width; }).map(function(id){
+      var t = document.querySelector('#board .tile[data-id="' + id + '"]'); return {id: id, r: oldPos[id], html: t.outerHTML};
+    });
+    if (fly && !fly.length) fly = null;
+  }
   /* groups found (in the order found), then, at the end, the ones missed */
   var shown = S.solved.slice();
   if (S.done) P.groups.forEach(function(g, i){ if (shown.indexOf(i) < 0) shown.push(i); });
   $("#solved").innerHTML = shown.map(function(i){
     var g = P.groups[i], missed = S.solved.indexOf(i) < 0, by = vsFoundBy(i);
-    return '<div class="grp' + (missed ? " missed" : "") + (i === justSolved || (S.done && missed) ? " new" : "") + '" style="background:var(--g' + i + ')"><div class="gt"><b>' + esc(g.c.t) + '</b><small>' + (missed ? "Groupe non trouvé" : by || diffLabel(g.c.d)) + '</small></div><div class="gm">' +
-      g.ids.map(function(id){ return '<span title="' + esc(NAMES[id] + " · " + TITLES[id]) + '">' + img(id) + esc(NAMES[id]) + '</span>'; }).join("") + '</div></div>';
+    return '<div class="grp' + (missed ? " missed" : "") + (i === justSolved || (S.done && missed) ? " new" : "") + (fly && i === justSolved ? " fly-wait" : "") + '" data-g="' + i + '" style="background:var(--g' + i + ')"><div class="gt"><b>' + esc(g.c.t) + '</b><small>' + (missed ? "Groupe non trouvé" : by || diffLabel(g.c.d)) + '</small></div><div class="gm">' +
+      g.ids.map(function(id){ return '<span data-id="' + id + '" title="' + esc(NAMES[id] + " · " + TITLES[id]) + '">' + img(id) + esc(NAMES[id]) + '</span>'; }).join("") + '</div></div>';
   }).join("");
   $("#hints").innerHTML = !S.done ? (S.hint || []).filter(function(h){ return S.solved.indexOf(h.g) < 0; }).map(function(h){
     var shown = P.groups[h.g].ids.slice(0, h.lv - 1).map(function(id){ return NAMES[id]; });
@@ -816,7 +831,45 @@ function render(){
   renderLives();
   renderSel();
   renderEnd();
+  if (!REDUCED) animateMoves(oldPos, fly, justSolved);
   justSolved = -1;
+}
+/* ---------- animations: found characters fly into their category, the others slide to their new places ---------- */
+var REDUCED = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || !Element.prototype.animate;
+function animateMoves(oldPos, fly, g){
+  var moved = 0;
+  document.querySelectorAll("#board .tile").forEach(function(t){
+    var o = oldPos[t.getAttribute("data-id")]; if (!o || !o.width) return;
+    var n = t.getBoundingClientRect(), dx = o.left - n.left, dy = o.top - n.top;
+    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+    moved++;
+    t.animate([{transform: "translate(" + dx + "px," + dy + "px)"}, {transform: "none"}], {duration: 380, delay: fly ? 160 : 0, easing: "cubic-bezier(.3,.7,.2,1)", fill: "backwards"});
+  });
+  if (!fly) return;
+  var band = document.querySelector('#solved .grp[data-g="' + g + '"]');
+  if (!band) return;
+  var left = fly.length;
+  fly.forEach(function(f, k){
+    var to = band.querySelector('.gm span[data-id="' + f.id + '"] img, .gm span[data-id="' + f.id + '"] i'), slot = band.querySelector('.gm span[data-id="' + f.id + '"]');
+    if (!to || !slot) { if (--left <= 0) band.classList.remove("fly-wait"); return; }
+    var tr = to.getBoundingClientRect(), box = document.createElement("div");
+    box.className = "flyer"; box.innerHTML = f.html;
+    box.style.left = f.r.left + "px"; box.style.top = f.r.top + "px"; box.style.width = f.r.width + "px"; box.style.height = f.r.height + "px";
+    document.body.appendChild(box);
+    var im = box.querySelector("img, .ph"), ir = im ? im.getBoundingClientRect() : f.r;
+    /* the picture of the tile lands on the picture of the band */
+    var sc = tr.width / (ir.width || 1), dx = tr.left - ir.left * sc - (f.r.left - f.r.left * sc), dy = tr.top - ir.top * sc - (f.r.top - f.r.top * sc);
+    var a = box.animate([
+      {transform: "translate(0,0) scale(1)", opacity: 1},
+      {transform: "translate(" + (dx * .5) + "px," + (dy * .5 - 24) + "px) scale(" + ((1 + sc) / 2 * 1.06) + ")", opacity: 1, offset: .55},
+      {transform: "translate(" + dx + "px," + dy + "px) scale(" + sc + ")", opacity: .9}
+    ], {duration: 560, delay: k * 55, easing: "cubic-bezier(.45,0,.25,1)", fill: "forwards"});
+    a.onfinish = a.oncancel = function(){
+      box.remove();
+      slot.classList.add("landed");
+      if (--left <= 0) band.classList.remove("fly-wait");
+    };
+  });
 }
 function renderLives(){
   var m = maxErr(), lv;
@@ -1131,8 +1184,8 @@ function vsSync(){
 /* ---------- sounds (the Grille's synth): your turn, last seconds of your turn, end of the block after a miss ---------- */
 var SND = {on: ls("cx.snd") !== 0}, ACX = null, MST = null, BUS = null;
 function actx(){
-  ACX = ACX || new (window.AudioContext || window.webkitAudioContext)();
-  if (ACX.state === "suspended") ACX.resume();
+  ACX = ACX || new (window.AudioContext || window.webkitAudioContext)({latencyHint: "interactive"});
+  if (ACX.state !== "running" && ACX.state !== "closed") ACX.resume();
   if (!BUS) {
     MST = ACX.createGain(); MST.gain.value = 0.55; MST.connect(ACX.destination);
     BUS = ACX.createGain(); BUS.connect(MST);
@@ -1142,9 +1195,28 @@ function actx(){
   }
   return ACX;
 }
+/* the audio output is opened at the first touch or key press (opening it takes a moment on some devices, the first sound used to come late)
+   and woken up again when the page comes back to the front */
+function audioWake(){
+  if (!SND.on) return;
+  try { var A = actx();
+    if (!audioWake.done) { audioWake.done = 1; var b = A.createBuffer(1, 1, 22050), s = A.createBufferSource(); s.buffer = b; s.connect(A.destination); s.start(0); }   /* iOS: a silent sound unlocks the output */
+  } catch(e){}
+}
+["pointerdown", "keydown", "touchstart"].forEach(function(ev){ document.addEventListener(ev, audioWake, {capture: true, passive: true}); });
+document.addEventListener("visibilitychange", function(){ if (!document.hidden && ACX && ACX.state !== "running") ACX.resume(); });
+/* a sound asked while the output is still waking up starts once it runs, instead of piling up and coming late */
+function whenRunning(play){
+  var A = actx();
+  if (A.state === "running") play(A);
+  else if (A.resume) A.resume().then(function(){ play(A); }, function(){});
+}
 function synth(notes){
   if (!SND.on) return;
-  try { var A = actx(), t0 = A.currentTime + 0.01;
+  try { whenRunning(function(A){ synthNow(A, notes); }); } catch(e){}
+}
+function synthNow(A, notes){
+  try { var t0 = A.currentTime + 0.005;
     notes.forEach(function(n){
       var g = A.createGain(), lp = A.createBiquadFilter(), st = t0 + n.t, en = st + n.d;
       lp.type = "lowpass"; lp.Q.value = 6; lp.frequency.setValueAtTime(n.cut || 4000, st); lp.frequency.exponentialRampToValueAtTime(n.cut2 || 900, en);
@@ -1158,13 +1230,15 @@ function synth(notes){
     });
   } catch(e){}
 }
+var NOISE = null;   /* one noise buffer, made once */
 function noise(t, d, v, hp){
   if (!SND.on) return;
-  try { var A = actx(), st = A.currentTime + 0.01 + t, len = Math.floor(A.sampleRate * d), buf = A.createBuffer(1, len, A.sampleRate), ch = buf.getChannelData(0);
-    for (var i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
-    var s = A.createBufferSource(), f = A.createBiquadFilter(), g = A.createGain(); s.buffer = buf; f.type = "highpass"; f.frequency.value = hp || 2500; g.gain.value = v;
-    s.connect(f); f.connect(g); g.connect(MST); s.start(st);
-  } catch(e){}
+  try { whenRunning(function(A){
+    if (!NOISE) { var len = Math.floor(A.sampleRate * 0.12); NOISE = A.createBuffer(1, len, A.sampleRate); var ch = NOISE.getChannelData(0); for (var i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1; }
+    var st = A.currentTime + 0.005 + t, s = A.createBufferSource(), f = A.createBiquadFilter(), g = A.createGain(); s.buffer = NOISE; f.type = "highpass"; f.frequency.value = hp || 2500;
+    g.gain.setValueAtTime(v, st); g.gain.linearRampToValueAtTime(0.0001, st + d);
+    s.connect(f); f.connect(g); g.connect(MST); s.start(st, Math.random() * 0.05, d + 0.01);
+  }); } catch(e){}
 }
 var SFX = {
   turn: function(){ synth([{f: 880, t: 0, d: 0.07, w: "square", v: 0.028, cut: 5000, cut2: 2500}, {f: 1760, t: 0.09, d: 0.12, w: "square", v: 0.028, cut: 6000, cut2: 2000}]); },   /* your turn (same as the Grille) */
