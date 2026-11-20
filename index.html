@@ -1,4 +1,4 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>LoL Esports</title><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Saira+Condensed:wght@600;700&family=Russo+One&display=swap"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><style id="css">/* Layout: broadcast-style roster board — league sections, one row per team, five role columns; Prodle as five role lanes. */
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>LoL Esports</title><script src="i18n.js"></script><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Saira+Condensed:wght@600;700&family=Russo+One&display=swap"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><style id="css">/* Layout: broadcast-style roster board — league sections, one row per team, five role columns; Prodle as five role lanes. */
 :root{
   --bg:#eef0f4; --panel:#ffffff; --panel-2:#f6f7fa; --line:#d9dde6; --line-2:#c5cbd8;
   --fg:#141a26; --muted:#5d6678; --faint:#8a92a3;
@@ -142,6 +142,7 @@ main{padding-bottom:120px}
 /* Prodle */
 .pd-bar{padding-block:14px 0}
 .pd-bar .chip{font-size:14px;padding:6px 16px;font-family:var(--f-display);letter-spacing:.06em}
+.langpick{display:flex;gap:8px}.langpick label{display:flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;cursor:pointer;font-weight:600}.langpick label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
 .prodle-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding-block:18px 4px}
 .prodle-head h2{margin:0;font-family:var(--f-display);font-weight:700;font-size:28px;letter-spacing:.04em;text-transform:uppercase}
 .yrlegend{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12px;color:var(--muted)}
@@ -385,6 +386,7 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 </style></head><body>
 <div id="gate" style="display:none;position:fixed;inset:0;z-index:99999;background:#0b0f17;color:#e8e6e3;font:16px system-ui,sans-serif;align-items:center;justify-content:center;padding:16px">
 <form id="gateF" style="max-width:340px;width:100%;text-align:center">
+<div id="gateL" data-notr style="display:flex;gap:6px;justify-content:center;margin-bottom:22px"><button type="button" data-lang="fr" style="padding:7px 14px;border-radius:999px;border:1px solid #334;background:#151b27;color:inherit;font-size:14px;cursor:pointer">Français</button><button type="button" data-lang="en" style="padding:7px 14px;border-radius:999px;border:1px solid #334;background:#151b27;color:inherit;font-size:14px;cursor:pointer">English</button></div>
 <div style="font-size:22px;font-weight:700;margin-bottom:8px">Site privé</div>
 <div style="opacity:.75;margin-bottom:18px">Entre le code d'accès qu'on t'a donné.</div>
 <input id="gateI" type="password" autocomplete="off" placeholder="Code d'accès" style="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #334;background:#151b27;color:inherit;font-size:16px">
@@ -405,7 +407,22 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
     if (!window.__gateTry) { err.textContent = "Chargement… réessaie dans une seconde."; return; }
     err.textContent = ""; window.__gateTry(code);
   };
+  /* language: chosen on this screen (the browser's language until then), kept once the code is accepted */
+  var lb = document.querySelectorAll("#gateL [data-lang]");
+  function paintLang(){ for (var i = 0; i < lb.length; i++) { var on = lb[i].getAttribute("data-lang") === I18N.lang; lb[i].style.background = on ? "#c89b3c" : "#151b27"; lb[i].style.color = on ? "#111" : "inherit"; lb[i].style.fontWeight = on ? "700" : "400"; lb[i].setAttribute("aria-pressed", on); } }
+  for (var i = 0; i < lb.length; i++) lb[i].onclick = function(){ var l = this.getAttribute("data-lang"); if (l !== I18N.lang) I18N.set(l); };
+  paintLang();
   var seen = false; try { seen = localStorage.getItem("lolGate") === "1"; } catch(e){}
+  window.__gate.then(function(){
+    if (I18N.chosen) return;
+    if (!seen) { I18N.save(); return; }   /* chosen on the code screen */
+    /* already signed in before languages existed: ask once */
+    var o = document.createElement("div"); o.setAttribute("data-notr", "");
+    o.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(8,11,18,.82);display:flex;align-items:center;justify-content:center;padding:16px;font:16px system-ui,sans-serif;color:#e8e6e3";
+    o.innerHTML = '<div style="background:#111723;border:1px solid #2a3344;border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center"><div style="font-size:20px;font-weight:700;margin-bottom:6px">Langue · Language</div><div style="opacity:.75;margin-bottom:18px;font-size:14px">Tu pourras la changer en cliquant sur ton pseudo en haut à droite.<br>You can change it later by clicking your name at the top right.</div><div style="display:flex;gap:8px"><button type="button" data-l="fr" style="flex:1;padding:12px;border-radius:10px;border:0;background:#c89b3c;color:#111;font-weight:700;font-size:16px;cursor:pointer">Français</button><button type="button" data-l="en" style="flex:1;padding:12px;border-radius:10px;border:0;background:#c89b3c;color:#111;font-weight:700;font-size:16px;cursor:pointer">English</button></div></div>';
+    o.onclick = function(e){ var b = e.target.closest("[data-l]"); if (!b) return; var l = b.getAttribute("data-l"); if (l === I18N.lang) { I18N.save(); o.remove(); } else I18N.set(l); };
+    document.body.appendChild(o);
+  });
   if (!seen) window.__gateShow();
 })();
 </script>
@@ -2016,14 +2033,15 @@ function presRender(){
 function askName(first){
   openDlg(first ? "Ton pseudo" : "Qui est en ligne",
     (first ? "" : '<ul class="onlist">' + presOnline().map(function(p){ return '<li><b>' + esc(p.name.slice(0, 1).toUpperCase()) + '</b><span>' + esc(p.name) + (p.me ? ' <em>(toi)</em>' : "") + '</span><small>' + esc(TABNAME[p.tab] || "") + '</small></li>'; }).join("") + '</ul>') +
-    '<div class="field"><label for="f-me">' + (first ? "Comment tu veux apparaître pour les autres ?" : "Ton pseudo") + '</label><input id="f-me" maxlength="24" value="' + esc(presMe) + '" placeholder="Pseudo"></div>',
+    '<div class="field"><label for="f-me">' + (first ? "Comment tu veux apparaître pour les autres ?" : "Ton pseudo") + '</label><input id="f-me" maxlength="24" value="' + esc(presMe) + '" placeholder="Pseudo"></div>' +
+    '<div class="field" data-notr><label>Langue · Language</label><div class="langpick">' + ["fr", "en"].map(function(l){ return '<label><input type="radio" name="f-lang" value="' + l + '"' + (I18N.lang === l ? " checked" : "") + '> ' + (l === "fr" ? "Français" : "English") + '</label>'; }).join("") + '</div></div>',
     footer(first ? "Valider" : "Enregistrer"),
     function(f){
       setTimeout(function(){ var i = $("#f-me"); if (i) i.focus(); }, 0);
       f.onsubmit = function(e){
-        e.preventDefault(); var n = $("#f-me").value.trim().slice(0, 24); dlg.close();
-        if (!n) return;
-        presMe = n; ls("lolfb.name", n); presWrite(); presRender();
+        e.preventDefault(); var n = $("#f-me").value.trim().slice(0, 24), lr = document.querySelector('input[name="f-lang"]:checked'); dlg.close();
+        if (n) { presMe = n; ls("lolfb.name", n); presWrite(); presRender(); }
+        if (lr && lr.value !== I18N.lang) I18N.set(lr.value); else if (!I18N.chosen) I18N.save();
       };
     });
 }
