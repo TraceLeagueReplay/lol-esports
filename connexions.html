@@ -682,6 +682,7 @@ var cfg = (function(){
   c.mx = c.mx ? 1 : 0;
   delete c.hints;
   if (!VM_NAME[c.vm]) c.vm = "race";
+  if ([5, 10].indexOf(c.cd) < 0) c.cd = 5;
   return c;
 })();
 function saveCfg(){ ls("cx.cfg", cfg); }
@@ -692,8 +693,8 @@ function uniText(u, mx){ return UNI_NAME[u] + (mx && u !== "lol" ? " + Mario" : 
 function summary(){
   if (mode === "vs") {
     var d = VS && VS.doc;
-    var c = d && d.st !== "wait" ? {u: d.u || "lol", diff: d.diff == null ? 1 : d.diff, vm: d.vm || "race", hx: d.hx == null ? 3 : d.hx, T: d.T || 0} : cfg;
-    return "Match · " + uniText(c.u, c.mx) + " · " + DIFF_NAME[c.diff] + " · " + VM_NAME[c.vm] + (c.vm === "shared" ? " · à tour de rôle · " + turnText(c.T) : " · en même temps") + " · " + hintText(c.hx);
+    var c = d && d.st !== "wait" ? {u: d.u || "lol", diff: d.diff == null ? 1 : d.diff, vm: d.vm || "race", hx: d.hx == null ? 3 : d.hx, T: d.T || 0, cd: d.cd} : cfg;
+    return "Match · " + uniText(c.u, c.mx) + " · " + DIFF_NAME[c.diff] + " · " + VM_NAME[c.vm] + (c.vm === "shared" ? " · à tour de rôle · " + turnText(c.T) : " · en même temps" + (c.cd ? " · " + c.cd + " s entre deux réponses" : "")) + " · " + hintText(c.hx);
   }
   var s = S || {};
   return uniText(s.uni || cfg.u, s.uni ? s.mx : cfg.mx) + " · " + DIFF_NAME[s.diff == null ? cfg.diff : s.diff] + " · " + errText(s.me == null ? cfg.err : s.me) + " · " + hintText(s.hx == null ? cfg.hx : s.hx);
@@ -947,12 +948,13 @@ function submit(){
   var best = 0, bestG = -1; Object.keys(cnt).forEach(function(g){ if (cnt[g] > best) { best = cnt[g]; bestG = +g; } });
   if (best === 5) {
     S.solved.push(bestG); sel = []; justSolved = bestG; S.lt = Date.now();
+    if (S.solved.length < P.groups.length && vsCd()) S.lock = Date.now() + vsCd() * 1000;   /* race: a pause after every answer */
     if (S.solved.length === P.groups.length) { S.ft = S.lt; finish(true); SFX.win(); } else SFX.ok(P.groups[bestG].c.d);
     save(); vsSend(bestG); render();
     return;
   }
   S.err++;
-  if (mode === "vs" && VS && VS.doc && !vsShared(VS.doc)) S.lock = Date.now() + VS_LOCK * 1000;   /* race: a miss blocks the player 10 s */
+  if (mode === "vs" && VS && VS.doc && !vsShared(VS.doc)) S.lock = Date.now() + (vsCd() || VS_LOCK) * 1000;   /* race: a miss blocks the player (cooldown, or 10 s in older games) */
   var lost = S.err >= maxErr();
   var hinted = !lost && hintCatchUp();
   if (lost) SFX.lose(); else if (best === 4) SFX.near(); else SFX.miss();
@@ -1007,7 +1009,7 @@ function showHelp(){
     '<li><b>Indices</b> : toutes les X erreurs (réglable), un indice tombe sur le groupe le plus simple qu’il te reste. Le 1er donne son thème, les suivants révèlent ses personnages un par un tant qu’il n’est pas trouvé, puis on passe au groupe le plus simple suivant.</li>' +
     '<li><b>Marqueurs</b> : touche une pastille de couleur sous la grille, puis les personnages que tu penses grouper, pour t’en souvenir (retouche la pastille pour revenir à la sélection ; sur ordi, un clic droit sur un personnage change aussi sa couleur). Ils ne servent qu’à toi, même en match.</li>' +
     '<li><b>Réglages</b> : univers (LoL, Smash ou Mix des deux), persos Mario en plus (Toad, Goomba, Boo… qui ne sont pas dans Smash, ajoutés aux grilles Smash et Mix), difficulté, erreurs autorisées en solo, fréquence des indices, type de match et temps par tour (grille commune).</li>' +
-    '<li><b>Match</b> : défie un pote en ligne sur le site. Chacun sa grille : la même pour les deux, vous jouez en même temps et le premier à 7 groupes gagne ; après une erreur, tu ne peux plus valider pendant 10 s. Grille commune : un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne, et on joue à tour de rôle (un essai par tour, bon ou mauvais). Pas de limite d’erreurs en match.</li>' +
+    '<li><b>Match</b> : défie un pote en ligne sur le site. Chacun sa grille : la même pour les deux, vous jouez en même temps et le premier à 7 groupes gagne ; pas de chrono, mais après chaque réponse tu attends 5 ou 10 s (au choix) avant de revalider. Grille commune : un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne, et on joue à tour de rôle (un essai par tour, bon ou mauvais). Pas de limite d’erreurs en match.</li>' +
     '<li><b>Sons</b> (bouton 🔊) : groupe trouvé, presque, erreur, fin de partie, et en match ton tour, les 5 dernières secondes et les groupes trouvés par l’adversaire.</li>' +
     '<li>Survole un personnage (ou active « Afficher les titres » dans les réglages) pour voir son titre officiel, ou sa série pour Smash.</li></ul><div class="row"><button type="button" class="btn primary" id="dlg-x">C’est parti</button></div>';
   $("#dlg-x").onclick = function(){ dlg.close(); };
@@ -1280,6 +1282,7 @@ function vsTurnSound(d){
 var VS_LOCK = 10;
 function vsTurns(d){ return vsShared(d); }
 function vsMyTurn(){ var d = VS && VS.doc; return !!(d && (!vsTurns(d) || d.turn === TOK())); }
+function vsCd(){ var d = mode === "vs" && VS && VS.doc; return d && !vsShared(d) && (d.cd === 5 || d.cd === 10) ? d.cd : 0; }   /* race: seconds between two answers (0 = older game: only a miss blocks) */
 function vsLock(){ return mode === "vs" && S && S.lock ? Math.max(0, Math.ceil((S.lock - Date.now()) / 1000)) : 0; }
 function vsLeft(d){ return d && d.T && vsTurns(d) ? Math.max(0, Math.ceil(((d.tt || 0) + d.T * 1000 - Date.now()) / 1000)) : null; }
 /* after an attempt (found = the group found, or null): my progress, the group claimed on a shared board, and the turn passes, in one write */
@@ -1314,11 +1317,11 @@ function vsRecord(d, o){
   ls("cx.vs.rec", rec);
 }
 function vsCreate(peer, set){
-  set = set || {u: cfg.u, mx: cfg.mx, diff: cfg.diff, hx: cfg.hx, vm: cfg.vm, T: cfg.T};
+  set = set || {u: cfg.u, mx: cfg.mx, diff: cfg.diff, hx: cfg.hx, vm: cfg.vm, T: cfg.T, cd: cfg.cd};
   if (!HOST || vsBusy) return;
   var nm = myName(); if (!nm) { toast("Choisis d’abord ton pseudo"); return; }
   var code = vsNewCode();
-  var d = {game: "cx", code: code, st: "wait", created: Date.now(), np: 2, u: set.u || "mix", mx: set.mx ? 1 : 0, diff: set.diff == null ? 1 : set.diff, hx: set.hx == null ? 3 : set.hx, T: set.T == null ? 60 : set.T, vm: set.vm || "race", av: histAv(), seed: "vs-" + code + "-" + Math.random().toString(36).slice(2, 8),
+  var d = {game: "cx", code: code, st: "wait", created: Date.now(), np: 2, u: set.u || "mix", mx: set.mx ? 1 : 0, diff: set.diff == null ? 1 : set.diff, hx: set.hx == null ? 3 : set.hx, T: set.T == null ? 60 : set.T, vm: set.vm || "race", cd: set.cd === 10 ? 10 : 5, av: histAv(), seed: "vs-" + code + "-" + Math.random().toString(36).slice(2, 8),
     p: [{id: TOK(), name: nm}], invs: peer ? [peer.tok] : [], inm: peer ? peer.nm : "", r: {}, f: {}};
   vsBusy = true; if (dlg.open) dlg.close();
   HOST.db.doc("vs/" + code).set(d).then(function(){ vsBusy = false; mode = "vs"; ls("cx.mode", "vs"); vsEnter(code); }, function(e){ vsBusy = false; render(); toast("Création impossible (" + ((e && e.code) || "erreur") + ")"); });
@@ -1373,7 +1376,8 @@ function openMatch(){
   var rec = ls("cx.vs.rec");
   dlg.innerHTML = '<form method="dialog" class="cfg vsl"><div class="ph"><div class="pc">Match</div><button type="button" class="x" data-close aria-label="Fermer">✕</button></div>' +
     '<div class="f"><label class="lb" for="mx-name">Ton pseudo</label><input id="mx-name" class="inp" maxlength="16" value="' + esc(myName()) + '" placeholder="Pseudo"></div>' +
-    '<div class="f"><span class="lb">Type de match</span>' + chips("vm", [["race", "Chacun sa grille"], ["shared", "Grille commune"]], cfg.vm) + '<small>Chacun sa grille : la même grille pour les deux, vous jouez en même temps, le premier à trouver les 7 groupes gagne ; une erreur bloque 10 s. Grille commune : un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne ; à tour de rôle, un essai par tour. Pas de limite d’erreurs.</small></div>' +
+    '<div class="f"><span class="lb">Type de match</span>' + chips("vm", [["race", "Chacun sa grille"], ["shared", "Grille commune"]], cfg.vm) + '<small>Chacun sa grille : la même grille pour les deux, vous jouez en même temps, le premier à trouver les 7 groupes gagne ; pas de chrono, mais une pause après chaque réponse. Grille commune : un groupe trouvé disparaît pour les deux, le premier à 4 groupes gagne ; à tour de rôle, un essai par tour. Pas de limite d’erreurs.</small></div>' +
+    '<div class="f"><span class="lb">Pause entre deux réponses (chacun sa grille)</span>' + chips("cd", [[5, "5 s"], [10, "10 s"]], cfg.cd) + '</div>' +
     '<div class="f"><span class="lb">Chrono par tour (grille commune)</span>' + chips("tt", [[30, "30 s"], [60, "1 min"], [90, "1 min 30"], [0, "Sans"]], cfg.T) + '<small>Grille faite avec tes réglages actuels : ' + esc(uniText(cfg.u, cfg.mx) + " · " + DIFF_NAME[cfg.diff] + " · " + hintText(cfg.hx)) + '</small></div>' +
     '<div class="f"><span class="lb">Connectés sur le site</span><div id="mx-peers" class="peers">' + peersHTML() + '</div></div>' +
     '<details class="f"><summary class="lb" style="cursor:pointer">Avec un code</summary><div class="row" style="margin-top:6px"><button type="button" class="btn" data-act="create">Créer une partie avec un code</button></div><div class="row" style="margin-top:8px"><input id="mx-code" class="inp" maxlength="8" placeholder="CODE" style="text-transform:uppercase"><button type="button" class="btn" data-act="join">Rejoindre</button></div></details>' +
@@ -1382,7 +1386,7 @@ function openMatch(){
   dlg.showModal();
   dlg.querySelectorAll("[data-close]").forEach(function(b){ b.onclick = function(){ dlg.close(); }; });
   /* the choices are kept right away (they make the next match) */
-  dlg.querySelectorAll("input[name=vm], input[name=tt]").forEach(function(x){ x.onchange = function(){ if (x.name === "vm") cfg.vm = x.value; else cfg.T = +x.value; saveCfg(); render(); }; });
+  dlg.querySelectorAll("input[name=vm], input[name=tt], input[name=cd]").forEach(function(x){ x.onchange = function(){ if (x.name === "vm") cfg.vm = x.value; else if (x.name === "cd") cfg.cd = +x.value; else cfg.T = +x.value; saveCfg(); render(); }; });
   $("#mx-name").onchange = function(){ var v = this.value.trim().slice(0, 16); if (v && HOST.setName) { HOST.setName(v); var box = document.getElementById("mx-peers"); if (box) box.innerHTML = peersHTML(); } };
   $("#mx-code").onkeydown = function(e){ if (e.key === "Enter") { e.preventDefault(); vsJoin(this.value); } };
 }
@@ -1412,7 +1416,7 @@ function vsHTML(){
 function vsTurnHTML(d){
   if (vsOutcome(d).over) return "Partie terminée";
   var opp = vsOpp(d) || {name: "l’adversaire"}, left = vsLeft(d);
-  if (!vsTurns(d)) { var lk = vsLock(); return lk ? '<b>Raté</b> · tu peux revalider dans <span class="tl low">' + lk + ' s</span>' : "<b>Course</b> : vous jouez en même temps"; }
+  if (!vsTurns(d)) { var lk = vsLock(); return lk ? '<b>Pause</b> · tu peux revalider dans <span class="tl low">' + lk + ' s</span>' : "<b>Course</b> : vous jouez en même temps"; }
   return (vsMyTurn() ? "<b>À toi de jouer</b>" : "Au tour de <b>" + esc(opp.name) + "</b>") + (left == null ? "" : ' · <span class="tl' + (left <= 10 ? " low" : "") + '">' + left + ' s</span>');
 }
 function vsEndHTML(){
@@ -1442,7 +1446,7 @@ document.addEventListener("click", function(e){
   else if (a === "abandon") vsAbandon();
   else if (a === "lobby") { vsLeave(); openMatch(); }
   else if (a === "quit") vsLeave();
-  else if (a === "rematch") { var od = VS.doc, op = vsOpp(od); vsLeave(); vsCreate({tok: op.id, nm: op.name}, {u: od.u, mx: od.mx, diff: od.diff, hx: od.hx, vm: od.vm, T: od.T}); }   /* same settings as the game just played */
+  else if (a === "rematch") { var od = VS.doc, op = vsOpp(od); vsLeave(); vsCreate({tok: op.id, nm: op.name}, {u: od.u, mx: od.mx, diff: od.diff, hx: od.hx, vm: od.vm, T: od.T, cd: od.cd}); }   /* same settings as the game just played */
 });
 document.addEventListener("click", function(e){ if (e.target && e.target.id === "b-share" && mode === "vs") copyShare(); });
 
