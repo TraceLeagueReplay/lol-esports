@@ -55,6 +55,8 @@ button{cursor:pointer}
 .brand h1 span{color:var(--accent)}
 .tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
+html{scrollbar-gutter:stable}
+@media (max-width:420px){.tab{padding-inline:9px!important;font-size:16px!important;letter-spacing:.02em!important}}
 .tab{border:0;background:none;padding:10px 14px 11px;font-family:var(--f-display);font-weight:600;font-size:17px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
 .tab:hover{color:var(--fg)}
 .tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
