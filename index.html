@@ -446,6 +446,12 @@ var NATNAME = {}; NATS.forEach(function(n){ NATNAME[n[0]] = n[1]; });
 var LOGOS = JSON.parse($("#logos").textContent);
 var SAVED = $("#data").textContent;
 var state = JSON.parse(SAVED);
+/* hosted site: start from the last version received from the database (kept in this browser), not from the
+   copy built into the page, which is older: otherwise the old data shows for a few seconds while Firebase loads */
+try { var c0 = localStorage.getItem("lolfb.core"), t0 = localStorage.getItem("lolfb.tls");
+  if (c0) { var o0 = JSON.parse(c0); o0.tierlists = state.tierlists; state = o0; }
+  if (t0) state.tierlists = JSON.parse(t0);
+} catch(e){}
 var BASE = hash(SAVED);
 var dirty = 0, readOnly = true, art = null, assets = null, saving = false;
 var ui = {tab:"rosters", league:"all", q:"", sort:"y", tl:"", pd:"", intl:false};
@@ -1868,6 +1874,7 @@ function tlApplyRemote(){
     return x;
   });
   state.tierlists = out;
+  try { localStorage.setItem("lolfb.tls", JSON.stringify(out)); } catch(e){}
   var parts = tlParts(); tlApplied = {}; for (var k in parts) tlApplied[k] = tlStr(parts[k]);
   if (tlFirst && fbBase != null) {
     tlFirst = false;
@@ -2041,6 +2048,7 @@ function fbApplyRemote(){
     setCore(coreStr(state) === fbBase ? JSON.parse(d.json) : merge3(fbBase, state, d.json));
   }
   fbBase = d.json;
+  try { localStorage.setItem("lolfb.core", d.json); } catch(e){}
   /* tier lists that follow the rosters catch up with them (players added / removed elsewhere) */
   if (tlDb && tlDbReady && !tlFirst && syncAllTL()) tlFlush();
   else if (tlFirst && tlDbReady && Object.keys(tlRemote.tl).length) { tlFirst = false; if (syncAllTL()) tlFlush(); }
