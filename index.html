@@ -1425,8 +1425,20 @@ var TIERS = [], TIER = {}, TSCORE = {};
 function applyTiers(){
   var list = (state.tiers && state.tiers.length ? state.tiers : TIERS_DEF).filter(function(t){ return t && t[0] && t[0] !== "q"; });
   TIERS = list.map(function(t){ return [t[0], t[1] || "?", t[2] || "#b7b7b7"]; }).concat([TIER_Q]);
-  TIER = {}; TSCORE = {}; TIERS.forEach(function(t, i){ TIER[t[0]] = t; TSCORE[t[0]] = i; });
+  /* the star tier (★, « best player of the league ») is an S+: same value in the averages, and an average never gives a star */
+  TIER = {}; TSCORE = {}; SCORE_TIER = [];
+  var sc = 0, pendStar = [];
+  TIERS.forEach(function(t){ TIER[t[0]] = t;
+    if (isStarTier(t) && t !== TIER_Q) { pendStar.push(t[0]); return; }
+    TSCORE[t[0]] = sc; pendStar.forEach(function(k){ TSCORE[k] = sc; }); pendStar = [];
+    if (t !== TIER_Q) SCORE_TIER[sc] = t[0];
+    sc++; });
+  pendStar.forEach(function(k){ TSCORE[k] = Math.max(0, sc - 1); });
 }
+var SCORE_TIER = [];
+function isStarTier(t){ return /[★☆⭐]/.test(String(t && t[1] || "")); }
+/* the tier of an average score (never the star) */
+function tierOfScore(x){ return SCORE_TIER[Math.max(0, Math.min(SCORE_TIER.length - 1, Math.round(x)))] || (TIERS[0] || [])[0]; }
 function realTiers(){ return TIERS.slice(0, -1); }
 /* readable letter colour on any tier colour */
 function tierFg(hex){
@@ -1645,7 +1657,7 @@ function teamsByPlayers(p, tl){
   var list = Object.keys(acc).map(function(k){ var a = acc[k]; a.avg = a.ranks / a.n; a.entry = entries[k] || null; return a; })
     .sort(function(x, y){ return x.avg - y.avg; });
   /* the tiers in use, cut where the gaps between averages are largest (optimal 1-D grouping: smallest spread inside each tier) */
-  var used = realTiers().map(function(t){ return t[0]; });
+  var used = realTiers().filter(function(t){ return !isStarTier(t); }).map(function(t){ return t[0]; });
   var groups = breaks(list.map(function(a){ return a.avg; }), Math.min(used.length, list.length));
   list.forEach(function(a, i){ a.t = used[groups[i]] || "q"; });
   return list;
@@ -1705,7 +1717,7 @@ function globalColumn(tl, col){
     }
   });
   list.forEach(function(a){ a.t = "q"; });
-  blocks.forEach(function(b){ var t = TIERS[Math.min(TIERS.length - 2, Math.round(b.sum / b.w))][0]; b.idx.forEach(function(i){ list[i].t = t; }); });
+  blocks.forEach(function(b){ var t = tierOfScore(b.sum / b.w); b.idx.forEach(function(i){ list[i].t = t; }); });
   return list;
 }
 function globalHTML(tl){
