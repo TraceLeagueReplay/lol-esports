@@ -395,7 +395,7 @@ function h2hHTML(ms, rows, lgK){
   });
   var head = '<tr><th></th>' + teams.map(function(t){ return '<th title="'+e(t)+'">'+logo(t, lgK)+'</th>'; }).join("") + '<th class="tot">Total</th></tr>';
   var body = teams.map(function(a){
-    return '<tr><th title="'+e(a)+'">'+logo(a, lgK)+'<span class="nm">'+e(short(a))+'</span></th>' + teams.map(function(b){
+    return '<tr><th title="'+e(a)+'">'+logo(a, lgK)+'</th>' + teams.map(function(b){
       if (a === b) return '<td class="self"></td>';
       var rs = cell[a + "|" + b];
       if (!rs) return '<td class="none">·</td>';

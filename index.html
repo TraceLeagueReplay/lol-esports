@@ -324,12 +324,13 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 /* head to head grid */
 .cal-h2h{margin-top:0;margin-bottom:8px}.cal-h2h + .cal-h2h{margin-top:14px}
 .h2h-wrap{overflow-x:auto;padding-bottom:6px}
-.h2h{border-collapse:separate;border-spacing:2px;font-variant-numeric:tabular-nums;font-size:13px}
+.h2h{border-collapse:separate;border-spacing:4px 2px;font-variant-numeric:tabular-nums;font-size:13px}
 .h2h th{font-weight:600;padding:3px;text-align:center;white-space:nowrap}
+.h2h:not(.swiss) tr:first-child th{padding:0 3px;height:26px;box-sizing:border-box}.h2h:not(.swiss) tr:first-child th .cal-lg,.h2h:not(.swiss) tr:first-child th .cal-site.logo{width:24px;height:24px}.h2h:not(.swiss) tr:first-child th .cal-site.logo img{max-width:24px;max-height:24px}
 .h2h tr > th:first-child{text-align:left;position:sticky;left:0;background:var(--bg);z-index:1}
 .h2h tr > th:first-child .nm{margin-left:6px}
 .h2h th .cal-lg,.h2h th .cal-site.logo{width:26px;height:26px;vertical-align:middle}.h2h th .cal-site.logo img{max-width:26px;max-height:26px}
-.h2h td{min-width:46px;height:34px;text-align:center;border-radius:4px;font-weight:700;padding:2px 4px;line-height:1.2}
+.h2h td{min-width:52px;height:41px;text-align:center;border-radius:4px;font-weight:700;padding:2px 4px;line-height:1.2;box-sizing:border-box}
 .h2h td.won{background:var(--lp-win)}
 .h2h td.lost{background:var(--lp-loss)}
 .h2h td.split{background:var(--lp-draw)}
@@ -403,7 +404,7 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .br-t{display:flex;align-items:center;gap:7px;padding:3px 9px;font-weight:600;min-width:0}
 .br-t .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .br-t b{font:700 15px/1 var(--f-display);font-variant-numeric:tabular-nums;min-width:12px;text-align:right}
-.br-t.l{opacity:.5}.br-t.w{font-weight:800;background:var(--lp-up)}
+.br-t.l{opacity:.5}.br-t.w{font-weight:800}
 .br-t .cal-lg,.br-t .cal-site.logo{width:22px;height:22px}.br-t .cal-site.logo img{max-width:22px;max-height:22px}
 .br-d{font-size:11px;color:var(--muted);padding:1px 9px 0;border-top:1px solid var(--line-2);margin-top:3px}
 @media (max-width:520px){.br-col{width:160px}.br-fin .br-col{width:170px}}
