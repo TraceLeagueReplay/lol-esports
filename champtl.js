@@ -40,7 +40,14 @@ function ownerOf(id){
   Object.keys(ranks).forEach(function(k){ var d = ranks[k]; if (d.tl !== id || !d.name) return; var c = Object.keys(placed(rowsOf(d, id))).length; if (c > n) { n = c; best = d.name; } });
   return best;
 }
-function isOwner(){ var o = ownerOf(cur); return canEdit() && (!o || o === me()); }
+/* anybody can fix anybody's tier list (it stays the owner's: there is only one ranking per list) */
+function isOwner(){ return canEdit(); }
+/* the database document that holds the ranking of a list (the owner's) */
+function rankKey(lid){
+  var o = ownerOf(lid) || me(), k = lid + "__" + key(o);
+  if (!ranks[k]) Object.keys(ranks).forEach(function(x){ if (ranks[x].tl === lid && ranks[x].name === o) k = x; });
+  return {k: k, owner: o};
+}
 function start(){
   var F = Fb(); if (started || !F) return; started = true;
   F.onSnapshot(F.collection(F.db, "ctl"), function(snap){ var m = {}; snap.docs.forEach(function(d){ m[d.id] = d.data(); }); lists = m; ready.l = true; refresh(); }, function(){});
@@ -55,8 +62,7 @@ function refresh(){
   var ids = listIds();
   if (cur && !lists[cur]) cur = "";
   if (!cur && ids.length) cur = ids[ids.length - 1];
-  var o = ownerOf(cur) || me(), k = o ? cur + "__" + key(o) : "";
-  if (!ranks[k]) Object.keys(ranks).forEach(function(x){ if (ranks[x].tl === cur && ranks[x].name === o) k = x; });
+  var k = cur ? rankKey(cur).k : "";
   if (!pend) mine = rowsOf(ranks[k]);   /* (a change not sent yet wins over what the database says) */
   draw();
 }
@@ -108,8 +114,8 @@ function flush(){
   clearTimeout(saveT); saveT = null; if (!pend) return;
   var p = pend; pend = null;
   var r = {}; p.rows.forEach(function(row, i){ if (p.tiers[i]) r[p.tiers[i].id] = row; });
-  var id = p.list + "__" + key(me());
-  ranks[id] = {tl: p.list, name: me(), r: r, t: Date.now()};
+  var rk = rankKey(p.list), id = rk.k;
+  ranks[id] = {tl: p.list, name: rk.owner, r: r, t: Date.now()};
   /* a list made before lists had an owner: the first one to fill it becomes its owner */
   if (lists[p.list] && !lists[p.list].by) { lists[p.list].by = me(); F.setDoc(F.doc(F.db, "ctl/" + p.list), lists[p.list]).catch(function(){}); }
   F.setDoc(F.doc(F.db, "ctlp/" + id), ranks[id]).catch(function(){});
@@ -125,7 +131,6 @@ function act(a, id){
   var F = Fb();
   if (a === "pick") { flush(); cur = id; lsSet("ctl.cur", cur); sel = null; q = ""; refresh(); return; }
   if (!canEdit()) return;
-  if (a !== "new" && !isOwner()) return;   /* only the owner changes a tier list */
   if (a === "new") nameDlg("Nouvelle tier list de champions", "", function(v){
     flush(); var nid = "c" + Date.now().toString(36); cur = nid; lsSet("ctl.cur", cur); lists[nid] = {name: v, t: Date.now(), by: me()}; mine = rowsOf(null); draw();
     F.setDoc(F.doc(F.db, "ctl/" + nid), lists[nid]).catch(function(){});
@@ -185,7 +190,7 @@ function editTiers(){
         flush();
         var out = rows.map(function(t){ return {id: t.id, n: String(t.n || "").trim() || "?", c: /^#[0-9a-f]{6}$/i.test(t.c) ? t.c : "#9aa5b1"}; });
         lists[cur].tiers = out;
-        mine = rowsOf(ranks[cur + "__" + key(me())]); draw();
+        mine = rowsOf(ranks[rankKey(cur).k]); draw();
         F.setDoc(F.doc(F.db, "ctl/" + cur), lists[cur]).catch(function(){});
       };
     });
