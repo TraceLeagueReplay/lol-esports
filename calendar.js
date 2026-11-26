@@ -194,7 +194,7 @@ function standingsHTML(rows, lg){
   }
   return '<div class="cal-st"><table><thead><tr><th>#</th><th>Équipe</th><th title="Victoires – défaites (matchs)">V – D</th><th title="Parties gagnées – perdues" class="g">Parties</th><th class="g">Série</th></tr></thead><tbody>' +
     rows.map(function(r){ var gd = (+r.WinGames || 0) - (+r.LossGames || 0), played = rows.some(function(x){ return +x.WinSeries || +x.LossSeries; });
-      return '<tr><td class="pl">'+(played ? e(r.Place) : "–")+'</td><td><div class="tm">'+logo(r.Team, lg)+'<span class="nm" title="'+e(r.Team)+'">'+e(short(r.Team))+'</span><span class="full">'+e(r.Team)+'</span></div></td>' +
+      return '<tr><td class="pl">'+(played ? e(r.Place) : "–")+'</td><td><div class="tm">'+logo(r.Team, lg)+'<span class="nm" title="'+e(r.Team)+'">'+e(short(r.Team))+'</span></div></td>' +
         '<td><b>'+e(r.WinSeries || 0)+' – '+e(r.LossSeries || 0)+'</b></td><td class="g">'+e(r.WinGames || 0)+' – '+e(r.LossGames || 0)+' <span class="gd'+(gd > 0 ? " p" : gd < 0 ? " n" : "")+'">('+(gd > 0 ? "+" : "")+gd+')</span></td>' +
         '<td class="g">'+(+r.Streak ? '<span class="sk '+(r.StreakDirection === "W" ? "p" : "n")+'">'+e(r.Streak)+(r.StreakDirection === "W" ? (en() ? "W" : "V") : (en() ? "L" : "D"))+'</span>' : "")+'</td></tr>'; }).join("") +
     '</tbody></table></div>';
