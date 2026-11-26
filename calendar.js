@@ -79,7 +79,7 @@ function cargo(p, ttl){
   }
   return fetchFresh(qs, ttl);
 }
-function load(p){ st.loading++; draw(); return p.then(function(x){ st.loading--; return x; }, function(err){ st.loading--; st.err = "Impossible de récupérer les matchs pour l’instant (Leaguepedia ne répond pas). Réessaie dans un moment."; draw(); throw err; }); }
+function load(p){ st.loading++; draw(); return p.then(function(x){ st.loading--; st.err = ""; return x; }, function(err){ st.loading--; st.err = "Impossible de récupérer les matchs pour l’instant (Leaguepedia ne répond pas). Réessaie dans un moment."; draw(); throw err; }); }
 
 /* ---- the tournaments of the five leagues over the last year and a bit ---- */
 function getTours(){
