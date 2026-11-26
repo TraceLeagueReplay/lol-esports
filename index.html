@@ -381,6 +381,13 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .cal-st th{font-size:12px;font-weight:600;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line-2)}
 .cal-st td{padding:7px 8px;border-bottom:1px solid var(--line-2)}
 .cal-st td.cal-pl{color:var(--muted);width:28px}
+/* numbers centred under their titles; the team column stays on the left */
+.cal-st th,.cal-st td{text-align:center}
+.cal-st th:nth-child(2),.cal-st td:nth-child(2){text-align:left;width:auto}
+.cal-st th:first-child,.cal-st td:first-child{width:34px}
+.cal-st th:nth-child(3),.cal-st td:nth-child(3){width:70px}
+.cal-st th:nth-child(4),.cal-st td:nth-child(4){width:118px}
+.cal-st th:nth-child(5),.cal-st td:nth-child(5){width:54px}
 .cal-st .tm{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0}
 .cal-st td{white-space:nowrap}.cal-st .tm .nm{overflow:hidden;text-overflow:ellipsis;max-width:140px}
 .cal-st .tm .full{color:var(--muted);font-weight:400;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
