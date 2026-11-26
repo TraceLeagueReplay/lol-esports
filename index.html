@@ -348,6 +348,26 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .cal-st .sk{font-size:12px;font-weight:700}.cal-st .sk.p{color:#4caf50}.cal-st .sk.n{color:#e06666}
 @media (max-width:900px){.cal-cols{grid-template-columns:1fr;gap:6px}}
 @media (max-width:520px){.cal-m{grid-template-columns:40px auto 1fr auto 1fr;gap:6px;padding:7px 8px}.cal-m:not(:has(.cal-lgk)){grid-template-columns:40px 1fr auto 1fr}.cal-bo{display:none}.cal-m.live .cal-bo{display:block;grid-column:1/-1;text-align:center}.cal-lg{width:22px;height:22px}.cal-st .tm .full,.cal-st .g{display:none}.cal-t{font-size:13px}}
+/* calendar: bracket */
+.cal-brs{margin:6px 0 14px}
+.br{display:flex;gap:18px;overflow-x:auto;padding-bottom:8px;align-items:stretch}
+.br-lanes{display:flex;flex-direction:column;gap:6px;flex:none}
+.br-lt{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.br-lane{display:flex;gap:18px}
+.br-col{display:flex;flex-direction:column;width:190px;flex:none}
+.br-h{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;white-space:nowrap}
+.br-ms{display:flex;flex-direction:column;justify-content:space-around;gap:10px;flex:1}
+.br-fin{display:flex;align-items:center;flex:none}
+.br-fin .br-col{width:200px}
+.br-fin .br-m{border-color:var(--fg)}
+.br-m{border:1px solid var(--line-2);border-radius:8px;background:var(--panel);padding:4px 0 3px;position:relative}
+.br-t{display:flex;align-items:center;gap:7px;padding:3px 9px;font-weight:600;min-width:0}
+.br-t .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.br-t b{font:700 15px/1 var(--f-display);font-variant-numeric:tabular-nums;min-width:12px;text-align:right}
+.br-t.l{opacity:.5}.br-t.w{font-weight:800}
+.br-t .cal-lg,.br-t .cal-site.logo{width:22px;height:22px}.br-t .cal-site.logo img{max-width:22px;max-height:22px}
+.br-d{font-size:11px;color:var(--muted);padding:1px 9px 0;border-top:1px solid var(--line-2);margin-top:3px}
+@media (max-width:520px){.br-col{width:160px}.br-fin .br-col{width:170px}}
 /* tier list kind switch: Esport / Champions */
 .tlkind{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line-2);border-radius:999px;margin:4px 0 14px;background:var(--panel)}
 .tlkind button{border:0;background:none;border-radius:999px;padding:8px 18px;font:600 15px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);cursor:pointer}

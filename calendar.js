@@ -7,9 +7,14 @@ var LEAGUES = [
   {k: "LCK", name: "LoL Champions Korea", slug: "lck"},
   {k: "LPL", name: "Tencent LoL Pro League", slug: "lpl"},
   {k: "LCS", name: "League of Legends Championship Series", slug: "lcs"},
-  {k: "LFL", name: "La Ligue Française", slug: "lfl"}
+  {k: "LFL", name: "La Ligue Française", slug: "lfl"},
+  /* international tournaments: Worlds, MSI, First Stand (one chip; the lolesports link depends on the tournament) */
+  {k: "INTL", label: "International", names: ["World Championship", "Mid-Season Invitational", "First Stand"], slug: "worlds", only: /^(Worlds|MSI|First Stand)\b/}
 ];
-var BY_NAME = {}; LEAGUES.forEach(function(l){ BY_NAME[l.name] = l; });
+var INTL_SLUG = {"World Championship": "worlds", "Mid-Season Invitational": "msi", "First Stand": "first_stand"};
+var BY_NAME = {}; LEAGUES.forEach(function(l){ (l.names || [l.name]).forEach(function(n){ BY_NAME[n] = l; }); });
+function allNames(){ return [].concat.apply([], LEAGUES.map(function(l){ return l.names || [l.name]; })); }
+function label(l){ return l.label || l.k; }
 var API = "https://lol.fandom.com/api.php";
 var root = document.createElement("div"); root.className = "cal";
 var st = {lg: lsGet("cal.lg") || "all", tour: {}, loading: 0, err: ""};
@@ -49,9 +54,11 @@ function getTours(){
   if (data.tours) return Promise.resolve(data.tours);
   var since = ymd(new Date(Date.now() - 420 * 86400000));
   return load(cargo({tables: "Tournaments", fields: "Name,OverviewPage,League,DateStart,Date,Split,TournamentLevel,IsQualifier",
-    where: "DateStart >= '" + since + "' AND League IN (" + LEAGUES.map(function(l){ return sq(l.name); }).join(",") + ") AND (TournamentLevel IS NULL OR TournamentLevel != 'Showmatch')",
+    where: "DateStart >= '" + since + "' AND League IN (" + allNames().map(sq).join(",") + ") AND (TournamentLevel IS NULL OR TournamentLevel != 'Showmatch')",
     order_by: "DateStart", limit: "200"}, 360)).then(function(rows){
-    data.tours = rows.filter(function(t){ return BY_NAME[t.League] && t.IsQualifier !== "1" && !/showmatch/i.test(t.Name); });
+    var ok = rows.filter(function(t){ var L = BY_NAME[t.League]; return L && t.IsQualifier !== "1" && !/showmatch/i.test(t.Name) && (!L.only || L.only.test(t.Name)); });
+    /* a tournament split in stages (Worlds = Play-In + Main Event): keep the stages, drop the page that only groups them */
+    data.tours = ok.filter(function(t){ return !ok.some(function(u){ return u !== t && u.OverviewPage.indexOf(t.OverviewPage + "/") === 0; }); });
     return data.tours;
   });
 }
@@ -73,7 +80,7 @@ function getMatches(op){
 /* the regular season a playoffs stage comes from (same league, same split, started before, has « Playoffs » removed from the name) */
 function seasonOf(op){
   var T = (data.tours || []).filter(function(t){ return t.OverviewPage === op; })[0];
-  if (!T || !/playoffs|play-in|finals|road to/i.test(T.Name)) return null;
+  if (!T || !/playoffs|play-in|finals|road to/i.test(T.Name) || (BY_NAME[T.League] || {}).k === "INTL") return null;
   var base = T.Name.replace(/\s*(Playoffs|Play-In|Season Play-In|Grand Finals|Road to MSI)\s*$/i, "").trim();
   var c = (data.tours || []).filter(function(t){ return t.League === T.League && t.OverviewPage !== op && t.DateStart <= T.DateStart && !/playoffs|play-in|finals|road to/i.test(t.Name) && (t.Name === base || (T.Split && t.Split === T.Split)); });
   return c.length ? c[c.length - 1] : null;
@@ -150,6 +157,10 @@ function logo(n, lg){
   if (h) return '<span class="cal-lg cal-site logo">' + h + '</span>';
   return t && t.url ? '<img class="cal-lg" src="' + e(t.url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' : '<span class="cal-lg"></span>'; }
 function short(n){ var t = data.teams[n]; return t && t.s ? t.s : n || "?"; }
+function tourOf(op){ return (data.tours || []).filter(function(x){ return x.OverviewPage === op; })[0] || null; }
+/* lolesports.com page of a league (international: Worlds, MSI or First Stand depending on the tournament) */
+function slugOf(L, T){ return L && L.k === "INTL" ? (T && INTL_SLUG[T.League]) || "worlds" : L && L.slug; }
+function tagOf(L, T){ if (!L) return ""; if (L.k !== "INTL") return L.k; var n = T ? T.Name : ""; return /^MSI/.test(n) ? "MSI" : /^First Stand/.test(n) ? "FS" : "Worlds"; }
 function leagueOfOp(op){ var t = (data.tours || []).filter(function(x){ return x.OverviewPage === op; })[0]; return t ? BY_NAME[t.League] : null; }
 function tabName(s){ if (!s || en()) return s || ""; return String(s).replace(/^Week (\d+)/, "Semaine $1").replace(/^Day (\d+)/, "Jour $1").replace(/^Round (\d+)/, "Tour $1"); }
 function hhmm(d){ return d.toLocaleTimeString(loc(), {hour: "2-digit", minute: "2-digit"}); }
@@ -162,13 +173,13 @@ function matchHTML(m, showLeague){
   var d = utc(m.DateTime_UTC || m["DateTime UTC"]), done = m.Winner === "1" || m.Winner === "2", w = m.Winner;
   var lg = showLeague ? leagueOfOp(m.OverviewPage) : null, bo = +m.BestOf || 1;
   var live = !done && d && Date.now() >= d.getTime() && Date.now() < d.getTime() + bo * 3600000 + 1800000;
-  var LG = lg || leagueOfOp(m.OverviewPage) || {}, lgSlug = LG.slug;
+  var LG = lg || leagueOfOp(m.OverviewPage) || {}, lgSlug = slugOf(LG, tourOf(m.OverviewPage));
   var mid = done || (m.Team1Score !== "" && m.Team1Score != null && (+m.Team1Score || +m.Team2Score))
     ? '<span class="cal-sc"><b'+(w === "1" ? ' class="w"' : "")+'>'+e(m.Team1Score || 0)+'</b>–<b'+(w === "2" ? ' class="w"' : "")+'>'+e(m.Team2Score || 0)+'</b></span>'
     : '<span class="cal-sc vs">vs</span>';
   return '<div class="cal-m'+(done ? " done" : "")+(live ? " live" : "")+'">' +
     '<span class="cal-t">'+(d ? hhmm(d) : "")+'</span>' +
-    (showLeague ? '<span class="cal-lgk">'+e(lg ? lg.k : "")+'</span>' : "") +
+    (showLeague ? '<span class="cal-lgk">'+e(tagOf(lg, tourOf(m.OverviewPage)))+'</span>' : "") +
     '<span class="cal-tm a'+(w === "1" ? " w" : w === "2" ? " l" : "")+'" title="'+e(m.Team1)+'"><span class="nm">'+e(short(m.Team1))+'</span>'+logo(m.Team1, LG.k)+'</span>' + mid +
     '<span class="cal-tm b'+(w === "2" ? " w" : w === "1" ? " l" : "")+'" title="'+e(m.Team2)+'">'+logo(m.Team2, LG.k)+'<span class="nm">'+e(short(m.Team2))+'</span></span>' +
     '<span class="cal-bo">'+(live && lgSlug ? '<a class="cal-live" href="https://lolesports.com/'+(en() ? "en-GB" : "fr-FR")+'/live/'+lgSlug+'" target="_blank" rel="noopener">● En direct</a>' : "BO" + bo)+'</span></div>';
@@ -183,7 +194,7 @@ function byDay(ms, showLeague){
 function chips(){
   return '<div class="chips cal-chips" role="group" aria-label="Ligues">' +
     '<button class="chip" data-cal="lg" data-v="all" aria-pressed="'+(st.lg === "all")+'">Toutes</button>' +
-    LEAGUES.map(function(l){ return '<button class="chip" data-cal="lg" data-v="'+l.k+'" aria-pressed="'+(st.lg === l.k)+'">'+l.k+'</button>'; }).join("") + '</div>';
+    LEAGUES.map(function(l){ return '<button class="chip" data-cal="lg" data-v="'+l.k+'" aria-pressed="'+(st.lg === l.k)+'">'+label(l)+'</button>'; }).join("") + '</div>';
 }
 function standingsHTML(rows, lg){
   if (!rows || !rows.length) return "";
@@ -200,6 +211,47 @@ function standingsHTML(rows, lg){
     '</tbody></table></div>';
 }
 
+/* ---- bracket (« arbre ») of a playoffs stage or of the knockout stage of an international tournament ---- */
+function isBracket(m, T){
+  var tab = String(m.Tab || "");
+  if (/^(Bracket|Upper|Lower|Quarter|Semi|Grand Final|Finals?$|Round of|Knockout|Playoffs?\b)/i.test(tab)) return true;
+  return !!(T && /playoffs/i.test(T.Name) && /^(Round \d+|Finals?)$/i.test(tab));
+}
+function brTab(s){ if (en()) return s; return String(s).replace(/^Bracket /, "").replace(/^Round (\d+)$/, "Tour $1").replace(/^Quarterfinals?$/i, "Quarts de finale").replace(/^Semifinals?$/i, "Demi-finales").replace(/^Grand Finals?$/i, "Grande finale").replace(/^Finals?$/i, "Finale").replace(/^Upper /, "").replace(/^Lower /, ""); }
+function bracketHTML(ms, lgK){
+  var list = ms.slice().sort(function(a, b){ return String(a.DateTime_UTC || a["DateTime UTC"]).localeCompare(String(b.DateTime_UTC || b["DateTime UTC"])) || (+a.N_MatchInTab || +a["N MatchInTab"] || 0) - (+b.N_MatchInTab || +b["N MatchInTab"] || 0); });
+  var tabs = []; list.forEach(function(m){ if (tabs.indexOf(m.Tab) < 0) tabs.push(m.Tab); });
+  var lastTab = tabs[tabs.length - 1], loss = {}, lane = {};
+  /* upper or lower bracket: a team that already lost in this bracket, or already played in the lower one (some teams start there), plays in the lower one */
+  list.forEach(function(m){
+    var t1 = m.Team1, t2 = m.Team2, known = function(t){ return t && t !== "TBD"; };
+    if (/final/i.test(m.Tab) && m.Tab === lastTab) lane[m.Tab + "|" + list.indexOf(m)] = "final";
+    else if (/^lower/i.test(m.Tab)) lane[m.Tab + "|" + list.indexOf(m)] = "lower";
+    else if (/^upper/i.test(m.Tab)) lane[m.Tab + "|" + list.indexOf(m)] = "upper";
+    else lane[m.Tab + "|" + list.indexOf(m)] = (known(t1) && loss[t1]) || (known(t2) && loss[t2]) ? "lower" : (known(t1) || known(t2)) ? "upper" : "?";
+    if (lane[m.Tab + "|" + list.indexOf(m)] === "lower") { if (known(t1)) loss[t1] = loss[t1] || 0.5; if (known(t2)) loss[t2] = loss[t2] || 0.5; }
+    if (m.Winner === "1" && known(t2)) loss[t2] = (loss[t2] || 0) + 1;
+    if (m.Winner === "2" && known(t1)) loss[t1] = (loss[t1] || 0) + 1;
+  });
+  /* matches with two unknown teams: same bracket as the others of their round, if they are all in one */
+  list.forEach(function(m, i){ var k = m.Tab + "|" + i; if (lane[k] !== "?") return;
+    var others = list.map(function(x, j){ return x.Tab === m.Tab ? lane[x.Tab + "|" + j] : null; }).filter(function(v){ return v && v !== "?"; });
+    lane[k] = others.length && others.every(function(v){ return v === others[0]; }) ? others[0] : "upper"; });
+  var lanes = {upper: [], lower: [], final: []};
+  list.forEach(function(m, i){ lanes[lane[m.Tab + "|" + i]].push(m); });
+  function team(m, n){ var t = m["Team" + n], w = m.Winner === String(n), l = m.Winner === String(3 - n), sc = m["Team" + n + "Score"];
+    return '<div class="br-t'+(w ? " w" : l ? " l" : "")+'" title="'+e(t)+'">'+(t && t !== "TBD" ? logo(t, lgK) : '<span class="cal-lg"></span>')+'<span class="nm">'+e(t && t !== "TBD" ? short(t) : (en() ? "TBD" : "À définir"))+'</span><b>'+e(sc === "" || sc == null ? "" : sc)+'</b></div>'; }
+  function card(m){ var d = utc(m.DateTime_UTC || m["DateTime UTC"]);
+    return '<div class="br-m">'+team(m, 1)+team(m, 2)+'<div class="br-d">'+(d ? e(d.toLocaleDateString(loc(), {day: "numeric", month: "short"}) + " · " + hhmm(d)) : "")+'</div></div>'; }
+  function cols(ms2){ var tb = []; ms2.forEach(function(m){ if (tb.indexOf(m.Tab) < 0) tb.push(m.Tab); });
+    return tb.map(function(t){ return '<div class="br-col"><div class="br-h">'+e(brTab(t))+'</div><div class="br-ms">'+ms2.filter(function(m){ return m.Tab === t; }).map(card).join("")+'</div></div>'; }).join(""); }
+  var dbl = lanes.lower.length > 0;
+  return '<div class="br">' +
+    '<div class="br-lanes">' + (dbl ? '<div class="br-lt">Upper bracket</div>' : "") + '<div class="br-lane">' + cols(lanes.upper) + '</div>' +
+      (dbl ? '<div class="br-lt">Lower bracket</div><div class="br-lane">' + cols(lanes.lower) + '</div>' : "") + '</div>' +
+    (lanes.final.length ? '<div class="br-fin">' + cols(lanes.final) + '</div>' : "") + '</div>';
+}
+
 function draw(){
   var h = chips(), lgs = st.lg === "all" ? null : LEAGUES.filter(function(l){ return l.k === st.lg; })[0];
   if (st.err) h += '<p class="cal-err">'+e(st.err)+'</p>';
@@ -212,7 +264,7 @@ function draw(){
     if (!data.upcoming) h += '<p class="cal-note">Chargement…</p>';
     else if (next.length) h += byDay(next, true);
     else {
-      var rs = LEAGUES.map(function(l){ var t = nextTour(l.k); return t ? '<li><b>'+l.k+'</b> · '+e(t.Name)+' — '+e(day(t.DateStart).toLocaleDateString(loc(), {day: "numeric", month: "long", year: "numeric"}))+'</li>' : ""; }).join("");
+      var rs = LEAGUES.map(function(l){ var t = nextTour(l.k); return t ? '<li><b>'+label(l)+'</b> · '+e(t.Name)+' — '+e(day(t.DateStart).toLocaleDateString(loc(), {day: "numeric", month: "long", year: "numeric"}))+'</li>' : ""; }).join("");
       h += '<p class="cal-note">Pas de match prévu dans les 10 prochains jours'+(rs ? ' : c’est l’intersaison. Reprises :' : '.')+'</p>' + (rs ? '<ul class="cal-next">'+rs+'</ul>' : "");
     }
     if (past.length) h += '<h2 class="cal-h2">Derniers résultats</h2>' + byDay(past.reverse(), true);
@@ -221,11 +273,13 @@ function draw(){
   var ts = toursOf(lgs.k).slice().reverse(), op = st.tour[lgs.k] || (curTour(lgs.k) || {}).OverviewPage, T = ts.filter(function(t){ return t.OverviewPage === op; })[0];
   h += '<div class="prodle-head"><h2>'+e(T ? T.Name : lgs.k)+'</h2><span style="flex:1"></span>' +
     (ts.length ? '<select class="cal-sel" aria-label="Compétition">' + ts.map(function(t){ return '<option value="'+e(t.OverviewPage)+'"'+(t.OverviewPage === op ? " selected" : "")+'>'+e(t.Name)+'</option>'; }).join("") + '</select>' : "") +
-    '<a class="ghost cal-ext" href="https://lolesports.com/'+(en() ? "en-GB" : "fr-FR")+'/leagues/'+lgs.slug+'" target="_blank" rel="noopener">'+lgs.k+' sur lolesports.com ↗</a></div>';
+    '<a class="ghost cal-ext" href="https://lolesports.com/'+(en() ? "en-GB" : "fr-FR")+'/leagues/'+slugOf(lgs, T)+'" target="_blank" rel="noopener">'+e(tagOf(lgs, T))+' sur lolesports.com ↗</a></div>';
   var nt = nextTour(lgs.k); if (nt && (!T || nt.OverviewPage !== T.OverviewPage)) h += '<p class="cal-note">Prochaine compétition : <b>'+e(nt.Name)+'</b>, à partir du '+e(day(nt.DateStart).toLocaleDateString(loc(), {day: "numeric", month: "long", year: "numeric"}))+'.</p>';
   if (!op) { root.innerHTML = h + '<p class="cal-note">Aucune compétition trouvée.</p>'; return; }
   var ms = data.matches[op], sd = data.standings[op], rs = seasonOf(op), sd2 = rs ? data.standings[rs.OverviewPage] : null;
   if (!ms || !sd || (rs && !sd2)) { root.innerHTML = h + '<p class="cal-note">Chargement…</p>'; return; }
+  var bms = ms.filter(function(m){ return isBracket(m, T); });
+  if (bms.length >= 2) h += '<section class="cal-brs"><h2 class="cal-h2">Arbre</h2>' + bracketHTML(bms, lgs.k) + '</section>';
   var cols = '<div class="cal-cols">';
   if (sd.length) cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd, lgs.k) + '</section>';
   else if (sd2 && sd2.length) cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2><p class="cal-note cal-sub">Saison régulière · '+e(rs.Name)+'</p>' + standingsHTML(sd2, lgs.k) + '</section>';
