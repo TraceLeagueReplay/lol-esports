@@ -377,6 +377,56 @@ function zonesFor(T, rows){
   });
   return res;
 }
+/* ---- head to head: every result between two teams of the season (row team's score first) ---- */
+function h2hHTML(ms, rows, lgK){
+  var teams = rows.map(function(r){ return r.Team; });
+  if (teams.length < 3) return "";
+  var idx = {}; teams.forEach(function(t, i){ idx[t] = i; });
+  var cell = {}, tot = {};
+  teams.forEach(function(t){ tot[t] = [0, 0]; });
+  ms.forEach(function(m){
+    if (!(m.Winner === "1" || m.Winner === "2") || !(m.Team1 in idx) || !(m.Team2 in idx)) return;
+    var a = m.Team1, b = m.Team2, sa = +m.Team1Score || (m.Winner === "1" ? 1 : 0), sb = +m.Team2Score || (m.Winner === "2" ? 1 : 0);
+    (cell[a + "|" + b] = cell[a + "|" + b] || []).push([sa, sb, m.Winner === "1"]);
+    (cell[b + "|" + a] = cell[b + "|" + a] || []).push([sb, sa, m.Winner === "2"]);
+    tot[a][m.Winner === "1" ? 0 : 1]++; tot[b][m.Winner === "2" ? 0 : 1]++;
+  });
+  if (!Object.keys(cell).length) return "";
+  var head = '<tr><th></th>' + teams.map(function(t){ return '<th title="'+e(t)+'">'+logo(t, lgK)+'</th>'; }).join("") + '<th class="tot">Total</th></tr>';
+  var body = teams.map(function(a){
+    return '<tr><th title="'+e(a)+'">'+logo(a, lgK)+'<span class="nm">'+e(short(a))+'</span></th>' + teams.map(function(b){
+      if (a === b) return '<td class="self"></td>';
+      var rs = cell[a + "|" + b];
+      if (!rs) return '<td class="none">·</td>';
+      var w = rs.filter(function(x){ return x[2]; }).length, cls = w === rs.length ? "won" : w === 0 ? "lost" : "split";
+      return '<td class="'+cls+'" title="'+e(short(a)+" – "+short(b))+'">' + rs.map(function(x){ return x[0] + "-" + x[1]; }).join("<br>") + '</td>';
+    }).join("") + '<td class="tot '+(tot[a][0] > tot[a][1] ? "won" : tot[a][0] < tot[a][1] ? "lost" : "split")+'">'+tot[a][0]+" - "+tot[a][1]+'</td></tr>';
+  }).join("");
+  return '<section class="cal-h2h"><h2 class="cal-h2">Face-à-face</h2><div class="h2h-wrap"><table class="h2h">' + head + body + '</table></div></section>';
+}
+/* ---- Swiss stage (Worlds…): for each team, the opponent of every round, green when won, red when lost ---- */
+function swissRounds(ms){ var r = []; ms.forEach(function(m){ var x = /^Round (\d+)$/i.exec(m.Tab || ""); if (x && r.indexOf(+x[1]) < 0) r.push(+x[1]); }); return r.sort(function(a, b){ return a - b; }); }
+function swissHTML(ms, rows, lgK, T){
+  var rounds = swissRounds(ms); if (rounds.length < 3) return "";
+  var teams = rows.length ? rows.map(function(r){ return r.Team; }) : [];
+  ms.forEach(function(m){ [m.Team1, m.Team2].forEach(function(t){ if (t && t !== "TBD" && teams.indexOf(t) < 0 && /^Round \d+$/i.test(m.Tab)) teams.push(t); }); });
+  var at = {}, rec = {};
+  teams.forEach(function(t){ rec[t] = [0, 0]; });
+  ms.forEach(function(m){ var x = /^Round (\d+)$/i.exec(m.Tab || ""); if (!x) return; var r = +x[1], done = m.Winner === "1" || m.Winner === "2";
+    [[m.Team1, m.Team2, "1"], [m.Team2, m.Team1, "2"]].forEach(function(p){ if (!(p[0] in rec)) return;
+      at[p[0] + "|" + r] = {op: p[1], res: done ? (m.Winner === p[2] ? "won" : "lost") : "", sc: done ? (p[2] === "1" ? m.Team1Score + "-" + m.Team2Score : m.Team2Score + "-" + m.Team1Score) : ""};
+      if (done) rec[p[0]][m.Winner === p[2] ? 0 : 1]++; }); });
+  var head = '<tr><th>'+(en() ? "Team" : "Équipe")+'</th>' + rounds.map(function(r){ return '<th>'+(en() ? "Round " : "Tour ")+r+'</th>'; }).join("") + '<th class="tot">'+(en() ? "Record" : "Bilan")+'</th></tr>';
+  var body = teams.map(function(t){
+    var q = rec[t][0] >= 3 ? "won" : rec[t][1] >= 3 ? "lost" : "";
+    return '<tr><th class="'+q+'" title="'+e(t)+'">'+logo(t, lgK)+'<span class="nm">'+e(short(t))+'</span></th>' + rounds.map(function(r){
+      var c = at[t + "|" + r]; if (!c) return '<td class="none"></td>';
+      return '<td class="'+(c.res || "todo")+'" title="'+e(short(t)+" – "+short(c.op)+(c.sc && c.sc !== "-" ? " · " + c.sc : ""))+'">'+(c.op && c.op !== "TBD" ? logo(c.op, lgK) : "?")+'</td>';
+    }).join("") + '<td class="tot '+q+'">'+rec[t][0]+" - "+rec[t][1]+'</td></tr>';
+  }).join("");
+  return '<section class="cal-h2h"><h2 class="cal-h2">'+(en() ? "Swiss stage" : "Phase suisse")+'</h2><div class="h2h-wrap"><table class="h2h swiss">' + head + body + '</table></div>' +
+    '<div class="cal-leg"><span><i style="background:#2e9e5b"></i>'+(en() ? "Won · 3 wins = qualified" : "Gagné · 3 victoires = qualifié")+'</span><span><i style="background:#e06666"></i>'+(en() ? "Lost · 3 losses = eliminated" : "Perdu · 3 défaites = éliminé")+'</span></div></section>';
+}
 function legendHTML(zs){
   var used = {}; Object.keys(zs).forEach(function(t){ used[zs[t].z] = 1; });
   var anyOpen = Object.keys(zs).some(function(t){ return !zs[t].sure; });
@@ -392,7 +442,7 @@ function draw(){
     var ups = (data.upcoming || []).slice(), now = Date.now();
     var past = ups.filter(function(m){ var d = utc(m.DateTime_UTC || m["DateTime UTC"]); return m.Winner === "1" || m.Winner === "2" || (d && d.getTime() < now - 4 * 3600000); });
     var next = ups.filter(function(m){ return past.indexOf(m) < 0; });
-    h += '<div class="prodle-head"><h2>Prochains matchs</h2><span style="flex:1"></span><a class="ghost cal-ext" href="https://lolesports.com/'+(en() ? "en-GB" : "fr-FR")+'/schedule" target="_blank" rel="noopener">lolesports.com ↗</a></div>';
+    h += '<div class="prodle-head"><h2>Prochains matchs</h2></div>';
     if (!data.upcoming) h += '<p class="cal-note">Chargement…</p>';
     else if (next.length) h += byDay(next, true);
     else {
@@ -404,8 +454,7 @@ function draw(){
   }
   var ts = toursOf(lgs.k).slice().reverse(), op = st.tour[lgs.k] || (curTour(lgs.k) || {}).OverviewPage, T = ts.filter(function(t){ return t.OverviewPage === op; })[0];
   h += '<div class="prodle-head"><h2>'+e(T ? T.Name : lgs.k)+'</h2><span style="flex:1"></span>' +
-    (ts.length ? '<select class="cal-sel" aria-label="Compétition">' + ts.map(function(t){ return '<option value="'+e(t.OverviewPage)+'"'+(t.OverviewPage === op ? " selected" : "")+'>'+e(t.Name)+'</option>'; }).join("") + '</select>' : "") +
-    '<a class="ghost cal-ext" href="https://lolesports.com/'+(en() ? "en-GB" : "fr-FR")+'/leagues/'+slugOf(lgs, T)+'" target="_blank" rel="noopener">'+e(tagOf(lgs, T))+' sur lolesports.com ↗</a></div>';
+    (ts.length ? '<select class="cal-sel" aria-label="Compétition">' + ts.map(function(t){ return '<option value="'+e(t.OverviewPage)+'"'+(t.OverviewPage === op ? " selected" : "")+'>'+e(t.Name)+'</option>'; }).join("") + '</select>' : "") + '</div>';
   var nt = nextTour(lgs.k); if (nt && (!T || nt.OverviewPage !== T.OverviewPage)) h += '<p class="cal-note">Prochaine compétition : <b>'+e(nt.Name)+'</b>, à partir du '+e(day(nt.DateStart).toLocaleDateString(loc(), {day: "numeric", month: "long", year: "numeric"}))+'.</p>';
   if (!op) { root.innerHTML = h + '<p class="cal-note">Aucune compétition trouvée.</p>'; return; }
   var ms = data.matches[op], sd = isKnockout(T) ? [] : data.standings[op];
@@ -419,9 +468,11 @@ function draw(){
   /* matches: upcoming first (from today), then the results, most recent first */
   var now = Date.now(), up = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && utc(m.DateTime_UTC || m["DateTime UTC"]) && utc(m.DateTime_UTC || m["DateTime UTC"]).getTime() > now - 6 * 3600000; }),
       res = ms.filter(function(m){ return up.indexOf(m) < 0; }).reverse();
+  var srt = sd.slice().sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); });
+  var h2h = swissRounds(ms).length >= 3 && lgs.k === "INTL" ? swissHTML(ms, srt, lgs.k, T) : sd.length && !isKnockout(T) ? h2hHTML(ms, srt, lgs.k) : "";
   cols += '<section class="cal-sec">' + (up.length ? '<h2 class="cal-h2">À venir</h2>' + byDay(up, false) : "") + (res.length ? '<h2 class="cal-h2">Résultats</h2>' + byDay(res, false) : "") +
     (!ms.length ? '<p class="cal-note">Pas encore de match annoncé pour cette compétition.</p>' : "") + '</section></div>';
-  root.innerHTML = h + cols;
+  root.innerHTML = h + cols + h2h;
 }
 
 function refresh(){
