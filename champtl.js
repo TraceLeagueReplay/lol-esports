@@ -26,19 +26,28 @@ function lsGet(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(x){
 function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(x){} }
 
 var lists = {}, ranks = {}, started = false, ready = {l:false, r:false};
-var cur = lsGet("ctl.cur") || "", who = "", q = "", sel = null, drag = null, dirtyRemote = false;
+var cur = lsGet("ctl.cur") || "", q = "", sel = null, drag = null, dirtyRemote = false;
 var mine = null;            /* my ranking for the current list: array of arrays (one per tier) */
 var saveT = null;
 var root = document.createElement("div"); root.className = "ctl";
 
 function canEdit(){ var a = A(); return !!(a && a.F() && !a.ro() && me()); }
+/* one tier list = one person: its owner (« by »), or for lists made before that, the person who ranked the most champions in it */
+function ownerOf(id){
+  var L = lists[id]; if (!L) return "";
+  if (L.by) return L.by;
+  var best = "", n = 0;
+  Object.keys(ranks).forEach(function(k){ var d = ranks[k]; if (d.tl !== id || !d.name) return; var c = Object.keys(placed(rowsOf(d, id))).length; if (c > n) { n = c; best = d.name; } });
+  return best;
+}
+function isOwner(){ var o = ownerOf(cur); return canEdit() && (!o || o === me()); }
 function start(){
   var F = Fb(); if (started || !F) return; started = true;
   F.onSnapshot(F.collection(F.db, "ctl"), function(snap){ var m = {}; snap.docs.forEach(function(d){ m[d.id] = d.data(); }); lists = m; ready.l = true; refresh(); }, function(){});
   F.onSnapshot(F.collection(F.db, "ctlp"), function(snap){ var m = {}; snap.docs.forEach(function(d){ m[d.id] = d.data(); }); ranks = m; ready.r = true; refresh(); }, function(){});
 }
 function listIds(){ return Object.keys(lists).sort(function(a, b){ return (lists[a].t || 0) - (lists[b].t || 0); }); }
-function rowsOf(doc){ var T = tiers(), out = T.map(function(){ return []; }), seen = {}; if (doc && doc.r) T.forEach(function(t, i){ out[i] = (doc.r[t.id] || []).filter(function(id){ if (!CH[id] || seen[id]) return false; seen[id] = 1; return true; }); }); return out; }
+function rowsOf(doc, lid){ var L = lists[lid || cur], T = L && L.tiers && L.tiers.length ? L.tiers : TIERS_DEF, out = T.map(function(){ return []; }), seen = {}; if (doc && doc.r) T.forEach(function(t, i){ out[i] = (doc.r[t.id] || []).filter(function(id){ if (!CH[id] || seen[id]) return false; seen[id] = 1; return true; }); }); return out; }
 function placed(rows){ var s = {}; rows.forEach(function(r){ r.forEach(function(id){ s[id] = 1; }); }); return s; }
 
 function refresh(){
@@ -46,9 +55,9 @@ function refresh(){
   var ids = listIds();
   if (cur && !lists[cur]) cur = "";
   if (!cur && ids.length) cur = ids[ids.length - 1];
-  var myKey = me() ? cur + "__" + key(me()) : "";
-  if (!pend) mine = rowsOf(ranks[myKey]);   /* (a change of mine not sent yet wins over what the database says) */
-  if (!who || (who !== "me" && !ranks[who])) who = "me";
+  var o = ownerOf(cur) || me(), k = o ? cur + "__" + key(o) : "";
+  if (!ranks[k]) Object.keys(ranks).forEach(function(x){ if (ranks[x].tl === cur && ranks[x].name === o) k = x; });
+  if (!pend) mine = rowsOf(ranks[k]);   /* (a change not sent yet wins over what the database says) */
   draw();
 }
 
@@ -56,21 +65,16 @@ function iconHTML(id, cls){ return '<img class="ctl-c'+(cls || "")+'" data-id="'
 function draw(){
   var ids = listIds(), edit = canEdit(), h = "";
   h += '<div class="ctl-bar"><div class="chips" role="group" aria-label="Tier lists de champions">' +
-    ids.map(function(id){ return '<button class="chip" data-ctl="pick" data-id="'+e(id)+'" aria-pressed="'+(id === cur)+'">'+e(lists[id].name)+'</button>'; }).join("") +
+    ids.map(function(id){ var o = ownerOf(id); return '<button class="chip" data-ctl="pick" data-id="'+e(id)+'" aria-pressed="'+(id === cur)+'">'+e(lists[id].name)+(o && o !== me() ? ' <span class="ctl-by">· '+e(o)+'</span>' : "")+'</button>'; }).join("") +
     (edit ? '<button class="chip add" data-ctl="new">+ Nouvelle tier list</button>' : "") + '</div></div>';
   if (!ready.l) { root.innerHTML = h + '<p class="ctl-empty">Chargement…</p>'; return; }
   if (!cur) { root.innerHTML = h + '<p class="ctl-empty">Aucune tier list de champions pour l’instant. '+(edit ? 'Crée la première avec « + Nouvelle tier list ».' : '')+'</p>'; return; }
   var L = lists[cur];
-  var people = Object.keys(ranks).filter(function(k){ return ranks[k].tl === cur && ranks[k].name && ranks[k].name !== me() && Object.keys(placed(rowsOf(ranks[k]))).length; })
-    .sort(function(a, b){ return String(ranks[a].name).localeCompare(ranks[b].name); });
-  var mineView = who === "me", rows = mineView ? mine : rowsOf(ranks[who]);
-  var n = Object.keys(placed(mine || [])).length;
-  h += '<div class="prodle-head"><h2>'+e(L.name)+'</h2>' + (edit ? '<button class="ghost" data-ctl="tiers">✎ Modifier les tiers</button><button class="ghost" data-ctl="rename">Renommer</button><button class="ghost" data-ctl="del">Supprimer</button>' : "") + '</div>';
-  h += '<div class="chips ctl-who" role="group" aria-label="Tier list de qui">' +
-    '<button class="chip" data-ctl="who" data-id="me" aria-pressed="'+mineView+'">'+(me() ? 'Ma tier list' + (n ? ' · ' + n : '') : 'Ma tier list')+'</button>' +
-    people.map(function(k){ return '<button class="chip" data-ctl="who" data-id="'+e(k)+'" aria-pressed="'+(who === k)+'">'+e(ranks[k].name)+' · '+Object.keys(placed(rowsOf(ranks[k]))).length+'</button>'; }).join("") + '</div>';
-  var editing = mineView && edit;
-  if (mineView && !me()) h += '<p class="ctl-empty">Choisis un pseudo (en haut à droite) pour faire ta tier list.</p>';
+  var owner = ownerOf(cur), editing = isOwner(), rows = mine || rowsOf(null);
+  var n = Object.keys(placed(rows)).length;
+  h += '<div class="prodle-head"><h2>'+e(L.name)+'</h2>' + (owner && owner !== me() ? '<span class="ctl-owner">par '+e(owner)+' · '+n+' champion'+(n > 1 ? "s" : "")+'</span>' : "") +
+    (editing ? '<button class="ghost" data-ctl="tiers">✎ Modifier les tiers</button><button class="ghost" data-ctl="rename">Renommer</button><button class="ghost" data-ctl="del">Supprimer</button>' : "") + '</div>';
+  if (!me() && !owner) h += '<p class="ctl-empty">Choisis un pseudo (en haut à droite) pour faire ta tier list.</p>';
   h += '<div class="ctl-board'+(editing ? " edit" : "")+'">' + tiers().map(function(t, i){
     return '<div class="ctl-row"><div class="ctl-lab'+(String(t.n).length > 3 ? " long" : "")+'" style="background:'+e(t.c)+';color:'+fg(t.c)+'">'+e(t.n || "?")+'</div><div class="ctl-drop" data-t="'+i+'">' + (rows[i] || []).map(function(id){ return iconHTML(id, sel === id ? " sel" : ""); }).join("") + '</div></div>';
   }).join("") + '</div>';
@@ -89,7 +93,7 @@ function draw(){
 
 /* ---- changes to my ranking ---- */
 function move(id, t, idx){
-  if (!canEdit() || !mine) return;
+  if (!isOwner() || !mine) return;
   mine.forEach(function(r){ var k = r.indexOf(id); if (k >= 0) r.splice(k, 1); });
   if (t !== "pool") { var r = mine[+t]; if (idx == null || idx > r.length) idx = r.length; r.splice(idx, 0, id); }
   sel = null; draw(); save();
@@ -106,6 +110,8 @@ function flush(){
   var r = {}; p.rows.forEach(function(row, i){ if (p.tiers[i]) r[p.tiers[i].id] = row; });
   var id = p.list + "__" + key(me());
   ranks[id] = {tl: p.list, name: me(), r: r, t: Date.now()};
+  /* a list made before lists had an owner: the first one to fill it becomes its owner */
+  if (lists[p.list] && !lists[p.list].by) { lists[p.list].by = me(); F.setDoc(F.doc(F.db, "ctl/" + p.list), lists[p.list]).catch(function(){}); }
   F.setDoc(F.doc(F.db, "ctlp/" + id), ranks[id]).catch(function(){});
 }
 
@@ -117,15 +123,15 @@ function nameDlg(title, val, ok){
 }
 function act(a, id){
   var F = Fb();
-  if (a === "pick") { flush(); cur = id; lsSet("ctl.cur", cur); who = "me"; sel = null; q = ""; refresh(); return; }
-  if (a === "who") { who = id; sel = null; draw(); return; }
+  if (a === "pick") { flush(); cur = id; lsSet("ctl.cur", cur); sel = null; q = ""; refresh(); return; }
   if (!canEdit()) return;
+  if (a !== "new" && !isOwner()) return;   /* only the owner changes a tier list */
   if (a === "new") nameDlg("Nouvelle tier list de champions", "", function(v){
-    flush(); var nid = "c" + Date.now().toString(36); cur = nid; lsSet("ctl.cur", cur); lists[nid] = {name: v, t: Date.now()}; mine = rowsOf(null); who = "me"; draw();
+    flush(); var nid = "c" + Date.now().toString(36); cur = nid; lsSet("ctl.cur", cur); lists[nid] = {name: v, t: Date.now(), by: me()}; mine = rowsOf(null); draw();
     F.setDoc(F.doc(F.db, "ctl/" + nid), lists[nid]).catch(function(){});
   });
   if (a === "rename") nameDlg("Renommer la tier list", lists[cur].name, function(v){ lists[cur].name = v; draw(); F.setDoc(F.doc(F.db, "ctl/" + cur), lists[cur]).catch(function(){}); });
-  if (a === "del") openDlg("Supprimer la tier list", '<p style="margin:0">Supprimer « '+e(lists[cur].name)+' » et les classements de tout le monde dedans ? C’est définitif.</p>', footer("Supprimer"), function(form){
+  if (a === "del") openDlg("Supprimer la tier list", '<p style="margin:0">Supprimer la tier list « '+e(lists[cur].name)+' » ? C’est définitif.</p>', footer("Supprimer"), function(form){
     form.onsubmit = function(ev){ ev.preventDefault(); A().dlg().close(); var gone = cur;
       Object.keys(ranks).forEach(function(k){ if (ranks[k].tl === gone) { F.deleteDoc(F.doc(F.db, "ctlp/" + k)).catch(function(){}); delete ranks[k]; } });
       F.deleteDoc(F.doc(F.db, "ctl/" + gone)).catch(function(){}); delete lists[gone]; cur = ""; pend = null; clearTimeout(saveT); refresh(); };
