@@ -316,11 +316,12 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .cal-st tr.z td:first-child{box-shadow:inset 5px 0 0 var(--z)}
 .cal-st tr.z.sure td:first-child{box-shadow:none}
 .cal-st tr.z.sure td{background:var(--z)}
-.cal-st tr.z.gone td{opacity:.85}
+.cal-st tr.z.gone td{opacity:1}
+.cal-st tr.z.sure td.cal-pl{color:var(--fg);opacity:.85}
 /* Leaguepedia's colours (MediaWiki:Gadget-variablesGlobal.css), light theme then dark theme */
-:root{--lp-upwith2bye:#ADF;--lp-upwithbye:#97ecab;--lp-up:#CFC;--lp-stayup:#E0F7B0;--lp-stay:#FF9;--lp-down:#FCC;--lp-win:#C6EFCE;--lp-loss:#FFC7CE;--lp-draw:#FF9}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--lp-upwith2bye:#430688;--lp-upwithbye:#1B0688;--lp-up:#034312;--lp-stayup:#296136;--lp-stay:#414141;--lp-down:#5A0019;--lp-win:#00370B;--lp-loss:#3A0000;--lp-draw:#353535}}
-:root[data-theme="dark"]{--lp-upwith2bye:#430688;--lp-upwithbye:#1B0688;--lp-up:#034312;--lp-stayup:#296136;--lp-stay:#414141;--lp-down:#5A0019;--lp-win:#00370B;--lp-loss:#3A0000;--lp-draw:#353535}
+:root{--cal-pos:#1a7f37;--cal-neg:#c62828;--lp-upwith2bye:#ADF;--lp-upwithbye:#97ecab;--lp-up:#CFC;--lp-stayup:#E0F7B0;--lp-stay:#FF9;--lp-down:#FCC;--lp-win:#C6EFCE;--lp-loss:#FFC7CE;--lp-draw:#FF9}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--cal-pos:#7ee787;--cal-neg:#ff9b9b;--lp-upwith2bye:#430688;--lp-upwithbye:#1B0688;--lp-up:#034312;--lp-stayup:#296136;--lp-stay:#414141;--lp-down:#5A0019;--lp-win:#00370B;--lp-loss:#3A0000;--lp-draw:#353535}}
+:root[data-theme="dark"]{--cal-pos:#7ee787;--cal-neg:#ff9b9b;--lp-upwith2bye:#430688;--lp-upwithbye:#1B0688;--lp-up:#034312;--lp-stayup:#296136;--lp-stay:#414141;--lp-down:#5A0019;--lp-win:#00370B;--lp-loss:#3A0000;--lp-draw:#353535}
 /* head to head grid */
 .cal-h2h{margin-top:0;margin-bottom:8px}.cal-h2h + .cal-h2h{margin-top:14px}
 .h2h-wrap{overflow-x:auto;padding-bottom:6px}
@@ -383,8 +384,8 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .cal-st .tm{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0}
 .cal-st td{white-space:nowrap}.cal-st .tm .nm{overflow:hidden;text-overflow:ellipsis;max-width:140px}
 .cal-st .tm .full{color:var(--muted);font-weight:400;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cal-st .gd{color:var(--muted);font-size:12px}.cal-st .gd.p{color:#4caf50}.cal-st .gd.n{color:#e06666}
-.cal-st .sk{font-size:12px;font-weight:700}.cal-st .sk.p{color:#4caf50}.cal-st .sk.n{color:#e06666}
+.cal-st .gd{color:var(--muted);font-size:13px;font-weight:600}.cal-st .gd.p{color:var(--cal-pos)}.cal-st .gd.n{color:var(--cal-neg)}
+.cal-st .sk{font-size:13px;font-weight:700}.cal-st .sk.p{color:var(--cal-pos)}.cal-st .sk.n{color:var(--cal-neg)}
 .cal-cols.swiss{grid-template-columns:max-content minmax(0,1fr)}
 @media (max-width:900px){.cal-cols{grid-template-columns:1fr;gap:6px}}
 @media (max-width:520px){.cal-m{grid-template-columns:40px auto 1fr auto 1fr;gap:6px;padding:7px 8px}.cal-m:not(:has(.cal-lgk)){grid-template-columns:40px 1fr auto 1fr}.cal-bo{display:none}.cal-m.live .cal-bo{display:block;grid-column:1/-1;text-align:center}.cal-lg{width:22px;height:22px}.cal-st .tm .full,.cal-st .g{display:none}.cal-t{font-size:13px}}
