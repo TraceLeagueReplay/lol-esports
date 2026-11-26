@@ -7,7 +7,8 @@ var VER = DATA.v, CH = {}, ORDER = [];
 DATA.c.forEach(function(x){ CH[x[0]] = {fr:x[1], en:x[2] || x[1]}; ORDER.push(x[0]); });
 /* default tiers; each list can change them (name, colour, order, add, remove): ctl/<id>.tiers = [{id, n, c}].
    A ranking keeps champions per tier id, so renaming or moving a tier keeps its champions; removing one sends them back to « À classer ». */
-var TIERS_DEF = [["S+","#ff8a00"],["S","#ffff00"],["A","#00ff00"],["B","#a4c2f4"],["C","#4a86e8"],["D","#c9a0dc"],["F","#d5a6bd"]].map(function(t, i){ return {id: String(i), n: t[0], c: t[1]}; });
+/* (the red star on top has its own id, so rankings made before it existed keep their champions in S+…F) */
+var TIERS_DEF = [{id: "star", n: "★", c: "#ff0000"}].concat([["S+","#ff8a00"],["S","#ffff00"],["A","#00ff00"],["B","#a4c2f4"],["C","#4a86e8"],["D","#c9a0dc"],["F","#d5a6bd"]].map(function(t, i){ return {id: String(i), n: t[0], c: t[1]}; }));
 function tiers(){ var L = lists[cur]; return L && L.tiers && L.tiers.length ? L.tiers : TIERS_DEF; }
 function en(){ try { return window.I18N && I18N.lang === "en"; } catch(e){ return false; } }
 function nm(id){ var c = CH[id]; return c ? (en() ? c.en : c.fr) : id; }
@@ -166,7 +167,7 @@ function editTiers(){
   openDlg("Tiers de « " + lists[cur].name + " »",
     '<p class="note-ro" style="margin:0 0 12px">Du meilleur au moins bon. Valable pour la tier list de tout le monde dans cette liste.</p><div id="f-ctlt"></div>' +
     '<div class="tactions"><button type="button" class="btn" id="f-ctladd">+ Ajouter un tier</button><span class="sp"></span>' +
-    '<button type="button" class="ghost" id="f-ctlres" title="Remet S+ S A B C D F comme au début">↺ Tiers d\'origine</button></div>' +
+    '<button type="button" class="ghost" id="f-ctlres" title="Remet ★ S+ S A B C D F comme au début">↺ Tiers d\'origine</button></div>' +
     '<p class="note-ro" id="f-ctlw" style="margin:10px 0 0" hidden></p>',
     footer("Valider"),
     function(form){
