@@ -143,7 +143,12 @@ function getLogos(names){
 }
 
 /* ---- drawing ---- */
-function logo(n){ var t = data.teams[n]; return t && t.url ? '<img class="cal-lg" src="' + e(t.url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' : '<span class="cal-lg"></span>'; }
+/* the team's logo: the one used in Rosters when the team is there (light and dark versions), else the wiki's */
+function logo(n, lg){
+  var t = data.teams[n], A = window.__app, h = "";
+  try { h = A && A.teamLogo ? A.teamLogo(n, t && t.s, lg) : ""; } catch(x){}
+  if (h) return '<span class="cal-lg cal-site logo">' + h + '</span>';
+  return t && t.url ? '<img class="cal-lg" src="' + e(t.url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' : '<span class="cal-lg"></span>'; }
 function short(n){ var t = data.teams[n]; return t && t.s ? t.s : n || "?"; }
 function leagueOfOp(op){ var t = (data.tours || []).filter(function(x){ return x.OverviewPage === op; })[0]; return t ? BY_NAME[t.League] : null; }
 function tabName(s){ if (!s || en()) return s || ""; return String(s).replace(/^Week (\d+)/, "Semaine $1").replace(/^Day (\d+)/, "Jour $1").replace(/^Round (\d+)/, "Tour $1"); }
@@ -157,15 +162,15 @@ function matchHTML(m, showLeague){
   var d = utc(m.DateTime_UTC || m["DateTime UTC"]), done = m.Winner === "1" || m.Winner === "2", w = m.Winner;
   var lg = showLeague ? leagueOfOp(m.OverviewPage) : null, bo = +m.BestOf || 1;
   var live = !done && d && Date.now() >= d.getTime() && Date.now() < d.getTime() + bo * 3600000 + 1800000;
-  var lgSlug = (lg || leagueOfOp(m.OverviewPage) || {}).slug;
+  var LG = lg || leagueOfOp(m.OverviewPage) || {}, lgSlug = LG.slug;
   var mid = done || (m.Team1Score !== "" && m.Team1Score != null && (+m.Team1Score || +m.Team2Score))
     ? '<span class="cal-sc"><b'+(w === "1" ? ' class="w"' : "")+'>'+e(m.Team1Score || 0)+'</b>–<b'+(w === "2" ? ' class="w"' : "")+'>'+e(m.Team2Score || 0)+'</b></span>'
     : '<span class="cal-sc vs">vs</span>';
   return '<div class="cal-m'+(done ? " done" : "")+(live ? " live" : "")+'">' +
     '<span class="cal-t">'+(d ? hhmm(d) : "")+'</span>' +
     (showLeague ? '<span class="cal-lgk">'+e(lg ? lg.k : "")+'</span>' : "") +
-    '<span class="cal-tm a'+(w === "1" ? " w" : w === "2" ? " l" : "")+'" title="'+e(m.Team1)+'"><span class="nm">'+e(short(m.Team1))+'</span>'+logo(m.Team1)+'</span>' + mid +
-    '<span class="cal-tm b'+(w === "2" ? " w" : w === "1" ? " l" : "")+'" title="'+e(m.Team2)+'">'+logo(m.Team2)+'<span class="nm">'+e(short(m.Team2))+'</span></span>' +
+    '<span class="cal-tm a'+(w === "1" ? " w" : w === "2" ? " l" : "")+'" title="'+e(m.Team1)+'"><span class="nm">'+e(short(m.Team1))+'</span>'+logo(m.Team1, LG.k)+'</span>' + mid +
+    '<span class="cal-tm b'+(w === "2" ? " w" : w === "1" ? " l" : "")+'" title="'+e(m.Team2)+'">'+logo(m.Team2, LG.k)+'<span class="nm">'+e(short(m.Team2))+'</span></span>' +
     '<span class="cal-bo">'+(live && lgSlug ? '<a class="cal-live" href="https://lolesports.com/'+(en() ? "en-GB" : "fr-FR")+'/live/'+lgSlug+'" target="_blank" rel="noopener">● En direct</a>' : "BO" + bo)+'</span></div>';
 }
 function byDay(ms, showLeague){
@@ -180,18 +185,18 @@ function chips(){
     '<button class="chip" data-cal="lg" data-v="all" aria-pressed="'+(st.lg === "all")+'">Toutes</button>' +
     LEAGUES.map(function(l){ return '<button class="chip" data-cal="lg" data-v="'+l.k+'" aria-pressed="'+(st.lg === l.k)+'">'+l.k+'</button>'; }).join("") + '</div>';
 }
-function standingsHTML(rows){
+function standingsHTML(rows, lg){
   if (!rows || !rows.length) return "";
   if (rows.some(function(r){ return r.group; })) {
     var order = [], by = {};
     rows.forEach(function(r){ var k = r.group || ""; if (!by[k]) { by[k] = []; order.push(k); } by[k].push(r); });
-    return order.map(function(k){ return (k ? '<h3 class="cal-grp">'+e(k)+'</h3>' : "") + standingsHTML(by[k].map(function(r){ var c = {}; for (var x in r) c[x] = r[x]; c.group = ""; return c; })); }).join("");
+    return order.map(function(k){ return (k ? '<h3 class="cal-grp">'+e(k)+'</h3>' : "") + standingsHTML(by[k].map(function(r){ var c = {}; for (var x in r) c[x] = r[x]; c.group = ""; return c; }), lg); }).join("");
   }
   return '<div class="cal-st"><table><thead><tr><th>#</th><th>Équipe</th><th title="Victoires – défaites (matchs)">V – D</th><th title="Parties gagnées – perdues" class="g">Parties</th><th class="g">Série</th></tr></thead><tbody>' +
-    rows.map(function(r){ var gd = (+r.WinGames || 0) - (+r.LossGames || 0);
-      return '<tr><td class="pl">'+e(r.Place)+'</td><td><div class="tm">'+logo(r.Team)+'<span class="nm" title="'+e(r.Team)+'">'+e(short(r.Team))+'</span><span class="full">'+e(r.Team)+'</span></div></td>' +
+    rows.map(function(r){ var gd = (+r.WinGames || 0) - (+r.LossGames || 0), played = rows.some(function(x){ return +x.WinSeries || +x.LossSeries; });
+      return '<tr><td class="pl">'+(played ? e(r.Place) : "–")+'</td><td><div class="tm">'+logo(r.Team, lg)+'<span class="nm" title="'+e(r.Team)+'">'+e(short(r.Team))+'</span><span class="full">'+e(r.Team)+'</span></div></td>' +
         '<td><b>'+e(r.WinSeries || 0)+' – '+e(r.LossSeries || 0)+'</b></td><td class="g">'+e(r.WinGames || 0)+' – '+e(r.LossGames || 0)+' <span class="gd'+(gd > 0 ? " p" : gd < 0 ? " n" : "")+'">('+(gd > 0 ? "+" : "")+gd+')</span></td>' +
-        '<td class="g">'+(r.Streak ? '<span class="sk '+(r.StreakDirection === "W" ? "p" : "n")+'">'+e(r.Streak)+(r.StreakDirection === "W" ? (en() ? "W" : "V") : (en() ? "L" : "D"))+'</span>' : "")+'</td></tr>'; }).join("") +
+        '<td class="g">'+(+r.Streak ? '<span class="sk '+(r.StreakDirection === "W" ? "p" : "n")+'">'+e(r.Streak)+(r.StreakDirection === "W" ? (en() ? "W" : "V") : (en() ? "L" : "D"))+'</span>' : "")+'</td></tr>'; }).join("") +
     '</tbody></table></div>';
 }
 
@@ -222,8 +227,8 @@ function draw(){
   var ms = data.matches[op], sd = data.standings[op], rs = seasonOf(op), sd2 = rs ? data.standings[rs.OverviewPage] : null;
   if (!ms || !sd || (rs && !sd2)) { root.innerHTML = h + '<p class="cal-note">Chargement…</p>'; return; }
   var cols = '<div class="cal-cols">';
-  if (sd.length) cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd) + '</section>';
-  else if (sd2 && sd2.length) cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2><p class="cal-note cal-sub">Saison régulière · '+e(rs.Name)+'</p>' + standingsHTML(sd2) + '</section>';
+  if (sd.length) cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd, lgs.k) + '</section>';
+  else if (sd2 && sd2.length) cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2><p class="cal-note cal-sub">Saison régulière · '+e(rs.Name)+'</p>' + standingsHTML(sd2, lgs.k) + '</section>';
   /* matches: upcoming first (from today), then the results, most recent first */
   var now = Date.now(), up = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && utc(m.DateTime_UTC || m["DateTime UTC"]) && utc(m.DateTime_UTC || m["DateTime UTC"]).getTime() > now - 6 * 3600000; }),
       res = ms.filter(function(m){ return up.indexOf(m) < 0; }).reverse();

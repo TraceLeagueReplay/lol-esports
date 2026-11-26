@@ -330,6 +330,8 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .cal-tm.l{opacity:.55}
 .cal-tm.w{font-weight:800}
 .cal-lg{width:28px;height:28px;object-fit:contain;flex:none;display:inline-block}
+.cal-site.logo{width:28px;height:28px;display:inline-grid;place-items:center}.cal-site.logo img{max-width:28px;max-height:28px;object-fit:contain}
+@media (max-width:520px){.cal-site.logo{width:22px;height:22px}.cal-site.logo img{max-width:22px;max-height:22px}}
 .cal-sc{font:700 18px/1 var(--f-display);font-variant-numeric:tabular-nums;display:flex;gap:4px;min-width:44px;justify-content:center}
 .cal-sc b{font-weight:600;opacity:.6}.cal-sc b.w{opacity:1;font-weight:800}
 .cal-sc.vs{font-size:13px;color:var(--muted);font-weight:600}
@@ -2427,7 +2429,19 @@ function gInvites(){
   }, function(){});
 }
 /* what champtl.js (tier lists « Champions ») needs from the page */
-window.__app = {F: function(){ return F; }, me: function(){ return presMe; }, ro: function(){ return readOnly; }, openDlg: openDlg, footer: footer, dlg: function(){ return dlg; }};
+/* the logo used in Rosters for a team named on Leaguepedia (Calendrier tab): same name, else same short name, the same league first */
+function teamLogoFor(name, short, lg){
+  var nk = nkey(name), sk = String(short || "").toUpperCase(), best = null, score = 0;
+  state.leagues.forEach(function(l){ var inLg = lg && (l.name === lg || l.id === lg);
+    l.teams.forEach(function(t){ var tk = nkey(t.name), v = 0;
+      if (tk && tk === nk) v = 3; else if (sk && (String(t.id).toUpperCase() === sk || String(t.logo || "").toUpperCase().split("/")[1] === sk)) v = 2;
+      else if (nk.length >= 5 && tk.length >= 5 && (tk.indexOf(nk) === 0 || nk.indexOf(tk) === 0)) v = 1;
+      if (v && inLg) v += 0.5;
+      if (v > score) { score = v; best = t; } }); });
+  if (!best || (score < 2 && !(lg && score >= 1.5))) return "";
+  var h = logoHTML(best); return /<img/.test(h) ? h : "";
+}
+window.__app = {teamLogo: teamLogoFor, F: function(){ return F; }, me: function(){ return presMe; }, ro: function(){ return readOnly; }, openDlg: openDlg, footer: footer, dlg: function(){ return dlg; }};
 window.__fbBoot = function(api){
   F = api; fbRef = F.doc(F.db, "site/state");
   gReady.splice(0).forEach(function(fn){ fn(); });
