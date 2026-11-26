@@ -2464,7 +2464,16 @@ function rosterTeamFor(name, short, lg){
       if (v > score) { score = v; best = t; } }); });
   return best && score >= 1.2 ? best : null;
 }
-function teamLogoFor(name, short, lg){ var t = rosterTeamFor(name, short, lg); if (!t) return ""; var h = logoHTML(t); return /<img/.test(h) ? h : ""; }
+function teamLogoFor(name, short, lg){
+  var t = rosterTeamFor(name, short, lg);
+  /* a team no longer in Rosters (left the league, renamed…): its logo may still be in the logo library, under « league/SHORT » */
+  if (!t && short) {
+    var sk = String(short).toUpperCase(), ks = Object.keys(LOGOS).filter(function(k){ return !/@dark$/.test(k) && String(k.split("/")[1] || "").toUpperCase() === sk; });
+    ks.sort(function(a, b){ return (b.indexOf(lg + "/") === 0) - (a.indexOf(lg + "/") === 0); });
+    if (ks.length && (ks.length === 1 || (lg && ks[0].indexOf(lg + "/") === 0))) t = {logo: ks[0], id: sk};
+  }
+  if (!t) return ""; var h = logoHTML(t); return /<img/.test(h) ? h : "";
+}
 /* the short name used in Rosters for that team ("" if the team is not there) */
 function teamShortFor(name, lg){ var t = rosterTeamFor(name, "", lg); return t ? String(t.id || "") : ""; }
 window.__app = {teamLogo: teamLogoFor, teamShort: teamShortFor, F: function(){ return F; }, me: function(){ return presMe; }, ro: function(){ return readOnly; }, openDlg: openDlg, footer: footer, dlg: function(){ return dlg; }};

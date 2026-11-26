@@ -53,13 +53,14 @@ function keep(qs, d, t){
   cache[qs] = {t: t || Date.now(), d: d}; lsSet("cal.c", cache);
 }
 /* ask the shared copy, then the wiki; the wiki's answer is shared for the next people */
-function fetchFresh(qs, ttl){
+function fetchFresh(qs, ttl, produce){
   var key = "calcache/" + qhash(qs);
+  produce = produce || function(){ return fromWiki(qs); };
   return fsReady().then(function(F){
     var get = F ? F.getDoc(F.doc(F.db, key)).then(function(s){ var v = s.exists() ? s.data() : null; return v && v.q === qs ? v : null; }).catch(function(){ return null; }) : Promise.resolve(null);
     return get.then(function(v){
       if (v && Date.now() - v.t < ttl * 60000) { var d = JSON.parse(v.d); keep(qs, d, v.t); return d; }
-      return fromWiki(qs).then(function(d){
+      return produce().then(function(d){
         keep(qs, d);
         if (F) F.setDoc(F.doc(F.db, key), {q: qs, d: JSON.stringify(d), t: Date.now()}).catch(function(){});
         return d;
@@ -170,8 +171,10 @@ function getLogos(names){
   if (!files.length) return Promise.resolve();
   var parts = []; for (var i = 0; i < files.length; i += 50) parts.push(files.slice(i, i + 50));
   return Promise.all(parts.map(function(p){
-    return fetch(API + "?action=query&format=json&origin=*&prop=imageinfo&iiprop=url&iiurlwidth=64&titles=" + encodeURIComponent(p.map(function(f){ return "File:" + f; }).join("|")))
-      .then(function(r){ return r.json(); }).then(function(j){
+    var u = "action=query&format=json&origin=*&prop=imageinfo&iiprop=url&iiurlwidth=64&titles=" + encodeURIComponent(p.map(function(f){ return "File:" + f; }).join("|"));
+    var hit = (lsGet("cal.c") || {})[u];
+    return (hit && Date.now() - hit.t < 7 * 86400000 ? Promise.resolve(hit.d) : fetchFresh(u, 7 * 1440, function(){ return fetch(API + "?" + u).then(function(r){ return r.json(); }).then(function(j){ if (j.error) throw new Error(j.error.info); return j; }); }))
+      .then(function(j){
         var norm = {}; ((j.query && j.query.normalized) || []).forEach(function(x){ norm[x.to] = x.from; });
         var pages = (j.query && j.query.pages) || {}, url = {};
         Object.keys(pages).forEach(function(k){ var pg = pages[k], ii = pg.imageinfo && pg.imageinfo[0]; if (ii) url[(norm[pg.title] || pg.title).replace(/^File:/, "").replace(/_/g, " ")] = ii.thumburl || ii.url; });
