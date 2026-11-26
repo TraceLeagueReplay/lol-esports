@@ -343,6 +343,7 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .cal-st td{padding:7px 8px;border-bottom:1px solid var(--line-2)}
 .cal-st td.pl{color:var(--muted);width:28px}
 .cal-st .tm{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0}
+.cal-st td{white-space:nowrap}.cal-st .tm .nm{overflow:hidden;text-overflow:ellipsis;max-width:140px}
 .cal-st .tm .full{color:var(--muted);font-weight:400;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cal-st .gd{color:var(--muted);font-size:12px}.cal-st .gd.p{color:#4caf50}.cal-st .gd.n{color:#e06666}
 .cal-st .sk{font-size:12px;font-weight:700}.cal-st .sk.p{color:#4caf50}.cal-st .sk.n{color:#e06666}
@@ -2449,20 +2450,23 @@ function gInvites(){
   }, function(){});
 }
 /* what champtl.js (tier lists « Champions ») needs from the page */
-/* the logo used in Rosters for a team named on Leaguepedia (Calendrier tab): same name, else same short name, the same league first */
-function teamLogoFor(name, short, lg){
-  var nk = nkey(name), sk = String(short || "").toUpperCase(), best = null, score = 0;
+/* the Rosters team for a team named on Leaguepedia (Calendrier tab): same name (without « (2024 American Team) », « .CN »…),
+   else same short name, else one name starting with the other; the same league first */
+function rosterTeamFor(name, short, lg){
+  var clean = String(name || "").replace(/\s*\([^)]*\)/g, "").replace(/\.(CN|KR|EU|NA|BR|JP|VN|TW)$/i, "");
+  var nk = nkey(clean), sk = String(short || "").toUpperCase(), best = null, score = 0;
+  if (!nk) return null;
   state.leagues.forEach(function(l){ var inLg = lg && (l.name === lg || l.id === lg);
     l.teams.forEach(function(t){ var tk = nkey(t.name), v = 0;
       if (tk && tk === nk) v = 3; else if (sk && (String(t.id).toUpperCase() === sk || String(t.logo || "").toUpperCase().split("/")[1] === sk)) v = 2;
-      else if (nk.length >= 5 && tk.length >= 5 && (tk.indexOf(nk) === 0 || nk.indexOf(tk) === 0)) v = 1;
+      else if (nk.length >= 4 && tk.length >= 4 && (tk.indexOf(nk) === 0 || nk.indexOf(tk) === 0)) v = 1.2;
       if (v && inLg) v += 0.5;
       if (v > score) { score = v; best = t; } }); });
-  if (!best || (score < 2 && !(lg && score >= 1.5))) return "";
-  var h = logoHTML(best); return /<img/.test(h) ? h : "";
+  return best && score >= 1.2 ? best : null;
 }
+function teamLogoFor(name, short, lg){ var t = rosterTeamFor(name, short, lg); if (!t) return ""; var h = logoHTML(t); return /<img/.test(h) ? h : ""; }
 /* the short name used in Rosters for that team ("" if the team is not there) */
-function teamShortFor(name){ var nk = nkey(name), hit = ""; state.leagues.forEach(function(l){ l.teams.forEach(function(t){ if (!hit && nkey(t.name) === nk) hit = String(t.id || ""); }); }); return hit; }
+function teamShortFor(name, lg){ var t = rosterTeamFor(name, "", lg); return t ? String(t.id || "") : ""; }
 window.__app = {teamLogo: teamLogoFor, teamShort: teamShortFor, F: function(){ return F; }, me: function(){ return presMe; }, ro: function(){ return readOnly; }, openDlg: openDlg, footer: footer, dlg: function(){ return dlg; }};
 window.__fbBoot = function(api){
   F = api; fbRef = F.doc(F.db, "site/state");

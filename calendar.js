@@ -191,7 +191,8 @@ function logo(n, lg){
   try { h = A && A.teamLogo ? A.teamLogo(n, t && t.s, lg) : ""; } catch(x){}
   if (h) return '<span class="cal-lg cal-site logo">' + h + '</span>';
   return t && t.url ? '<img class="cal-lg" src="' + e(t.url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' : '<span class="cal-lg"></span>'; }
-function short(n){ var t = data.teams[n]; return t && t.s ? t.s : n || "?"; }
+function cleanName(n){ return String(n || "").replace(/\s*\([^)]*\)/g, "").trim(); }
+function short(n){ var t = data.teams[n]; return t && t.s ? t.s : cleanName(n) || "?"; }
 function tourOf(op){ return (data.tours || []).filter(function(x){ return x.OverviewPage === op; })[0] || null; }
 /* lolesports.com page of a league (international: Worlds, MSI or First Stand depending on the tournament) */
 function slugOf(L, T){ return L && L.k === "INTL" ? (T && INTL_SLUG[T.League]) || "worlds" : L && L.slug; }
@@ -249,6 +250,8 @@ function standingsHTML(rows, lg){
 /* ---- bracket (« arbre ») of a playoffs stage or of the knockout stage of an international tournament ---- */
 function isBracket(m, T){
   var tab = String(m.Tab || "");
+  /* a stage that is all knockout (playoffs, grand finals, road to MSI…): every match is in the bracket */
+  if (T && /playoffs|finals|knockout|bracket|road to|regional/i.test(T.Name) && (BY_NAME[T.League] || {}).k !== "INTL") return true;
   if (/^(Bracket|Upper|Lower|Quarter|Semi|Grand Final|Finals?$|Round of|Knockout|Playoffs?\b)/i.test(tab)) return true;
   return !!(T && /playoffs/i.test(T.Name) && /^(Round \d+|Finals?)$/i.test(tab));
 }
