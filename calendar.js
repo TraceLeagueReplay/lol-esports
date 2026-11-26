@@ -353,6 +353,7 @@ function played(ms){ return ms.filter(function(m){ return m.Winner === "1" || m.
    (« sûr » when no result left can change it) */
 function zonesFor(T, rows){
   if (!T || isKnockout(T) || !rows || !rows.length || rows.some(function(r){ return r.group; })) return null;
+  if (!rows.some(function(r){ return +r.WinSeries || +r.LossSeries; })) return null;
   var ms = data.matches[T.OverviewPage] || [], left = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && m.Team1 && m.Team2; });
   var fin = outcome(T), res = {};
   if (fin && !left.length) { rows.forEach(function(r){ res[r.Team] = {z: fin[r.Team] || "out", sure: true}; }); return res; }
@@ -392,7 +393,6 @@ function h2hHTML(ms, rows, lgK){
     (cell[b + "|" + a] = cell[b + "|" + a] || []).push([sb, sa, m.Winner === "2"]);
     tot[a][m.Winner === "1" ? 0 : 1]++; tot[b][m.Winner === "2" ? 0 : 1]++;
   });
-  if (!Object.keys(cell).length) return "";
   var head = '<tr><th></th>' + teams.map(function(t){ return '<th title="'+e(t)+'">'+logo(t, lgK)+'</th>'; }).join("") + '<th class="tot">Total</th></tr>';
   var body = teams.map(function(a){
     return '<tr><th title="'+e(a)+'">'+logo(a, lgK)+'<span class="nm">'+e(short(a))+'</span></th>' + teams.map(function(b){
