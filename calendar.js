@@ -17,7 +17,7 @@ function allNames(){ return [].concat.apply([], LEAGUES.map(function(l){ return 
 function label(l){ return l.label || l.k; }
 var API = "https://lol.fandom.com/api.php";
 var root = document.createElement("div"); root.className = "cal";
-var st = {lg: lsGet("cal.lg") || "all", tour: {}, loading: 0, err: ""};
+var st = {lg: lsGet("cal.lg") || "all", tour: (function(){ try { return JSON.parse(sessionStorage.getItem("cal.tour")) || {}; } catch(x){ return {}; } })(), loading: 0, err: ""};
 var data = {tours: null, matches: {}, standings: {}, teams: {}, upcoming: null};
 
 function lsGet(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } }
@@ -97,11 +97,15 @@ function getTours(){
 }
 function toursOf(k){ return (data.tours || []).filter(function(t){ return BY_NAME[t.League].k === k; }); }
 function day(s){ return s ? new Date(s + "T00:00:00") : null; }
-/* the tournament to show by default: the one being played, else the last one that started */
+/* the tournament to show by default: the one being played, else (off-season) the next one, else the last one */
 function curTour(k){
+  var live = liveTour(k); if (live && live.live) return live.t;
+  return nextTour(k) || (live && live.t) || toursOf(k)[0] || null;
+}
+function liveTour(k){
   var ts = toursOf(k), now = new Date(), live = null, last = null;
   ts.forEach(function(t){ var a = day(t.DateStart), b = day(t.Date); if (a && a <= now) { last = t; if (!b || b.getTime() + 86400000 >= now.getTime()) live = t; } });
-  return live || last || ts[0] || null;
+  return live ? {t: live, live: true} : last ? {t: last, live: false} : null;
 }
 function nextTour(k){ var now = new Date(); return toursOf(k).filter(function(t){ return day(t.DateStart) > now; })[0] || null; }
 
@@ -504,7 +508,7 @@ root.addEventListener("click", function(ev){
   if (b.getAttribute("data-cal") === "lg") { st.lg = b.getAttribute("data-v"); lsSet("cal.lg", st.lg); draw(); refresh(); }
 });
 root.addEventListener("change", function(ev){
-  if (ev.target.classList.contains("cal-sel")) { st.tour[st.lg] = ev.target.value; draw(); refresh(); }
+  if (ev.target.classList.contains("cal-sel")) { st.tour[st.lg] = ev.target.value; try { sessionStorage.setItem("cal.tour", JSON.stringify(st.tour)); } catch(x){} draw(); refresh(); }
 });
 
 var lastRefresh = 0;
