@@ -37,7 +37,7 @@ function cargo(p, ttl, retry){
   return fetch(API + "?" + qs).then(function(r){ return r.json(); }).then(function(j){
     if (j.error) {
       /* the wiki limits how many questions one person asks per minute: wait a little and ask once more */
-      if (!retry && /rate limit/i.test(j.error.info || "")) return new Promise(function(res){ setTimeout(res, 8000); }).then(function(){ return cargo(p, ttl, true); });
+      if ((retry || 0) < 2 && /rate limit/i.test(j.error.info || "")) return new Promise(function(res){ setTimeout(res, retry ? 20000 : 8000); }).then(function(){ return cargo(p, ttl, (retry || 0) + 1); });
       throw new Error(j.error.info || "erreur");
     }
     var d = (j.cargoquery || []).map(function(x){ return x.title; });
@@ -116,6 +116,9 @@ function getTeams(names){
   want = want.filter(function(n, i){ return want.indexOf(n) === i; });
   if (!want.length) return Promise.resolve();
   var cache = lsGet("cal.teams") || {}, miss = [];
+  var A = window.__app;
+  want = want.filter(function(n){ var sh = ""; try { sh = A && A.teamShort ? A.teamShort(n) : ""; } catch(x){} if (sh) { data.teams[n] = {s: sh, img: "", t: Date.now(), site: 1}; return false; } return true; });
+  if (!want.length) return Promise.resolve();
   var noUrl = [];
   want.forEach(function(n){ if (cache[n] && Date.now() - cache[n].t < 7 * 86400000) { data.teams[n] = cache[n]; if (cache[n].img && !cache[n].url) noUrl.push(n); } else miss.push(n); });
   if (!miss.length) return noUrl.length ? getLogos(noUrl) : Promise.resolve();

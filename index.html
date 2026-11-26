@@ -2461,7 +2461,9 @@ function teamLogoFor(name, short, lg){
   if (!best || (score < 2 && !(lg && score >= 1.5))) return "";
   var h = logoHTML(best); return /<img/.test(h) ? h : "";
 }
-window.__app = {teamLogo: teamLogoFor, F: function(){ return F; }, me: function(){ return presMe; }, ro: function(){ return readOnly; }, openDlg: openDlg, footer: footer, dlg: function(){ return dlg; }};
+/* the short name used in Rosters for that team ("" if the team is not there) */
+function teamShortFor(name){ var nk = nkey(name), hit = ""; state.leagues.forEach(function(l){ l.teams.forEach(function(t){ if (!hit && nkey(t.name) === nk) hit = String(t.id || ""); }); }); return hit; }
+window.__app = {teamLogo: teamLogoFor, teamShort: teamShortFor, F: function(){ return F; }, me: function(){ return presMe; }, ro: function(){ return readOnly; }, openDlg: openDlg, footer: footer, dlg: function(){ return dlg; }};
 window.__fbBoot = function(api){
   F = api; fbRef = F.doc(F.db, "site/state");
   gReady.splice(0).forEach(function(fn){ fn(); });
