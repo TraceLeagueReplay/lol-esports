@@ -245,7 +245,7 @@ function standingsHTML(rows, lg, zs){
   return '<div class="cal-st"><table><thead><tr><th>#</th><th>Équipe</th><th title="Victoires – défaites (matchs)">V – D</th><th title="Parties gagnées – perdues" class="g">Parties</th><th class="g">Série</th></tr></thead><tbody>' +
     rows.map(function(r){ var gd = (+r.WinGames || 0) - (+r.LossGames || 0), played = rows.some(function(x){ return +x.WinSeries || +x.LossSeries; });
       var z = zs && zs[r.Team], zc = z ? ' class="z'+(z.sure ? " sure" : "")+(z.z === "out" && z.sure ? " gone" : "")+'" style="--z:'+ZONES[z.z].c+'" title="'+e((en() ? ZONES[z.z].en : ZONES[z.z].fr) + (z.sure ? "" : en() ? " (not decided yet)" : " (pas encore décidé)"))+'"' : "";
-      return '<tr'+zc+'><td class="pl">'+(played ? e(r.Place) : "–")+'</td><td><div class="tm">'+logo(r.Team, lg)+'<span class="nm" title="'+e(r.Team)+'">'+e(short(r.Team))+'</span></div></td>' +
+      return '<tr'+zc+'><td class="cal-pl">'+(played ? e(r.Place) : "–")+'</td><td><div class="tm">'+logo(r.Team, lg)+'<span class="nm" title="'+e(r.Team)+'">'+e(short(r.Team))+'</span></div></td>' +
         '<td><b>'+e(r.WinSeries || 0)+' – '+e(r.LossSeries || 0)+'</b></td><td class="g">'+e(r.WinGames || 0)+' – '+e(r.LossGames || 0)+' <span class="gd'+(gd > 0 ? " p" : gd < 0 ? " n" : "")+'">('+(gd > 0 ? "+" : "")+gd+')</span></td>' +
         '<td class="g">'+(+r.Streak ? '<span class="sk '+(r.StreakDirection === "W" ? "p" : "n")+'">'+e(r.Streak)+(r.StreakDirection === "W" ? (en() ? "W" : "V") : (en() ? "L" : "D"))+'</span>' : "")+'</td></tr>'; }).join("") +
     '</tbody></table></div>';
@@ -302,12 +302,13 @@ function bracketHTML(ms, lgK){
 
 /* ---- who goes where after the regular season: colours of the standings ---- */
 var ZONES = {
-  bye:    {c: "#e0a800", fr: "Playoffs, exempté du 1er tour", en: "Playoffs, first-round bye", r: 0},
-  upper:  {c: "#2e9e5b", fr: "Playoffs · upper bracket", en: "Playoffs · upper bracket", r: 1},
-  po:     {c: "#2e9e5b", fr: "Qualifié en playoffs", en: "Qualified for playoffs", r: 1},
-  lower:  {c: "#3b82c4", fr: "Playoffs · lower bracket", en: "Playoffs · lower bracket", r: 2},
-  playin: {c: "#e69138", fr: "Play-in / repêchage", en: "Play-in / last chance", r: 3},
-  out:    {c: "#e06666", fr: "Éliminé", en: "Eliminated", r: 4}
+  /* colours: Leaguepedia's own (standings-upwith2bye, -upwithbye, -up, -stayup, -stay), light and dark theme, see index.html --lp-* */
+  bye:    {c: "var(--lp-upwith2bye)", fr: "Playoffs, exempté du 1er tour", en: "Playoffs, first-round bye", r: 0},
+  upper:  {c: "var(--lp-upwithbye)", fr: "Playoffs · upper bracket", en: "Playoffs · upper bracket", r: 1},
+  po:     {c: "var(--lp-up)", fr: "Qualifié en playoffs", en: "Qualified for playoffs", r: 1},
+  lower:  {c: "var(--lp-up)", fr: "Playoffs · lower bracket", en: "Playoffs · lower bracket", r: 2},
+  playin: {c: "var(--lp-stayup)", fr: "Play-in / repêchage", en: "Play-in / last chance", r: 3},
+  out:    {c: "var(--lp-stay)", fr: "Éliminé", en: "Eliminated", r: 4}
 };
 function isKnockout(T){ return !!(T && /playoffs|play-in|finals|knockout|road to|knight/i.test(T.Name) && (BY_NAME[T.League] || {}).k !== "INTL"); }
 /* the stages played right after a regular season (playoffs, play-in, grand finals…) */
@@ -425,7 +426,7 @@ function swissHTML(ms, rows, lgK, T){
     }).join("") + '<td class="tot '+q+'">'+rec[t][0]+" - "+rec[t][1]+'</td></tr>';
   }).join("");
   return '<section class="cal-h2h"><h2 class="cal-h2">'+(en() ? "Swiss stage" : "Phase suisse")+'</h2><div class="h2h-wrap"><table class="h2h swiss">' + head + body + '</table></div>' +
-    '<div class="cal-leg"><span><i style="background:#2e9e5b"></i>'+(en() ? "Won · 3 wins = qualified" : "Gagné · 3 victoires = qualifié")+'</span><span><i style="background:#e06666"></i>'+(en() ? "Lost · 3 losses = eliminated" : "Perdu · 3 défaites = éliminé")+'</span></div></section>';
+    '<div class="cal-leg"><span><i style="background:var(--lp-win)"></i>'+(en() ? "Won · 3 wins = qualified" : "Gagné · 3 victoires = qualifié")+'</span><span><i style="background:var(--lp-loss)"></i>'+(en() ? "Lost · 3 losses = eliminated" : "Perdu · 3 défaites = éliminé")+'</span></div></section>';
 }
 function legendHTML(zs){
   var used = {}; Object.keys(zs).forEach(function(t){ used[zs[t].z] = 1; });

@@ -313,10 +313,14 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .cal-sub{margin:-4px 0 8px;font-size:13px}
 .cal-grp{font-size:14px;font-weight:700;margin:12px 0 4px;color:var(--fg)}
 /* standings colours: where each team goes after the regular season (solid = sure, light = current place only) */
-.cal-st tr.z td:first-child{box-shadow:inset 4px 0 0 color-mix(in srgb,var(--z) 45%,transparent)}
-.cal-st tr.z.sure td:first-child{box-shadow:inset 4px 0 0 var(--z)}
-.cal-st tr.z.sure td{background:color-mix(in srgb,var(--z) 9%,transparent)}
-.cal-st tr.z.gone td{opacity:.6}
+.cal-st tr.z td:first-child{box-shadow:inset 5px 0 0 var(--z)}
+.cal-st tr.z.sure td:first-child{box-shadow:none}
+.cal-st tr.z.sure td{background:var(--z)}
+.cal-st tr.z.gone td{opacity:.85}
+/* Leaguepedia's colours (MediaWiki:Gadget-variablesGlobal.css), light theme then dark theme */
+:root{--lp-upwith2bye:#ADF;--lp-upwithbye:#97ecab;--lp-up:#CFC;--lp-stayup:#E0F7B0;--lp-stay:#FF9;--lp-down:#FCC;--lp-win:#C6EFCE;--lp-loss:#FFC7CE;--lp-draw:#FF9}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--lp-upwith2bye:#430688;--lp-upwithbye:#1B0688;--lp-up:#034312;--lp-stayup:#296136;--lp-stay:#414141;--lp-down:#5A0019;--lp-win:#00370B;--lp-loss:#3A0000;--lp-draw:#353535}}
+:root[data-theme="dark"]{--lp-upwith2bye:#430688;--lp-upwithbye:#1B0688;--lp-up:#034312;--lp-stayup:#296136;--lp-stay:#414141;--lp-down:#5A0019;--lp-win:#00370B;--lp-loss:#3A0000;--lp-draw:#353535}
 /* head to head grid */
 .cal-h2h{margin-top:18px}
 .h2h-wrap{overflow-x:auto;padding-bottom:6px}
@@ -326,9 +330,9 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .h2h tr > th:first-child .nm{margin-left:6px}
 .h2h th .cal-lg,.h2h th .cal-site.logo{width:26px;height:26px;vertical-align:middle}.h2h th .cal-site.logo img{max-width:26px;max-height:26px}
 .h2h td{min-width:46px;height:34px;text-align:center;border-radius:4px;font-weight:700;padding:2px 4px;line-height:1.2}
-.h2h td.won{background:color-mix(in srgb,#2e9e5b 30%,transparent)}
-.h2h td.lost{background:color-mix(in srgb,#e06666 28%,transparent)}
-.h2h td.split{background:color-mix(in srgb,#e0a800 26%,transparent)}
+.h2h td.won{background:var(--lp-win)}
+.h2h td.lost{background:var(--lp-loss)}
+.h2h td.split{background:var(--lp-draw)}
 .h2h td.self{background:var(--line-2);opacity:.5}
 .h2h td.none{color:var(--muted);font-weight:400}
 .h2h td.tot{min-width:56px;font-size:14px}
@@ -337,12 +341,12 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .h2h.swiss td .cal-lg,.h2h.swiss td .cal-site.logo{width:28px;height:28px;display:inline-grid;vertical-align:middle}.h2h.swiss td .cal-site.logo img{max-width:28px;max-height:28px}
 .h2h.swiss td.todo{background:var(--panel);border:1px dashed var(--line-2)}
 .h2h.swiss td.none{background:none}
-.h2h.swiss tr > th:first-child.won{box-shadow:inset 4px 0 0 #2e9e5b}
-.h2h.swiss tr > th:first-child.lost{box-shadow:inset 4px 0 0 #e06666;opacity:.75}
+.h2h.swiss tr > th:first-child.won{background:var(--lp-up)}
+.h2h.swiss tr > th:first-child.lost{background:var(--lp-stay);opacity:.85}
 .h2h.swiss th{font-size:12px}
 .cal-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin:10px 0 0;font-size:12px;color:var(--muted)}
 .cal-leg span{display:inline-flex;align-items:center;gap:6px}
-.cal-leg i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.cal-leg i{width:12px;height:12px;border-radius:2px;display:inline-block;border:1px solid var(--line-2)}
 .cal-leg .open i{background:none;border:2px solid var(--line-2)}
 .cal-err{color:#e06666;margin:10px 0}
 .cal-next{margin:6px 0 18px;padding-left:18px;line-height:1.8}
@@ -371,10 +375,10 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .cal-bo{font-size:12px;color:var(--muted);text-align:right}
 .cal-m.live{border-color:#e06666}
 .cal-live{color:#e06666;font-weight:700;text-decoration:none;white-space:nowrap}
-.cal-st table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.cal-st table{width:100%;border-collapse:collapse!important;border-spacing:0!important;font-variant-numeric:tabular-nums}
 .cal-st th{font-size:12px;font-weight:600;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line-2)}
 .cal-st td{padding:7px 8px;border-bottom:1px solid var(--line-2)}
-.cal-st td.pl{color:var(--muted);width:28px}
+.cal-st td.cal-pl{color:var(--muted);width:28px}
 .cal-st .tm{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0}
 .cal-st td{white-space:nowrap}.cal-st .tm .nm{overflow:hidden;text-overflow:ellipsis;max-width:140px}
 .cal-st .tm .full{color:var(--muted);font-weight:400;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -398,7 +402,7 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .br-t{display:flex;align-items:center;gap:7px;padding:3px 9px;font-weight:600;min-width:0}
 .br-t .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .br-t b{font:700 15px/1 var(--f-display);font-variant-numeric:tabular-nums;min-width:12px;text-align:right}
-.br-t.l{opacity:.5}.br-t.w{font-weight:800}
+.br-t.l{opacity:.5}.br-t.w{font-weight:800;background:var(--lp-up)}
 .br-t .cal-lg,.br-t .cal-site.logo{width:22px;height:22px}.br-t .cal-site.logo img{max-width:22px;max-height:22px}
 .br-d{font-size:11px;color:var(--muted);padding:1px 9px 0;border-top:1px solid var(--line-2);margin-top:3px}
 @media (max-width:520px){.br-col{width:160px}.br-fin .br-col{width:170px}}
