@@ -464,19 +464,20 @@ function draw(){
   if (bms.length >= 2) h += '<section class="cal-brs"><h2 class="cal-h2">Arbre</h2>' + bracketHTML(bms, lgs.k) + '</section>';
   /* a playoffs stage: the bracket says it all */
   if (isKnockout(T) && bms.length >= 2) { root.innerHTML = h; return; }
-  var cols = '<div class="cal-cols">';
-  if (sd.length) { var zs = zonesFor(T, sd); cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd, lgs.k, zs) + (zs ? legendHTML(zs) : "") + '</section>'; }
+  var srt = sd.slice().sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); });
+  /* Swiss stage (Worlds): the round-by-round progression; else the head to head */
+  var swiss = swissRounds(ms).length >= 3 && lgs.k === "INTL";
+  /* layout — left: the standings (Swiss stage: its round-by-round table, which already gives each record); right: head to head, then the matches */
+  var cols = '<div class="cal-cols'+(swiss ? " swiss" : "")+'">', h2h = "";
+  if (swiss) cols += '<section class="cal-sec">' + swissHTML(ms, srt, lgs.k, T) + '</section>';
+  else if (sd.length) { var zs = zonesFor(T, sd); cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd, lgs.k, zs) + (zs ? legendHTML(zs) : "") + '</section>'; h2h = isKnockout(T) ? "" : h2hHTML(ms, srt, lgs.k); }
   /* matches: upcoming first (from today), then the results, most recent first */
   var now = Date.now(), up = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && utc(m.DateTime_UTC || m["DateTime UTC"]) && utc(m.DateTime_UTC || m["DateTime UTC"]).getTime() > now - 6 * 3600000; }),
       res = ms.filter(function(m){ return up.indexOf(m) < 0; }).reverse();
-  var srt = sd.slice().sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); });
-  /* Swiss stage (Worlds): the round-by-round progression, then the head to head of its matches; else the head to head */
-  var swiss = swissRounds(ms).length >= 3 && lgs.k === "INTL";
-  var h2h = (swiss ? swissHTML(ms, srt, lgs.k, T) : "") +
-    (sd.length && !isKnockout(T) ? h2hHTML(swiss ? ms.filter(function(m){ return /^Round \d+$/i.test(m.Tab || ""); }) : ms, srt, lgs.k) : "");
-  cols += '<section class="cal-sec">' + (up.length ? '<h2 class="cal-h2">À venir</h2>' + byDay(up, false) : "") + (res.length ? '<h2 class="cal-h2">Résultats</h2>' + byDay(res, false) : "") +
+  /* right column: the head to head on top, then the matches */
+  cols += '<section class="cal-sec">' + h2h + (up.length ? '<h2 class="cal-h2">À venir</h2>' + byDay(up, false) : "") + (res.length ? '<h2 class="cal-h2">Résultats</h2>' + byDay(res, false) : "") +
     (!ms.length ? '<p class="cal-note">Pas encore de match annoncé pour cette compétition.</p>' : "") + '</section></div>';
-  root.innerHTML = h + cols + h2h;
+  root.innerHTML = h + cols;
 }
 
 function refresh(){
