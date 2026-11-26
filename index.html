@@ -477,6 +477,8 @@ body.ctl-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 /* tier editor */
 .trow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .trow .tchip{flex:none;min-width:44px}
+/* Russo One draws its capitals a quarter of a pixel above the middle of the line: nudge the tier letters down half a pixel so they sit in the middle */
+.tchip,.seg.tseg button{padding-top:1px}.tc .tb{padding-top:1px}
 .trow .tr-n{width:90px;flex:none}
 .trow .tr-c{width:44px;height:34px;padding:2px;border:1px solid var(--line-2);border-radius:6px;background:none;flex:none;cursor:pointer}
 .trow .ghost{padding:5px 8px}
