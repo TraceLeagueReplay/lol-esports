@@ -25,12 +25,16 @@ function utc(s){ return s ? new Date(s.replace(" ", "T") + "Z") : null; }
 function ymd(d){ return d.toISOString().slice(0, 10); }
 
 /* cargo query with a small cache (key = the query), ttl in minutes */
-function cargo(p, ttl){
+function cargo(p, ttl, retry){
   var qs = "action=cargoquery&format=json&origin=*&" + Object.keys(p).map(function(k){ return k + "=" + encodeURIComponent(p[k]); }).join("&");
   var cache = lsGet("cal.c") || {}, hit = cache[qs];
   if (hit && Date.now() - hit.t < ttl * 60000) return Promise.resolve(hit.d);
   return fetch(API + "?" + qs).then(function(r){ return r.json(); }).then(function(j){
-    if (j.error) throw new Error(j.error.info || "erreur");
+    if (j.error) {
+      /* the wiki limits how many questions one person asks per minute: wait a little and ask once more */
+      if (!retry && /rate limit/i.test(j.error.info || "")) return new Promise(function(res){ setTimeout(res, 8000); }).then(function(){ return cargo(p, ttl, true); });
+      throw new Error(j.error.info || "erreur");
+    }
     var d = (j.cargoquery || []).map(function(x){ return x.title; });
     cache = lsGet("cal.c") || {};
     Object.keys(cache).forEach(function(k){ if (Date.now() - cache[k].t > 86400000) delete cache[k]; });
@@ -77,7 +81,17 @@ function seasonOf(op){
 function getStandings(op){
   if (data.standings[op]) return Promise.resolve(data.standings[op]);
   return load(cargo({tables: "Standings", fields: "Team,Place,WinSeries,LossSeries,WinGames,LossGames,Streak,StreakDirection",
-    where: "OverviewPage=" + sq(op), order_by: "Place", limit: "60"}, 10)).then(function(rows){ rows.sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); }); data.standings[op] = rows; return rows; });
+    where: "OverviewPage=" + sq(op), order_by: "Place", limit: "60"}, 10)).then(function(rows){
+      rows.sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); });
+      /* the same place twice: the stage is played in groups (LCK Legend / Rise…): ask which team is in which group */
+      var seen = {}, dup = rows.some(function(r){ if (seen[r.Place]) return true; seen[r.Place] = 1; return false; });
+      if (!dup) { data.standings[op] = rows; return rows; }
+      return cargo({tables: "TournamentGroups", fields: "GroupName,Team", where: "OverviewPage=" + sq(op), limit: "80"}, 60).then(function(gs){
+        var g = {}; gs.forEach(function(x){ g[x.Team] = x.GroupName; });
+        rows.forEach(function(r){ r.group = g[r.Team] || ""; });
+        data.standings[op] = rows; return rows;
+      }, function(){ data.standings[op] = rows; return rows; });
+    });
 }
 /* matches of every league from 2 days ago to 10 days ahead */
 function getUpcoming(){
@@ -168,6 +182,11 @@ function chips(){
 }
 function standingsHTML(rows){
   if (!rows || !rows.length) return "";
+  if (rows.some(function(r){ return r.group; })) {
+    var order = [], by = {};
+    rows.forEach(function(r){ var k = r.group || ""; if (!by[k]) { by[k] = []; order.push(k); } by[k].push(r); });
+    return order.map(function(k){ return (k ? '<h3 class="cal-grp">'+e(k)+'</h3>' : "") + standingsHTML(by[k].map(function(r){ var c = {}; for (var x in r) c[x] = r[x]; c.group = ""; return c; })); }).join("");
+  }
   return '<div class="cal-st"><table><thead><tr><th>#</th><th>Équipe</th><th title="Victoires – défaites (matchs)">V – D</th><th title="Parties gagnées – perdues" class="g">Parties</th><th class="g">Série</th></tr></thead><tbody>' +
     rows.map(function(r){ var gd = (+r.WinGames || 0) - (+r.LossGames || 0);
       return '<tr><td class="pl">'+e(r.Place)+'</td><td><div class="tm">'+logo(r.Team)+'<span class="nm" title="'+e(r.Team)+'">'+e(short(r.Team))+'</span><span class="full">'+e(r.Team)+'</span></div></td>' +
