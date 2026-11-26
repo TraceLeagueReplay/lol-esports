@@ -30,22 +30,54 @@ function utc(s){ return s ? new Date(s.replace(" ", "T") + "Z") : null; }
 function ymd(d){ return d.toISOString().slice(0, 10); }
 
 /* cargo query with a small cache (key = the query), ttl in minutes */
-function cargo(p, ttl, retry){
-  var qs = "action=cargoquery&format=json&origin=*&" + Object.keys(p).map(function(k){ return k + "=" + encodeURIComponent(p[k]); }).join("&");
-  var cache = lsGet("cal.c") || {}, hit = cache[qs];
-  if (hit && Date.now() - hit.t < ttl * 60000) return Promise.resolve(hit.d);
+/* Answers are kept in three places, from fastest to slowest:
+   1. this browser (localStorage), shown right away even when a bit old (then refreshed behind the scenes);
+   2. the site's database (Firestore « calcache »), shared by everybody: one person asks the wiki, the others reuse the answer;
+   3. the wiki itself (Leaguepedia), which limits how many questions one person asks per minute. */
+function qhash(s){ var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + s.length.toString(36); }
+function fsReady(){
+  return new Promise(function(res){ var n = 0; (function wait(){ var A = window.__app, F = A && A.F && A.F(); if (F) return res(F); if (++n > 30) return res(null); setTimeout(wait, 100); })(); });
+}
+function fromWiki(qs, retry){
   return fetch(API + "?" + qs).then(function(r){ return r.json(); }).then(function(j){
     if (j.error) {
-      /* the wiki limits how many questions one person asks per minute: wait a little and ask once more */
-      if ((retry || 0) < 2 && /rate limit/i.test(j.error.info || "")) return new Promise(function(res){ setTimeout(res, retry ? 20000 : 8000); }).then(function(){ return cargo(p, ttl, (retry || 0) + 1); });
+      if ((retry || 0) < 2 && /rate limit/i.test(j.error.info || "")) return new Promise(function(res){ setTimeout(res, retry ? 15000 : 5000); }).then(function(){ return fromWiki(qs, (retry || 0) + 1); });
       throw new Error(j.error.info || "erreur");
     }
-    var d = (j.cargoquery || []).map(function(x){ return x.title; });
-    cache = lsGet("cal.c") || {};
-    Object.keys(cache).forEach(function(k){ if (Date.now() - cache[k].t > 86400000) delete cache[k]; });
-    cache[qs] = {t: Date.now(), d: d}; lsSet("cal.c", cache);
-    return d;
-  }).catch(function(err){ if (hit) return hit.d; throw err; });
+    return (j.cargoquery || []).map(function(x){ return x.title; });
+  });
+}
+function keep(qs, d, t){
+  var cache = lsGet("cal.c") || {};
+  Object.keys(cache).forEach(function(k){ if (Date.now() - cache[k].t > 7 * 86400000) delete cache[k]; });
+  cache[qs] = {t: t || Date.now(), d: d}; lsSet("cal.c", cache);
+}
+/* ask the shared copy, then the wiki; the wiki's answer is shared for the next people */
+function fetchFresh(qs, ttl){
+  var key = "calcache/" + qhash(qs);
+  return fsReady().then(function(F){
+    var get = F ? F.getDoc(F.doc(F.db, key)).then(function(s){ var v = s.exists() ? s.data() : null; return v && v.q === qs ? v : null; }).catch(function(){ return null; }) : Promise.resolve(null);
+    return get.then(function(v){
+      if (v && Date.now() - v.t < ttl * 60000) { var d = JSON.parse(v.d); keep(qs, d, v.t); return d; }
+      return fromWiki(qs).then(function(d){
+        keep(qs, d);
+        if (F) F.setDoc(F.doc(F.db, key), {q: qs, d: JSON.stringify(d), t: Date.now()}).catch(function(){});
+        return d;
+      }, function(err){ if (v) { var d = JSON.parse(v.d); keep(qs, d, v.t); return d; } throw err; });
+    });
+  });
+}
+var bg = {}, bgT = null;
+function cargo(p, ttl){
+  var qs = "action=cargoquery&format=json&origin=*&" + Object.keys(p).map(function(k){ return k + "=" + encodeURIComponent(p[k]); }).join("&");
+  var hit = (lsGet("cal.c") || {})[qs];
+  if (hit && Date.now() - hit.t < ttl * 60000) return Promise.resolve(hit.d);
+  if (hit) {
+    /* old answer: show it now, get the new one behind the scenes and redraw when it comes */
+    if (!bg[qs]) { bg[qs] = 1; fetchFresh(qs, ttl).then(function(d){ delete bg[qs]; if (JSON.stringify(d) !== JSON.stringify(hit.d)) { clearTimeout(bgT); bgT = setTimeout(reload, 300); } }, function(){ delete bg[qs]; }); }
+    return Promise.resolve(hit.d);
+  }
+  return fetchFresh(qs, ttl);
 }
 function load(p){ st.loading++; draw(); return p.then(function(x){ st.loading--; return x; }, function(err){ st.loading--; st.err = "Impossible de récupérer les matchs pour l’instant (Leaguepedia ne répond pas). Réessaie dans un moment."; draw(); throw err; }); }
 
@@ -103,7 +135,7 @@ function getStandings(op){
 /* matches of every league from 2 days ago to 10 days ahead */
 function getUpcoming(){
   if (data.upcoming) return Promise.resolve(data.upcoming);
-  var a = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 16).replace("T", " "), b = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 16).replace("T", " ");
+  var a = ymd(new Date(Date.now() - 2 * 86400000)) + " 00:00", b = ymd(new Date(Date.now() + 11 * 86400000)) + " 00:00";
   var ops = (data.tours || []).filter(function(t){ var s = day(t.DateStart), f = day(t.Date); return s && s.getTime() <= Date.now() + 10 * 86400000 && (!f || f.getTime() >= Date.now() - 3 * 86400000); }).map(function(t){ return t.OverviewPage; });
   if (!ops.length) { data.upcoming = []; return Promise.resolve([]); }
   return load(cargo({tables: "MatchSchedule", fields: "Team1,Team2,Team1Score,Team2Score,Winner,DateTime_UTC,BestOf,Tab,FF,OverviewPage",
@@ -315,6 +347,8 @@ root.addEventListener("change", function(ev){
 });
 
 var lastRefresh = 0;
+/* newer answers arrived behind the scenes: forget what was read and draw again (from the browser's copy, instantly) */
+function reload(){ data.tours = null; data.upcoming = null; data.matches = {}; data.standings = {}; refresh(); }
 window.CAL = {
   attach: function(){
     var slot = document.getElementById("cal-slot"); if (!slot) return;
