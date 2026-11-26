@@ -720,13 +720,19 @@ function tileHTML(src, alt){ return '<img src="'+esc(src)+'" alt="'+esc(alt||"")
 /* A team with a dark-theme logo shows the light file in light theme and the dark file in dark theme. */
 function duoHTML(L, D){ return '<span class="duo"><img class="lm" src="'+esc(L)+'" alt=""><img class="dm" src="'+esc(D)+'" alt=""></span>'; }
 /* Per-logo size tweak for very wide logos that look small in a square box (asked for Fnatic). */
-var LOGO_SCALE = {"LEC/FNC": 1.15, "LCK/HLE": 1.2};
+/* (then a bit bigger for the logos that looked small: very wide or very tall ones) */
+var LOGO_SCALE = {"LEC/FNC": 1.15, "LCK/HLE": 1.2,
+  "LCP/SHG": 1.15, "CBLOL/LOS": 1.15, "LCK/DK": 1.15, "LCP/DCG": 1.15, "LPL/BLG": 1.15, "LCK/T1": 1.15, "LCP/MVK": 1.15,
+  "LFL/TLN": 1.1, "LCK/DNS": 1.1, "LCP/TSW": 1.1, "LEC/MKOI": 1.1, "LPL/JDG": 1.1, "LFL/ZYB": 1.1};
+var LOGO_TALL = {"LCK/DNS": 1, "LEC/MKOI": 1};
 function logoHTML(t, cls){
   var L = logoSrc(t), D = darkSrc(t), sc = t && LOGO_SCALE[t.logo];
   var h;
   if (L && D && L !== D) h = duoHTML(L, D);
   else { var src = L || D; if (!src) return '<span class="mono'+(cls?" "+cls:"")+'">'+esc(initials(t))+'</span>'; h = tileHTML(src); }
   /* bigger logos are drawn bigger (not zoomed), so they stay sharp */
+  /* (tall logos: their box has no fixed height to grow into, so they are scaled instead) */
+  if (sc && LOGO_TALL[t.logo]) return h.replace(/<img /g, '<img style="transform:scale('+sc+')" ');
   return sc ? h.replace(/<img /g, '<img style="max-width:'+Math.round(sc*100)+'%;max-height:'+Math.round(sc*100)+'%" ') : h;
 }
 function yearStyle(y){
