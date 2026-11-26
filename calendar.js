@@ -66,6 +66,14 @@ function getMatches(op){
   return load(cargo({tables: "MatchSchedule", fields: "Team1,Team2,Team1Score,Team2Score,Winner,DateTime_UTC,BestOf,Tab,FF,OverviewPage",
     where: "OverviewPage=" + sq(op), order_by: "DateTime_UTC", limit: "500"}, 5)).then(function(rows){ data.matches[op] = rows; return rows; });
 }
+/* the regular season a playoffs stage comes from (same league, same split, started before, has « Playoffs » removed from the name) */
+function seasonOf(op){
+  var T = (data.tours || []).filter(function(t){ return t.OverviewPage === op; })[0];
+  if (!T || !/playoffs|play-in|finals|road to/i.test(T.Name)) return null;
+  var base = T.Name.replace(/\s*(Playoffs|Play-In|Season Play-In|Grand Finals|Road to MSI)\s*$/i, "").trim();
+  var c = (data.tours || []).filter(function(t){ return t.League === T.League && t.OverviewPage !== op && t.DateStart <= T.DateStart && !/playoffs|play-in|finals|road to/i.test(t.Name) && (t.Name === base || (T.Split && t.Split === T.Split)); });
+  return c.length ? c[c.length - 1] : null;
+}
 function getStandings(op){
   if (data.standings[op]) return Promise.resolve(data.standings[op]);
   return load(cargo({tables: "Standings", fields: "Team,Place,WinSeries,LossSeries,WinGames,LossGames,Streak,StreakDirection",
@@ -87,8 +95,9 @@ function getTeams(names){
   want = want.filter(function(n, i){ return want.indexOf(n) === i; });
   if (!want.length) return Promise.resolve();
   var cache = lsGet("cal.teams") || {}, miss = [];
-  want.forEach(function(n){ if (cache[n] && Date.now() - cache[n].t < 7 * 86400000) data.teams[n] = cache[n]; else miss.push(n); });
-  if (!miss.length) return Promise.resolve();
+  var noUrl = [];
+  want.forEach(function(n){ if (cache[n] && Date.now() - cache[n].t < 7 * 86400000) { data.teams[n] = cache[n]; if (cache[n].img && !cache[n].url) noUrl.push(n); } else miss.push(n); });
+  if (!miss.length) return noUrl.length ? getLogos(noUrl) : Promise.resolve();
   var parts = []; for (var i = 0; i < miss.length; i += 40) parts.push(miss.slice(i, i + 40));
   return Promise.all(parts.map(function(p){ return cargo({tables: "Teams", fields: "Name,Short,Image", where: "Name IN (" + p.map(sq).join(",") + ")", limit: "60"}, 1440); }))
     .then(function(rs){
@@ -96,11 +105,31 @@ function getTeams(names){
       miss.forEach(function(n){ data.teams[n] = cache[n] = {s: "", img: "", t: Date.now()}; });
       rs.forEach(function(rows){ rows.forEach(function(r){ data.teams[r.Name] = cache[r.Name] = {s: r.Short || "", img: r.Image || "", t: Date.now()}; }); });
       lsSet("cal.teams", cache);
+      return getLogos(miss);
     }).catch(function(){});
+}
+/* the logo files' addresses (64 px), asked to the wiki 50 at a time */
+function getLogos(names){
+  var files = names.map(function(n){ return data.teams[n] && data.teams[n].img; }).filter(function(f){ return f; });
+  if (!files.length) return Promise.resolve();
+  var parts = []; for (var i = 0; i < files.length; i += 50) parts.push(files.slice(i, i + 50));
+  return Promise.all(parts.map(function(p){
+    return fetch(API + "?action=query&format=json&origin=*&prop=imageinfo&iiprop=url&iiurlwidth=64&titles=" + encodeURIComponent(p.map(function(f){ return "File:" + f; }).join("|")))
+      .then(function(r){ return r.json(); }).then(function(j){
+        var norm = {}; ((j.query && j.query.normalized) || []).forEach(function(x){ norm[x.to] = x.from; });
+        var pages = (j.query && j.query.pages) || {}, url = {};
+        Object.keys(pages).forEach(function(k){ var pg = pages[k], ii = pg.imageinfo && pg.imageinfo[0]; if (ii) url[(norm[pg.title] || pg.title).replace(/^File:/, "").replace(/_/g, " ")] = ii.thumburl || ii.url; });
+        return url;
+      }).catch(function(){ return {}; });
+  })).then(function(rs){
+    var cache = lsGet("cal.teams") || {};
+    rs.forEach(function(url){ names.forEach(function(n){ var t = data.teams[n]; if (t && t.img && url[t.img.replace(/_/g, " ")]) { t.url = url[t.img.replace(/_/g, " ")]; if (cache[n]) cache[n].url = t.url; } }); });
+    lsSet("cal.teams", cache);
+  });
 }
 
 /* ---- drawing ---- */
-function logo(n){ var t = data.teams[n]; return t && t.img ? '<img class="cal-lg" src="https://lol.fandom.com/wiki/Special:FilePath/' + encodeURIComponent(t.img.replace(/ /g, "_")) + '?width=64" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">' : '<span class="cal-lg"></span>'; }
+function logo(n){ var t = data.teams[n]; return t && t.url ? '<img class="cal-lg" src="' + e(t.url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' : '<span class="cal-lg"></span>'; }
 function short(n){ var t = data.teams[n]; return t && t.s ? t.s : n || "?"; }
 function leagueOfOp(op){ var t = (data.tours || []).filter(function(x){ return x.OverviewPage === op; })[0]; return t ? BY_NAME[t.League] : null; }
 function tabName(s){ if (!s || en()) return s || ""; return String(s).replace(/^Week (\d+)/, "Semaine $1").replace(/^Day (\d+)/, "Jour $1").replace(/^Round (\d+)/, "Tour $1"); }
@@ -171,10 +200,11 @@ function draw(){
     '<a class="ghost cal-ext" href="https://lolesports.com/'+(en() ? "en-GB" : "fr-FR")+'/leagues/'+lgs.slug+'" target="_blank" rel="noopener">'+lgs.k+' sur lolesports.com ↗</a></div>';
   var nt = nextTour(lgs.k); if (nt && (!T || nt.OverviewPage !== T.OverviewPage)) h += '<p class="cal-note">Prochaine compétition : <b>'+e(nt.Name)+'</b>, à partir du '+e(day(nt.DateStart).toLocaleDateString(loc(), {day: "numeric", month: "long", year: "numeric"}))+'.</p>';
   if (!op) { root.innerHTML = h + '<p class="cal-note">Aucune compétition trouvée.</p>'; return; }
-  var ms = data.matches[op], sd = data.standings[op];
-  if (!ms || !sd) { root.innerHTML = h + '<p class="cal-note">Chargement…</p>'; return; }
+  var ms = data.matches[op], sd = data.standings[op], rs = seasonOf(op), sd2 = rs ? data.standings[rs.OverviewPage] : null;
+  if (!ms || !sd || (rs && !sd2)) { root.innerHTML = h + '<p class="cal-note">Chargement…</p>'; return; }
   var cols = '<div class="cal-cols">';
   if (sd.length) cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd) + '</section>';
+  else if (sd2 && sd2.length) cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2><p class="cal-note cal-sub">Saison régulière · '+e(rs.Name)+'</p>' + standingsHTML(sd2) + '</section>';
   /* matches: upcoming first (from today), then the results, most recent first */
   var now = Date.now(), up = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && utc(m.DateTime_UTC || m["DateTime UTC"]) && utc(m.DateTime_UTC || m["DateTime UTC"]).getTime() > now - 6 * 3600000; }),
       res = ms.filter(function(m){ return up.indexOf(m) < 0; }).reverse();
@@ -188,8 +218,9 @@ function refresh(){
   getTours().then(function(){
     if (st.lg === "all") return getUpcoming().then(function(ms){ return getTeams([].concat.apply([], ms.map(function(m){ return [m.Team1, m.Team2]; }))); });
     var t = st.tour[st.lg] || (curTour(st.lg) || {}).OverviewPage; if (!t) return;
-    return Promise.all([getMatches(t), getStandings(t)]).then(function(r){
-      return getTeams([].concat.apply([], r[0].map(function(m){ return [m.Team1, m.Team2]; })).concat(r[1].map(function(s){ return s.Team; })));
+    var rs = seasonOf(t);
+    return Promise.all([getMatches(t), getStandings(t), rs ? getStandings(rs.OverviewPage) : Promise.resolve([])]).then(function(r){
+      return getTeams([].concat.apply([], r[0].map(function(m){ return [m.Team1, m.Team2]; })).concat(r[1].concat(r[2]).map(function(s){ return s.Team; })));
     });
   }).then(draw, function(){ draw(); });
 }
