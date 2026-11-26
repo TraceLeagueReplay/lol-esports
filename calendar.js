@@ -470,7 +470,10 @@ function draw(){
   var now = Date.now(), up = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && utc(m.DateTime_UTC || m["DateTime UTC"]) && utc(m.DateTime_UTC || m["DateTime UTC"]).getTime() > now - 6 * 3600000; }),
       res = ms.filter(function(m){ return up.indexOf(m) < 0; }).reverse();
   var srt = sd.slice().sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); });
-  var h2h = swissRounds(ms).length >= 3 && lgs.k === "INTL" ? swissHTML(ms, srt, lgs.k, T) : sd.length && !isKnockout(T) ? h2hHTML(ms, srt, lgs.k) : "";
+  /* Swiss stage (Worlds): the round-by-round progression, then the head to head of its matches; else the head to head */
+  var swiss = swissRounds(ms).length >= 3 && lgs.k === "INTL";
+  var h2h = (swiss ? swissHTML(ms, srt, lgs.k, T) : "") +
+    (sd.length && !isKnockout(T) ? h2hHTML(swiss ? ms.filter(function(m){ return /^Round \d+$/i.test(m.Tab || ""); }) : ms, srt, lgs.k) : "");
   cols += '<section class="cal-sec">' + (up.length ? '<h2 class="cal-h2">À venir</h2>' + byDay(up, false) : "") + (res.length ? '<h2 class="cal-h2">Résultats</h2>' + byDay(res, false) : "") +
     (!ms.length ? '<p class="cal-note">Pas encore de match annoncé pour cette compétition.</p>' : "") + '</section></div>';
   root.innerHTML = h + cols + h2h;
