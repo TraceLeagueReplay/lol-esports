@@ -317,6 +317,7 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .ctl-board{display:grid;gap:4px;margin-bottom:16px}
 .ctl-row{display:grid;grid-template-columns:64px 1fr;min-height:60px;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:var(--panel)}
 .ctl-lab{display:grid;place-items:center;font:700 22px/1 var(--f-display);text-align:center;padding:4px}
+.ctl-lab.long{font-size:14px;line-height:1.1;word-break:break-word;hyphens:auto}
 .ctl-drop{display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px;padding:4px;min-height:58px}
 .ctl-drop.over{background:color-mix(in srgb,var(--fg) 7%,transparent)}
 .ctl-c{width:52px;height:52px;border-radius:6px;display:block;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;background:var(--line-2)}
@@ -332,7 +333,7 @@ body.ctl-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .ctl-q{flex:1;min-width:160px;max-width:320px;padding:8px 10px;border-radius:8px;border:1px solid var(--line-2);background:var(--panel);color:var(--fg);font:inherit}
 .ctl-pool{border:1px dashed var(--line-2);border-radius:8px;min-height:64px}
 .ctl-tip{color:var(--muted);font-size:13px;margin:8px 0 0}
-@media (max-width:720px){.ctl-row{grid-template-columns:44px 1fr;min-height:50px}.ctl-lab{font-size:17px}.ctl-c{width:42px;height:42px}.ctl-mark{height:42px}.ctl-drop{min-height:48px;gap:3px;padding:3px}.tlkind button{padding:8px 14px;font-size:14px}}
+@media (max-width:720px){.ctl-row{grid-template-columns:44px 1fr;min-height:50px}.ctl-lab{font-size:17px}.ctl-lab.long{font-size:11px}.ctl-c{width:42px;height:42px}.ctl-mark{height:42px}.ctl-drop{min-height:48px;gap:3px;padding:3px}.tlkind button{padding:8px 14px;font-size:14px}}
 /* phone: one column of a tier list at a time, full width; swipe or tap the role bar to change column; # stays on the left */
 .tlmnav{display:none}
 @media (max-width:720px){

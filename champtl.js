@@ -5,7 +5,10 @@
 var DATA = {"v":"16.23.1","c":[["Aatrox","Aatrox"],["Ahri","Ahri"],["Akali","Akali"],["Akshan","Akshan"],["Alistar","Alistar"],["Ambessa","Ambessa"],["Amumu","Amumu"],["Anivia","Anivia"],["Annie","Annie"],["Aphelios","Aphelios"],["Ashe","Ashe"],["AurelionSol","Aurelion Sol"],["Aurora","Aurora"],["Azir","Azir"],["Bard","Bard"],["Belveth","Bel'Veth"],["Blitzcrank","Blitzcrank"],["Brand","Brand"],["Braum","Braum"],["Briar","Briar"],["Caitlyn","Caitlyn"],["Camille","Camille"],["Cassiopeia","Cassiopeia"],["Chogath","Cho'Gath"],["Corki","Corki"],["Darius","Darius"],["Diana","Diana"],["Draven","Draven"],["DrMundo","Dr. Mundo"],["Ekko","Ekko"],["Elise","Elise"],["Evelynn","Evelynn"],["Ezreal","Ezreal"],["Fiddlesticks","Fiddlesticks"],["Fiora","Fiora"],["Fizz","Fizz"],["Galio","Galio"],["Gangplank","Gangplank"],["Garen","Garen"],["Gnar","Gnar"],["Gragas","Gragas"],["Graves","Graves"],["Gwen","Gwen"],["Hecarim","Hecarim"],["Heimerdinger","Heimerdinger"],["Hwei","Hwei"],["Illaoi","Illaoi"],["Irelia","Irelia"],["Ivern","Ivern"],["Janna","Janna"],["JarvanIV","Jarvan IV"],["Jax","Jax"],["Jayce","Jayce"],["Jhin","Jhin"],["Jinx","Jinx"],["Kaisa","Kai'Sa"],["Kalista","Kalista"],["Karma","Karma"],["Karthus","Karthus"],["Kassadin","Kassadin"],["Katarina","Katarina"],["Kayle","Kayle"],["Kayn","Kayn"],["Kennen","Kennen"],["Khazix","Kha'Zix"],["Kindred","Kindred"],["Kled","Kled"],["KogMaw","Kog'Maw"],["KSante","K'Santé","K'Sante"],["Leblanc","LeBlanc"],["LeeSin","Lee Sin"],["Leona","Leona"],["Lillia","Lillia"],["Lissandra","Lissandra"],["Locke","Locke"],["Lucian","Lucian"],["Lulu","Lulu"],["Lux","Lux"],["Malphite","Malphite"],["Malzahar","Malzahar"],["Maokai","Maokai"],["MasterYi","Maître Yi","Master Yi"],["Mel","Mel"],["Milio","Milio"],["MissFortune","Miss Fortune"],["MonkeyKing","Wukong"],["Mordekaiser","Mordekaiser"],["Morgana","Morgana"],["Naafiri","Naafiri"],["Nami","Nami"],["Nasus","Nasus"],["Nautilus","Nautilus"],["Neeko","Neeko"],["Nidalee","Nidalee"],["Nilah","Nilah"],["Nocturne","Nocturne"],["Nunu","Nunu et Willump","Nunu & Willump"],["Olaf","Olaf"],["Orianna","Orianna"],["Ornn","Ornn"],["Pantheon","Pantheon"],["Poppy","Poppy"],["Pyke","Pyke"],["Qiyana","Qiyana"],["Quinn","Quinn"],["Rakan","Rakan"],["Rammus","Rammus"],["RekSai","Rek'Sai"],["Rell","Rell"],["Renata","Renata Glasc"],["Renekton","Renekton"],["Rengar","Rengar"],["Riven","Riven"],["Rumble","Rumble"],["Ryze","Ryze"],["Samira","Samira"],["Sejuani","Sejuani"],["Senna","Senna"],["Seraphine","Séraphine","Seraphine"],["Sett","Sett"],["Shaco","Shaco"],["Shen","Shen"],["Shyvana","Shyvana"],["Singed","Singed"],["Sion","Sion"],["Sivir","Sivir"],["Skarner","Skarner"],["Smolder","Smolder"],["Sona","Sona"],["Soraka","Soraka"],["Swain","Swain"],["Sylas","Sylas"],["Syndra","Syndra"],["TahmKench","Tahm Kench"],["Taliyah","Taliyah"],["Talon","Talon"],["Taric","Taric"],["Teemo","Teemo"],["Thresh","Thresh"],["Tristana","Tristana"],["Trundle","Trundle"],["Tryndamere","Tryndamere"],["TwistedFate","Twisted Fate"],["Twitch","Twitch"],["Udyr","Udyr"],["Urgot","Urgot"],["Varus","Varus"],["Vayne","Vayne"],["Veigar","Veigar"],["Velkoz","Vel'Koz"],["Vex","Vex"],["Vi","Vi"],["Viego","Viego"],["Viktor","Viktor"],["Vladimir","Vladimir"],["Volibear","Volibear"],["Warwick","Warwick"],["Xayah","Xayah"],["Xerath","Xerath"],["XinZhao","Xin Zhao"],["Yasuo","Yasuo"],["Yone","Yone"],["Yorick","Yorick"],["Yunara","Yunara"],["Yuumi","Yuumi"],["Zaahen","Zaahen"],["Zac","Zac"],["Zed","Zed"],["Zeri","Zeri"],["Ziggs","Ziggs"],["Zilean","Zilean"],["Zoe","Zoé","Zoe"],["Zyra","Zyra"]]};
 var VER = DATA.v, CH = {}, ORDER = [];
 DATA.c.forEach(function(x){ CH[x[0]] = {fr:x[1], en:x[2] || x[1]}; ORDER.push(x[0]); });
-var TIERS = [["S+","#ff8a00"],["S","#ffff00"],["A","#00ff00"],["B","#a4c2f4"],["C","#4a86e8"],["D","#c9a0dc"],["F","#d5a6bd"]];
+/* default tiers; each list can change them (name, colour, order, add, remove): ctl/<id>.tiers = [{id, n, c}].
+   A ranking keeps champions per tier id, so renaming or moving a tier keeps its champions; removing one sends them back to « À classer ». */
+var TIERS_DEF = [["S+","#ff8a00"],["S","#ffff00"],["A","#00ff00"],["B","#a4c2f4"],["C","#4a86e8"],["D","#c9a0dc"],["F","#d5a6bd"]].map(function(t, i){ return {id: String(i), n: t[0], c: t[1]}; });
+function tiers(){ var L = lists[cur]; return L && L.tiers && L.tiers.length ? L.tiers : TIERS_DEF; }
 function en(){ try { return window.I18N && I18N.lang === "en"; } catch(e){ return false; } }
 function nm(id){ var c = CH[id]; return c ? (en() ? c.en : c.fr) : id; }
 function src(id){ return "https://ddragon.leagueoflegends.com/cdn/" + VER + "/img/champion/" + id + ".png"; }
@@ -34,7 +37,7 @@ function start(){
   F.onSnapshot(F.collection(F.db, "ctlp"), function(snap){ var m = {}; snap.docs.forEach(function(d){ m[d.id] = d.data(); }); ranks = m; ready.r = true; refresh(); }, function(){});
 }
 function listIds(){ return Object.keys(lists).sort(function(a, b){ return (lists[a].t || 0) - (lists[b].t || 0); }); }
-function rowsOf(doc){ var out = TIERS.map(function(){ return []; }); if (doc && doc.r) TIERS.forEach(function(t, i){ out[i] = (doc.r[i] || doc.r[String(i)] || []).filter(function(id){ return CH[id]; }); }); return out; }
+function rowsOf(doc){ var T = tiers(), out = T.map(function(){ return []; }), seen = {}; if (doc && doc.r) T.forEach(function(t, i){ out[i] = (doc.r[t.id] || []).filter(function(id){ if (!CH[id] || seen[id]) return false; seen[id] = 1; return true; }); }); return out; }
 function placed(rows){ var s = {}; rows.forEach(function(r){ r.forEach(function(id){ s[id] = 1; }); }); return s; }
 
 function refresh(){
@@ -61,14 +64,14 @@ function draw(){
     .sort(function(a, b){ return String(ranks[a].name).localeCompare(ranks[b].name); });
   var mineView = who === "me", rows = mineView ? mine : rowsOf(ranks[who]);
   var n = Object.keys(placed(mine || [])).length;
-  h += '<div class="prodle-head"><h2>'+e(L.name)+'</h2>' + (edit ? '<button class="ghost" data-ctl="rename">Renommer</button><button class="ghost" data-ctl="del">Supprimer</button>' : "") + '</div>';
+  h += '<div class="prodle-head"><h2>'+e(L.name)+'</h2>' + (edit ? '<button class="ghost" data-ctl="tiers">✎ Modifier les tiers</button><button class="ghost" data-ctl="rename">Renommer</button><button class="ghost" data-ctl="del">Supprimer</button>' : "") + '</div>';
   h += '<div class="chips ctl-who" role="group" aria-label="Tier list de qui">' +
     '<button class="chip" data-ctl="who" data-id="me" aria-pressed="'+mineView+'">'+(me() ? 'Ma tier list' + (n ? ' · ' + n : '') : 'Ma tier list')+'</button>' +
     people.map(function(k){ return '<button class="chip" data-ctl="who" data-id="'+e(k)+'" aria-pressed="'+(who === k)+'">'+e(ranks[k].name)+' · '+Object.keys(placed(rowsOf(ranks[k]))).length+'</button>'; }).join("") + '</div>';
   var editing = mineView && edit;
   if (mineView && !me()) h += '<p class="ctl-empty">Choisis un pseudo (en haut à droite) pour faire ta tier list.</p>';
-  h += '<div class="ctl-board'+(editing ? " edit" : "")+'">' + TIERS.map(function(t, i){
-    return '<div class="ctl-row"><div class="ctl-lab" style="background:'+t[1]+';color:'+fg(t[1])+'">'+e(t[0])+'</div><div class="ctl-drop" data-t="'+i+'">' + (rows[i] || []).map(function(id){ return iconHTML(id, sel === id ? " sel" : ""); }).join("") + '</div></div>';
+  h += '<div class="ctl-board'+(editing ? " edit" : "")+'">' + tiers().map(function(t, i){
+    return '<div class="ctl-row"><div class="ctl-lab'+(String(t.n).length > 3 ? " long" : "")+'" style="background:'+e(t.c)+';color:'+fg(t.c)+'">'+e(t.n || "?")+'</div><div class="ctl-drop" data-t="'+i+'">' + (rows[i] || []).map(function(id){ return iconHTML(id, sel === id ? " sel" : ""); }).join("") + '</div></div>';
   }).join("") + '</div>';
   if (editing) {
     var p = placed(mine), fq = fold(q), pool = ORDER.filter(function(id){ return !p[id]; });
@@ -92,14 +95,14 @@ function move(id, t, idx){
 }
 var pend = null;   /* the save waiting to be sent: {list, rows} */
 function save(){
-  clearTimeout(saveT); pend = {list: cur, rows: mine.map(function(r){ return r.slice(); })};
+  clearTimeout(saveT); pend = {list: cur, tiers: tiers().slice(), rows: mine.map(function(r){ return r.slice(); })};
   saveT = setTimeout(flush, 350);
 }
 function flush(){
   var F = Fb();
   clearTimeout(saveT); saveT = null; if (!pend) return;
   var p = pend; pend = null;
-  var r = {}; p.rows.forEach(function(row, i){ r[String(i)] = row; });
+  var r = {}; p.rows.forEach(function(row, i){ if (p.tiers[i]) r[p.tiers[i].id] = row; });
   var id = p.list + "__" + key(me());
   ranks[id] = {tl: p.list, name: me(), r: r, t: Date.now()};
   F.setDoc(F.doc(F.db, "ctlp/" + id), ranks[id]).catch(function(){});
@@ -126,9 +129,59 @@ function act(a, id){
       Object.keys(ranks).forEach(function(k){ if (ranks[k].tl === gone) { F.deleteDoc(F.doc(F.db, "ctlp/" + k)).catch(function(){}); delete ranks[k]; } });
       F.deleteDoc(F.doc(F.db, "ctl/" + gone)).catch(function(){}); delete lists[gone]; cur = ""; pend = null; clearTimeout(saveT); refresh(); };
   });
+  if (a === "tiers") editTiers();
   if (a === "reset") openDlg("Tout remettre à classer", '<p style="margin:0">Remettre tous tes champions dans « À classer » ?</p>', footer("Remettre"), function(form){
     form.onsubmit = function(ev){ ev.preventDefault(); A().dlg().close(); mine = rowsOf(null); draw(); save(); };
   });
+}
+
+/* ---- tiers of the current list: name, colour, order, add, remove (for everybody's ranking in this list) ---- */
+function editTiers(){
+  var F = Fb(), rows = tiers().map(function(t){ return {id: t.id, n: t.n, c: t.c}; }), box;
+  function count(id){ var n = 0; Object.keys(ranks).forEach(function(k){ var d = ranks[k]; if (d.tl === cur && d.r && d.r[id]) n += d.r[id].length; }); return n; }
+  function rowHTML(t, i){
+    return '<div class="trow" data-i="'+i+'"><span class="tchip" style="--tb:'+e(t.c)+';--tbfg:'+fg(t.c)+'">'+e(t.n || "?")+'</span>' +
+      '<input class="tr-n" value="'+e(t.n)+'" maxlength="12" aria-label="Nom du tier">' +
+      '<input class="tr-c" type="color" value="'+e(t.c)+'" aria-label="Couleur">' +
+      '<button type="button" class="ghost tr-up" title="Monter"'+(i ? "" : " disabled")+'>↑</button>' +
+      '<button type="button" class="ghost tr-dn" title="Descendre"'+(i < rows.length - 1 ? "" : " disabled")+'>↓</button>' +
+      '<button type="button" class="ghost tr-x" title="Supprimer"'+(rows.length > 1 ? "" : " disabled")+'>✕</button></div>';
+  }
+  function draw2(){
+    box.innerHTML = rows.map(rowHTML).join("");
+    box.querySelectorAll(".trow").forEach(function(r){
+      var i = +r.getAttribute("data-i");
+      r.querySelector(".tr-n").oninput = function(){ rows[i].n = this.value; r.querySelector(".tchip").textContent = this.value || "?"; };
+      r.querySelector(".tr-c").oninput = function(){ rows[i].c = this.value; var ch = r.querySelector(".tchip"); ch.style.setProperty("--tb", this.value); ch.style.setProperty("--tbfg", fg(this.value)); };
+      r.querySelector(".tr-up").onclick = function(){ var x = rows.splice(i, 1)[0]; rows.splice(i - 1, 0, x); draw2(); };
+      r.querySelector(".tr-dn").onclick = function(){ var x = rows.splice(i, 1)[0]; rows.splice(i + 1, 0, x); draw2(); };
+      r.querySelector(".tr-x").onclick = function(){
+        var n = count(rows[i].id), w = document.getElementById("f-ctlw");
+        if (n) { w.hidden = false; w.textContent = "Le tier « " + (rows[i].n || "?") + " » contenait " + n + " champion(s) : ils retournent dans « À classer »."; }
+        rows.splice(i, 1); draw2();
+      };
+    });
+    document.getElementById("f-ctladd").disabled = rows.length >= 15;
+  }
+  openDlg("Tiers de « " + lists[cur].name + " »",
+    '<p class="note-ro" style="margin:0 0 12px">Du meilleur au moins bon. Valable pour la tier list de tout le monde dans cette liste.</p><div id="f-ctlt"></div>' +
+    '<div class="tactions"><button type="button" class="btn" id="f-ctladd">+ Ajouter un tier</button><span class="sp"></span>' +
+    '<button type="button" class="ghost" id="f-ctlres" title="Remet S+ S A B C D F comme au début">↺ Tiers d\'origine</button></div>' +
+    '<p class="note-ro" id="f-ctlw" style="margin:10px 0 0" hidden></p>',
+    footer("Valider"),
+    function(form){
+      box = document.getElementById("f-ctlt"); draw2();
+      document.getElementById("f-ctladd").onclick = function(){ rows.push({id: "t" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), n: "", c: "#9aa5b1"}); draw2(); var ins = box.querySelectorAll(".tr-n"); ins[ins.length - 1].focus(); };
+      document.getElementById("f-ctlres").onclick = function(){ rows = TIERS_DEF.map(function(t){ return {id: t.id, n: t.n, c: t.c}; }); draw2(); };
+      form.onsubmit = function(ev){
+        ev.preventDefault(); A().dlg().close();
+        flush();
+        var out = rows.map(function(t){ return {id: t.id, n: String(t.n || "").trim() || "?", c: /^#[0-9a-f]{6}$/i.test(t.c) ? t.c : "#9aa5b1"}; });
+        lists[cur].tiers = out;
+        mine = rowsOf(ranks[cur + "__" + key(me())]); draw();
+        F.setDoc(F.doc(F.db, "ctl/" + cur), lists[cur]).catch(function(){});
+      };
+    });
 }
 
 /* ---- clicks: buttons, tap to select then tap a tier ---- */
