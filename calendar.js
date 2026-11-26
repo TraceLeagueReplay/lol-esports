@@ -235,7 +235,7 @@ function chips(){
     '<button class="chip" data-cal="lg" data-v="all" aria-pressed="'+(st.lg === "all")+'">Toutes</button>' +
     LEAGUES.map(function(l){ return '<button class="chip" data-cal="lg" data-v="'+l.k+'" aria-pressed="'+(st.lg === l.k)+'">'+label(l)+'</button>'; }).join("") + '</div>';
 }
-function standingsHTML(rows, lg){
+function standingsHTML(rows, lg, zs){
   if (!rows || !rows.length) return "";
   if (rows.some(function(r){ return r.group; })) {
     var order = [], by = {};
@@ -244,7 +244,8 @@ function standingsHTML(rows, lg){
   }
   return '<div class="cal-st"><table><thead><tr><th>#</th><th>Équipe</th><th title="Victoires – défaites (matchs)">V – D</th><th title="Parties gagnées – perdues" class="g">Parties</th><th class="g">Série</th></tr></thead><tbody>' +
     rows.map(function(r){ var gd = (+r.WinGames || 0) - (+r.LossGames || 0), played = rows.some(function(x){ return +x.WinSeries || +x.LossSeries; });
-      return '<tr><td class="pl">'+(played ? e(r.Place) : "–")+'</td><td><div class="tm">'+logo(r.Team, lg)+'<span class="nm" title="'+e(r.Team)+'">'+e(short(r.Team))+'</span></div></td>' +
+      var z = zs && zs[r.Team], zc = z ? ' class="z'+(z.sure ? " sure" : "")+(z.z === "out" && z.sure ? " gone" : "")+'" style="--z:'+ZONES[z.z].c+'" title="'+e((en() ? ZONES[z.z].en : ZONES[z.z].fr) + (z.sure ? "" : en() ? " (not decided yet)" : " (pas encore décidé)"))+'"' : "";
+      return '<tr'+zc+'><td class="pl">'+(played ? e(r.Place) : "–")+'</td><td><div class="tm">'+logo(r.Team, lg)+'<span class="nm" title="'+e(r.Team)+'">'+e(short(r.Team))+'</span></div></td>' +
         '<td><b>'+e(r.WinSeries || 0)+' – '+e(r.LossSeries || 0)+'</b></td><td class="g">'+e(r.WinGames || 0)+' – '+e(r.LossGames || 0)+' <span class="gd'+(gd > 0 ? " p" : gd < 0 ? " n" : "")+'">('+(gd > 0 ? "+" : "")+gd+')</span></td>' +
         '<td class="g">'+(+r.Streak ? '<span class="sk '+(r.StreakDirection === "W" ? "p" : "n")+'">'+e(r.Streak)+(r.StreakDirection === "W" ? (en() ? "W" : "V") : (en() ? "L" : "D"))+'</span>' : "")+'</td></tr>'; }).join("") +
     '</tbody></table></div>';
@@ -259,7 +260,8 @@ function isBracket(m, T){
   return !!(T && /playoffs/i.test(T.Name) && /^(Round \d+|Finals?)$/i.test(tab));
 }
 function brTab(s){ if (en()) return s; return String(s).replace(/^Bracket /, "").replace(/^Round (\d+)$/, "Tour $1").replace(/^Quarterfinals?$/i, "Quarts de finale").replace(/^Semifinals?$/i, "Demi-finales").replace(/^Grand Finals?$/i, "Grande finale").replace(/^Finals?$/i, "Finale").replace(/^Upper /, "").replace(/^Lower /, ""); }
-function bracketHTML(ms, lgK){
+/* order the matches of a bracket and tell for each one: upper, lower or final */
+function lanesOf(ms){
   var list = ms.slice().sort(function(a, b){ return String(a.DateTime_UTC || a["DateTime UTC"]).localeCompare(String(b.DateTime_UTC || b["DateTime UTC"])) || (+a.N_MatchInTab || +a["N MatchInTab"] || 0) - (+b.N_MatchInTab || +b["N MatchInTab"] || 0); });
   var tabs = []; list.forEach(function(m){ if (tabs.indexOf(m.Tab) < 0) tabs.push(m.Tab); });
   var lastTab = tabs[tabs.length - 1], loss = {}, lane = {};
@@ -278,6 +280,11 @@ function bracketHTML(ms, lgK){
   list.forEach(function(m, i){ var k = m.Tab + "|" + i; if (lane[k] !== "?") return;
     var others = list.map(function(x, j){ return x.Tab === m.Tab ? lane[x.Tab + "|" + j] : null; }).filter(function(v){ return v && v !== "?"; });
     lane[k] = others.length && others.every(function(v){ return v === others[0]; }) ? others[0] : "upper"; });
+  return {list: list, lane: function(i){ return lane[list[i].Tab + "|" + i]; }};
+}
+function bracketHTML(ms, lgK){
+  var L = lanesOf(ms), list = L.list, lane = {};
+  list.forEach(function(m, i){ lane[m.Tab + "|" + i] = L.lane(i); });
   var lanes = {upper: [], lower: [], final: []};
   list.forEach(function(m, i){ lanes[lane[m.Tab + "|" + i]].push(m); });
   function team(m, n){ var t = m["Team" + n], w = m.Winner === String(n), l = m.Winner === String(3 - n), sc = m["Team" + n + "Score"];
@@ -291,6 +298,90 @@ function bracketHTML(ms, lgK){
     '<div class="br-lanes">' + (dbl ? '<div class="br-lt">Upper bracket</div>' : "") + '<div class="br-lane">' + cols(lanes.upper) + '</div>' +
       (dbl ? '<div class="br-lt">Lower bracket</div><div class="br-lane">' + cols(lanes.lower) + '</div>' : "") + '</div>' +
     (lanes.final.length ? '<div class="br-fin">' + cols(lanes.final) + '</div>' : "") + '</div>';
+}
+
+/* ---- who goes where after the regular season: colours of the standings ---- */
+var ZONES = {
+  bye:    {c: "#e0a800", fr: "Playoffs, exempté du 1er tour", en: "Playoffs, first-round bye", r: 0},
+  upper:  {c: "#2e9e5b", fr: "Playoffs · upper bracket", en: "Playoffs · upper bracket", r: 1},
+  po:     {c: "#2e9e5b", fr: "Qualifié en playoffs", en: "Qualified for playoffs", r: 1},
+  lower:  {c: "#3b82c4", fr: "Playoffs · lower bracket", en: "Playoffs · lower bracket", r: 2},
+  playin: {c: "#e69138", fr: "Play-in / repêchage", en: "Play-in / last chance", r: 3},
+  out:    {c: "#e06666", fr: "Éliminé", en: "Eliminated", r: 4}
+};
+function isKnockout(T){ return !!(T && /playoffs|play-in|finals|knockout|road to|knight/i.test(T.Name) && (BY_NAME[T.League] || {}).k !== "INTL"); }
+/* the stages played right after a regular season (playoffs, play-in, grand finals…) */
+function nextStages(T){
+  if (!T || isKnockout(T)) return [];
+  var end = day(T.Date) || day(T.DateStart), lim = end ? end.getTime() + 45 * 86400000 : 0;
+  var after = (data.tours || []).filter(function(t){ return t.League === T.League && t !== T && t.DateStart >= T.DateStart && day(t.DateStart).getTime() <= lim; });
+  var nextReg = after.filter(function(t){ return !isKnockout(t); })[0];
+  return after.filter(function(t){ return isKnockout(t) && (!nextReg || t.DateStart < nextReg.DateStart); });
+}
+/* the same season a year before (same split), else the previous regular season: its outcome tells how many teams go where */
+function refSeason(T){
+  var prev = (data.tours || []).filter(function(t){ return t.League === T.League && t !== T && t.DateStart < T.DateStart && !isKnockout(t); });
+  var same = prev.filter(function(t){ return T.Split && t.Split === T.Split; });
+  var c = (same.length ? same : prev).filter(function(t){ return nextStages(t).length; });
+  return c.length ? c[c.length - 1] : null;
+}
+/* from the stages that followed: zone of every team of the season (null if those stages are not known yet) */
+function outcome(T){
+  var st2 = nextStages(T); if (!st2.length) return null;
+  var z = {}, any = false;
+  st2.forEach(function(S){
+    var ms = data.matches[S.OverviewPage]; if (!ms) return;
+    var known = function(t){ return t && t !== "TBD"; };
+    if (/play-in/i.test(S.Name) && !/playoffs/i.test(S.Name)) { ms.forEach(function(m){ [m.Team1, m.Team2].forEach(function(t){ if (known(t)) { z[t] = "playin"; any = true; } }); }); return; }
+    var L = lanesOf(ms), list = L.list, main = list.filter(function(m){ return !/knight|qualif|play-?in/i.test(m.Tab); }), first = main.length ? main[0].Tab : "";
+    var dbl = list.some(function(m, i){ return L.lane(i) === "lower"; });
+    list.forEach(function(m, i){ [m.Team1, m.Team2].forEach(function(t){
+      if (!known(t) || (z[t] && z[t] !== "playin" && !/knight|qualif|play-?in/i.test(m.Tab))) return;
+      if (z[t]) return;
+      any = true;
+      if (/knight|qualif|play-?in/i.test(m.Tab)) z[t] = "playin";
+      else if (L.lane(i) === "lower") z[t] = "lower";
+      else if (m.Tab !== first) z[t] = "bye";
+      else z[t] = dbl ? "upper" : "po";
+    }); });
+  });
+  return any ? z : null;
+}
+function played(ms){ return ms.filter(function(m){ return m.Winner === "1" || m.Winner === "2"; }).length; }
+/* zone of each team of the standings: final when the next stages are known, else worked out from the results so far
+   (« sûr » when no result left can change it) */
+function zonesFor(T, rows){
+  if (!T || isKnockout(T) || !rows || !rows.length || rows.some(function(r){ return r.group; })) return null;
+  var ms = data.matches[T.OverviewPage] || [], left = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && m.Team1 && m.Team2; });
+  var fin = outcome(T), res = {};
+  if (fin && !left.length) { rows.forEach(function(r){ res[r.Team] = {z: fin[r.Team] || "out", sure: true}; }); return res; }
+  var ref = refSeason(T), rz = ref && outcome(ref), rrows = ref && data.standings[ref.OverviewPage];
+  if (!rz || !rrows || !rrows.length) return null;
+  /* how many places lead to each zone, as last time */
+  var seq = rrows.slice().sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); }).map(function(r){ return rz[r.Team] || "out"; });
+  if (seq.length !== rows.length) return null;
+  var upto = {}; Object.keys(ZONES).forEach(function(k){ upto[k] = seq.filter(function(z){ return ZONES[z].r <= ZONES[k].r; }).length; });
+  var W = {}, MAX = {};
+  rows.forEach(function(r){ W[r.Team] = +r.WinSeries || 0; MAX[r.Team] = W[r.Team]; });
+  left.forEach(function(m){ if (m.Team1 in MAX) MAX[m.Team1]++; if (m.Team2 in MAX) MAX[m.Team2]++; });
+  var sorted = rows.slice().sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); });
+  sorted.forEach(function(r, idx){
+    var t = r.Team, others = rows.filter(function(x){ return x.Team !== t; });
+    var canPass = others.filter(function(x){ return MAX[x.Team] >= W[t]; }).length;      /* teams that can still finish above (ties count against) */
+    var surelyAbove = others.filter(function(x){ return W[x.Team] > MAX[t]; }).length;    /* teams already out of reach */
+    var best = null, cur = seq[idx] || "out";
+    ["bye", "upper", "po", "lower", "playin"].forEach(function(k){ if (best == null && seq.indexOf(k) >= 0 && canPass < upto[k]) best = k; });
+    if (best) res[t] = {z: best, sure: true};
+    else if (surelyAbove >= upto.playin) res[t] = {z: "out", sure: true};     /* (upto.playin = every place that is not « out ») */
+    else res[t] = {z: cur, sure: false};
+  });
+  return res;
+}
+function legendHTML(zs){
+  var used = {}; Object.keys(zs).forEach(function(t){ used[zs[t].z] = 1; });
+  var anyOpen = Object.keys(zs).some(function(t){ return !zs[t].sure; });
+  return '<div class="cal-leg">' + Object.keys(ZONES).filter(function(k){ return used[k]; }).map(function(k){ return '<span><i style="background:'+ZONES[k].c+'"></i>'+e(en() ? ZONES[k].en : ZONES[k].fr)+'</span>'; }).join("") +
+    (anyOpen ? '<span class="open"><i></i>'+(en() ? "Not decided yet (current place)" : "Pas encore décidé (place actuelle)")+'</span>' : "") + '</div>';
 }
 
 function draw(){
@@ -317,13 +408,14 @@ function draw(){
     '<a class="ghost cal-ext" href="https://lolesports.com/'+(en() ? "en-GB" : "fr-FR")+'/leagues/'+slugOf(lgs, T)+'" target="_blank" rel="noopener">'+e(tagOf(lgs, T))+' sur lolesports.com ↗</a></div>';
   var nt = nextTour(lgs.k); if (nt && (!T || nt.OverviewPage !== T.OverviewPage)) h += '<p class="cal-note">Prochaine compétition : <b>'+e(nt.Name)+'</b>, à partir du '+e(day(nt.DateStart).toLocaleDateString(loc(), {day: "numeric", month: "long", year: "numeric"}))+'.</p>';
   if (!op) { root.innerHTML = h + '<p class="cal-note">Aucune compétition trouvée.</p>'; return; }
-  var ms = data.matches[op], sd = data.standings[op], rs = seasonOf(op), sd2 = rs ? data.standings[rs.OverviewPage] : null;
-  if (!ms || !sd || (rs && !sd2)) { root.innerHTML = h + '<p class="cal-note">Chargement…</p>'; return; }
+  var ms = data.matches[op], sd = isKnockout(T) ? [] : data.standings[op];
+  if (!ms || !sd) { root.innerHTML = h + '<p class="cal-note">Chargement…</p>'; return; }
   var bms = ms.filter(function(m){ return isBracket(m, T); });
   if (bms.length >= 2) h += '<section class="cal-brs"><h2 class="cal-h2">Arbre</h2>' + bracketHTML(bms, lgs.k) + '</section>';
+  /* a playoffs stage: the bracket says it all */
+  if (isKnockout(T) && bms.length >= 2) { root.innerHTML = h; return; }
   var cols = '<div class="cal-cols">';
-  if (sd.length) cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd, lgs.k) + '</section>';
-  else if (sd2 && sd2.length) cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2><p class="cal-note cal-sub">Saison régulière · '+e(rs.Name)+'</p>' + standingsHTML(sd2, lgs.k) + '</section>';
+  if (sd.length) { var zs = zonesFor(T, sd); cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd, lgs.k, zs) + (zs ? legendHTML(zs) : "") + '</section>'; }
   /* matches: upcoming first (from today), then the results, most recent first */
   var now = Date.now(), up = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && utc(m.DateTime_UTC || m["DateTime UTC"]) && utc(m.DateTime_UTC || m["DateTime UTC"]).getTime() > now - 6 * 3600000; }),
       res = ms.filter(function(m){ return up.indexOf(m) < 0; }).reverse();
@@ -337,9 +429,14 @@ function refresh(){
   getTours().then(function(){
     if (st.lg === "all") return getUpcoming().then(function(ms){ return getTeams([].concat.apply([], ms.map(function(m){ return [m.Team1, m.Team2]; }))); });
     var t = st.tour[st.lg] || (curTour(st.lg) || {}).OverviewPage; if (!t) return;
-    var rs = seasonOf(t);
-    return Promise.all([getMatches(t), getStandings(t), rs ? getStandings(rs.OverviewPage) : Promise.resolve([])]).then(function(r){
-      return getTeams([].concat.apply([], r[0].map(function(m){ return [m.Team1, m.Team2]; })).concat(r[1].concat(r[2]).map(function(s){ return s.Team; })));
+    var T = tourOf(t), extra = [];
+    if (T && !isKnockout(T)) {
+      nextStages(T).forEach(function(S){ extra.push(getMatches(S.OverviewPage)); });
+      var ref = refSeason(T);
+      if (ref) { extra.push(getStandings(ref.OverviewPage)); nextStages(ref).forEach(function(S){ extra.push(getMatches(S.OverviewPage)); }); }
+    }
+    return Promise.all([getMatches(t), T && isKnockout(T) ? Promise.resolve([]) : getStandings(t)].concat(extra.map(function(p){ return p.catch(function(){ return []; }); }))).then(function(r){
+      return getTeams([].concat.apply([], r[0].map(function(m){ return [m.Team1, m.Team2]; })).concat(r[1].map(function(s){ return s.Team; })));
     });
   }).then(draw, function(){ draw(); });
 }

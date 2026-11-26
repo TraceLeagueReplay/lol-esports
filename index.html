@@ -311,6 +311,16 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .cal-chips{margin:4px 0 14px}
 .cal-note{color:var(--muted);margin:10px 0}
 .cal-sub{margin:-4px 0 8px;font-size:13px}
+.cal-grp{font-size:14px;font-weight:700;margin:12px 0 4px;color:var(--fg)}
+/* standings colours: where each team goes after the regular season (solid = sure, light = current place only) */
+.cal-st tr.z td:first-child{box-shadow:inset 4px 0 0 color-mix(in srgb,var(--z) 45%,transparent)}
+.cal-st tr.z.sure td:first-child{box-shadow:inset 4px 0 0 var(--z)}
+.cal-st tr.z.sure td{background:color-mix(in srgb,var(--z) 9%,transparent)}
+.cal-st tr.z.gone td{opacity:.6}
+.cal-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin:10px 0 0;font-size:12px;color:var(--muted)}
+.cal-leg span{display:inline-flex;align-items:center;gap:6px}
+.cal-leg i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.cal-leg .open i{background:none;border:2px solid var(--line-2)}
 .cal-err{color:#e06666;margin:10px 0}
 .cal-next{margin:6px 0 18px;padding-left:18px;line-height:1.8}
 .cal-ext{font-size:13px;text-decoration:none;white-space:nowrap}
