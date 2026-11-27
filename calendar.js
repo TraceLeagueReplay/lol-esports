@@ -193,11 +193,13 @@ function getLogos(names){
 
 /* ---- drawing ---- */
 /* the team's logo: the one used in Rosters when the team is there (light and dark versions), else the wiki's */
+/* black logos from the wiki with no dark-mode file: drawn white in the dark theme */
+var DARK_INV = {"French Flair": 1, "Lille Esport": 1};
 function logo(n, lg){
   var t = data.teams[n], A = window.__app, h = "";
   try { h = A && A.teamLogo ? A.teamLogo(n, t && t.s, lg) : ""; } catch(x){}
   if (h) return '<span class="cal-lg cal-site logo">' + h + '</span>';
-  return t && t.url ? '<img class="cal-lg" src="' + e(t.url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' : '<span class="cal-lg"></span>'; }
+  return t && t.url ? '<img class="cal-lg'+(DARK_INV[cleanName(n)] ? " inv" : "")+'" src="' + e(t.url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' : '<span class="cal-lg"></span>'; }
 function cleanName(n){ return String(n || "").replace(/\s*\([^)]*\)/g, "").trim(); }
 function short(n){ var t = data.teams[n]; return t && t.s ? t.s : cleanName(n) || "?"; }
 function tourOf(op){ return (data.tours || []).filter(function(x){ return x.OverviewPage === op; })[0] || null; }
