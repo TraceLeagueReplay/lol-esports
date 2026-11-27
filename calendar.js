@@ -17,7 +17,7 @@ function allNames(){ return [].concat.apply([], LEAGUES.map(function(l){ return 
 function label(l){ return l.label || l.k; }
 var API = "https://lol.fandom.com/api.php";
 var root = document.createElement("div"); root.className = "cal";
-var st = {lg: lsGet("cal.lg") || "all", sub: (function(){ try { return JSON.parse(sessionStorage.getItem("cal.sub")) || {}; } catch(x){ return {}; } })(), tour: (function(){ try { return JSON.parse(sessionStorage.getItem("cal.tour")) || {}; } catch(x){ return {}; } })(), loading: 0, err: ""};
+var st = {lg: lsGet("cal.lg") || "all", sub: (function(){ try { return JSON.parse(sessionStorage.getItem("cal.sub")) || {}; } catch(x){ return {}; } })(), tour: (function(){ try { return JSON.parse(sessionStorage.getItem("cal.tour")) || {}; } catch(x){ return {}; } })(), wk: {}, loading: 0, err: ""};
 var data = {tours: null, matches: {}, standings: {}, teams: {}, upcoming: null};
 
 function lsGet(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } }
@@ -508,28 +508,37 @@ function draw(){
     (segs.length ? '<select class="cal-sel" aria-label="Compétition">' + segs.slice().reverse().map(function(g){ return '<option value="'+e(g.id)+'"'+(S && g.id === S.id ? " selected" : "")+'>'+e(g.name)+'</option>'; }).join("") + '</select>' : "") + '</div>';
   var nt = nextTour(lgs.k); if (nt && (!S || S.stages.indexOf(nt) < 0)) h += '<p class="cal-note">Prochaine compétition : <b>'+e(nt.Name)+'</b>, à partir du '+e(day(nt.DateStart).toLocaleDateString(loc(), {day: "numeric", month: "long", year: "numeric"}))+'.</p>';
   if (!S) { root.innerHTML = h + '<p class="cal-note">Aucune compétition trouvée.</p>'; return; }
-  /* the page of a segment in small tabs: Classement (standings + head to head) | Matchs | Playoffs (bracket)… */
-  var tabs = [], all = [], wait = false;
+  /* the page of a segment in small tabs: Saison régulière (standings + head to head + its matches week by week) | Playoffs (bracket)… */
+  var tabs = [], wait = false;
   S.stages.forEach(function(T){
     var ms = data.matches[T.OverviewPage], sd = isKnockout(T) ? [] : data.standings[T.OverviewPage];
     if (!ms || !sd) { wait = true; return; }
-    all = all.concat(ms);
     stageTabs(T, ms, sd, lgs, S).forEach(function(t){ tabs.push(t); });
   });
   if (wait) { root.innerHTML = h + '<p class="cal-note">Chargement…</p>'; return; }
-  /* « Matchs » comes after the season (or the main stage), before the playoffs */
-  var at = 0; tabs.forEach(function(t, i){ if (!t.ko) at = i + 1; });
-  tabs.splice(at, 0, {id: "matchs", label: en() ? "Matches" : "Matchs", html: matchesHTML(all)});
   var want = (st.sub[lgs.k] || {})[S.id], cur = tabs.filter(function(t){ return t.id === want; })[0] || tabs.filter(function(t){ return t.live; })[0] || tabs[0];
   h += '<div class="tlkind cal-tabs" role="tablist">' + tabs.map(function(t){ return '<button type="button" role="tab" data-cal="sub" data-v="'+e(t.id)+'" aria-selected="'+(t === cur)+'">'+e(t.label)+'</button>'; }).join("") + '</div>';
   root.innerHTML = h + '<div class="cal-tab">' + cur.html + '</div>';
 }
-function matchesHTML(ms){
-  var now = Date.now(), up = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && utc(m.DateTime_UTC || m["DateTime UTC"]) && utc(m.DateTime_UTC || m["DateTime UTC"]).getTime() > now - 6 * 3600000; }),
-      res = ms.filter(function(m){ return up.indexOf(m) < 0; }).sort(function(a, b){ return String(b.DateTime_UTC || b["DateTime UTC"]).localeCompare(String(a.DateTime_UTC || a["DateTime UTC"])); });
-  up.sort(function(a, b){ return String(a.DateTime_UTC || a["DateTime UTC"]).localeCompare(String(b.DateTime_UTC || b["DateTime UTC"])); });
-  if (!ms.length) return '<p class="cal-note">Pas encore de match annoncé pour cette compétition.</p>';
-  return '<div class="cal-matches">' + (up.length ? '<h2 class="cal-h2">À venir</h2>' + byDay(up, false) : "") + (res.length ? '<h2 class="cal-h2">Résultats</h2>' + byDay(res, false) : "") + '</div>';
+/* the matches of a stage that are not in a bracket, one round at a time (Week / Day / Round…), with arrows to move;
+   by default the round being played (or the next one), else the last one */
+function roundLabel(t){
+  if (en()) return t || "";
+  return String(t || "").replace(/^Week (\d+)$/i, "Semaine $1").replace(/^Day (\d+)$/i, "Jour $1").replace(/^Round (\d+)$/i, "Tour $1").replace(/^Tiebreakers?$/i, "Départages");
+}
+function pagedMatches(id, ms){
+  var when = function(m){ return String(m.DateTime_UTC || m["DateTime UTC"] || ""); };
+  var list = ms.slice().sort(function(a, b){ return when(a).localeCompare(when(b)); }), tabs = [];
+  list.forEach(function(m){ var t = m.Tab || ""; if (tabs.indexOf(t) < 0) tabs.push(t); });
+  var head = '<h2 class="cal-h2">'+(en() ? "Matches" : "Matchs")+'</h2>';
+  if (!tabs.length) return '<section class="cal-sec cal-wk">' + head + '<p class="cal-note">'+(en() ? "No match announced yet." : "Pas encore de match annoncé.")+'</p></section>';
+  var now = Date.now(), nx = list.filter(function(m){ var d = utc(when(m)); return !(m.Winner === "1" || m.Winner === "2") && d && d.getTime() > now - 6 * 3600000; })[0];
+  var want = st.wk[id], i = tabs.indexOf(want);
+  if (i < 0) i = nx ? tabs.indexOf(nx.Tab || "") : tabs.length - 1;
+  var t = tabs[i], btn = function(j, txt, lab){ return '<button type="button" class="cal-pg-b" data-cal="wk" data-k="'+e(id)+'" data-v="'+e(j >= 0 && j < tabs.length ? tabs[j] : "")+'" aria-label="'+lab+'"'+(j < 0 || j >= tabs.length ? " disabled" : "")+'>'+txt+'</button>'; };
+  var pager = tabs.length > 1 ? '<div class="cal-pg">' + btn(i - 1, "‹", en() ? "Previous" : "Précédent") + '<span class="cal-pg-l">' + e(roundLabel(t)) + '<small>' + (i + 1) + ' / ' + tabs.length + '</small></span>' + btn(i + 1, "›", en() ? "Next" : "Suivant") + '</div>'
+    : '<div class="cal-pg"><span class="cal-pg-l">' + e(roundLabel(t)) + '</span></div>';
+  return '<section class="cal-sec cal-wk"><div class="cal-wk-h">' + head + pager + '</div>' + byDay(list.filter(function(m){ return (m.Tab || "") === t; }), false) + '</section>';
 }
 /* one segment of a league = a regular season and what follows it (playoffs, play-in, grand finals…);
    for the international tournaments: all the stages of one event (Worlds 2026 = Play-In + Main Event) */
@@ -582,12 +591,13 @@ function stageTabs(T, ms, sd, lgs, S){
   if (!ko) {
     sd = dedupe(sd);
     var srt = sd.slice().sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); });
-    if (swiss) out.push({id: T.OverviewPage + "|swiss", label: en() ? "Swiss stage" : "Phase suisse", html: swissHTML(rest, srt, lgs.k, T), live: live});
+    if (swiss) out.push({id: T.OverviewPage + "|swiss", label: en() ? "Swiss stage" : "Phase suisse", live: live,
+      html: '<div class="cal-cols swiss">' + swissHTML(rest, srt, lgs.k, T) + pagedMatches(T.OverviewPage + "|swiss", rest) + '</div>'});
     else if (sd.length) {
       var zs = zonesFor(T, sd);
       out.push({id: T.OverviewPage + "|cl", label: many && lgs.k === "INTL" ? name : (en() ? "Regular season" : "Saison régulière"), live: live,
         html: '<div class="cal-cols"><section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd, lgs.k, zs) + (zs ? legendHTML(zs) : "") + '</section>' +
-              '<section class="cal-sec">' + h2hHTML(seasonMatches(rest), srt, lgs.k) + '</section></div>'});
+              '<section class="cal-sec">' + h2hHTML(seasonMatches(rest), srt, lgs.k) + '</section></div>' + pagedMatches(T.OverviewPage + "|cl", rest)});
     }
   }
   if (po.length >= 2) out.push({id: T.OverviewPage + "|br", ko: true, live: live && ko, label: ko ? name : "Playoffs",
@@ -620,6 +630,7 @@ root.addEventListener("click", function(ev){
     try { sessionStorage.setItem("cal.sub", JSON.stringify(st.sub)); } catch(x){}
     draw(); return;
   }
+  if (b.getAttribute("data-cal") === "wk") { if (!b.disabled) { st.wk[b.getAttribute("data-k")] = b.getAttribute("data-v"); draw(); } return; }
   if (b.getAttribute("data-cal") === "lg") { st.lg = b.getAttribute("data-v"); lsSet("cal.lg", st.lg); draw(); refresh(); }
 });
 root.addEventListener("change", function(ev){

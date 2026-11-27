@@ -409,7 +409,16 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 /* one page per segment: regular season, then playoffs (or Play-In, Main Event…), well apart */
 .cal-stage + .cal-stage{margin-top:30px;padding-top:18px;border-top:2px solid var(--line-2)}
 .cal-tabs{margin:2px 0 16px;flex-wrap:wrap}
-.cal-matches{max-width:760px}
+.cal-wk{max-width:760px;margin-top:8px}
+.cal-cols.swiss .cal-wk{margin-top:0}
+.cal-wk-h{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:18px 0 12px}
+.cal-wk-h .cal-h2{margin:0}
+.cal-pg{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line-2);border-radius:999px;padding:3px;background:var(--panel)}
+.cal-pg-b{width:30px;height:30px;border:0;border-radius:50%;background:transparent;color:var(--fg);font-size:20px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0 0 2px}
+.cal-pg-b:hover:not(:disabled){background:var(--panel-2)}
+.cal-pg-b:disabled{opacity:.25;cursor:default}
+.cal-pg-l{min-width:132px;text-align:center;font-weight:700;font-size:13px;white-space:nowrap}
+.cal-pg-l small{margin-left:7px;font-weight:500;font-size:11px;color:var(--muted)}
 .cal-stage-h{font:700 26px/1 var(--f-display);letter-spacing:.03em;text-transform:uppercase;margin:6px 0 12px}
 .br{display:flex;gap:18px;overflow-x:auto;padding-bottom:8px;align-items:stretch}
 .br-lanes{display:flex;flex-direction:column;gap:6px;flex:none}
