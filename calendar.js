@@ -526,7 +526,9 @@ function segPick(k, segs){
   var want = st.tour[k], cur = curTour(k), find = function(op){ return segs.filter(function(g){ return g.id === op || g.stages.some(function(t){ return t.OverviewPage === op; }); })[0]; };
   return (want && find(want)) || (cur && find(cur.OverviewPage)) || segs[segs.length - 1] || null;
 }
-function stageName(T, S){ var n = T.Name.indexOf(S.name) === 0 ? T.Name.slice(S.name.length).trim() : T.Name; return n || T.Name; }
+var STAGE_END = /(Play-In|Playoffs|Grand Finals?|Regional Finals|Road to MSI|Knight's Road|Swiss Stage|Main Event|Group Stage|Bracket Stage|Qualifiers?|Tiebreakers?)$/i;
+function stageName(T, S){ var n = T.Name.indexOf(S.name) === 0 ? T.Name.slice(S.name.length).trim() : "";
+  if (!n) { var m = T.Name.match(STAGE_END); n = m ? m[1] : T.Name; } return n; }
 /* the matches of a regular season that are not part of it (tiebreakers, playoffs on the same wiki page): other match length, or a bracket round */
 function majority(list, f){ var n = {}; list.forEach(function(x){ var k = f(x); n[k] = (n[k] || 0) + 1; }); return Object.keys(n).sort(function(a, b){ return n[b] - n[a]; })[0]; }
 var KO_TAB = /^(Bracket|Upper|Lower|Quarter|Semi|Grand Final|Finals?$|Round \d+$|Round of|Knockout|Playoffs?\b)/i;
@@ -562,7 +564,7 @@ function stageTabs(T, ms, sd, lgs, S){
               '<section class="cal-sec">' + h2hHTML(seasonMatches(rest), srt, lgs.k) + '</section></div>'});
     }
   }
-  if (po.length >= 2) out.push({id: T.OverviewPage + "|br", ko: true, live: live && ko, label: ko ? (many ? name : T.Name.replace(/^.*\s(Playoffs|Play-In|Grand Finals|Road to MSI|Knight's Road)$/i, "$1")) : "Playoffs",
+  if (po.length >= 2) out.push({id: T.OverviewPage + "|br", ko: true, live: live && ko, label: ko ? name : "Playoffs",
     html: '<section class="cal-brs">' + bracketHTML(po, lgs.k) + '</section>'});
   return out;
 }
