@@ -244,7 +244,7 @@ function standingsHTML(rows, lg, zs){
   if (rows.some(function(r){ return r.group; })) {
     var order = [], by = {};
     rows.forEach(function(r){ var k = r.group || ""; if (!by[k]) { by[k] = []; order.push(k); } by[k].push(r); });
-    return order.map(function(k){ return (k ? '<h3 class="cal-grp">'+e(k)+'</h3>' : "") + standingsHTML(by[k].map(function(r){ var c = {}; for (var x in r) c[x] = r[x]; c.group = ""; return c; }), lg); }).join("");
+    return order.map(function(k){ return (k ? '<h3 class="cal-grp">'+e(k)+'</h3>' : "") + standingsHTML(by[k].map(function(r){ var c = {}; for (var x in r) c[x] = r[x]; c.group = ""; return c; }), lg, zs); }).join("");
   }
   return '<div class="cal-st"><table><thead><tr><th>#</th><th>Équipe</th><th title="Victoires – défaites (matchs)">V – D</th><th title="Parties gagnées – perdues" class="g">Parties</th><th class="g">Série</th></tr></thead><tbody>' +
     rows.map(function(r){ var gd = (+r.WinGames || 0) - (+r.LossGames || 0), played = rows.some(function(x){ return +x.WinSeries || +x.LossSeries; });
