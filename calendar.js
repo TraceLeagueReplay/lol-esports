@@ -406,9 +406,27 @@ function zonesFor(T, rows){
   return res;
 }
 /* ---- head to head: every result between two teams of the season (row team's score first) ---- */
+/* teams split in groups that never meet (LCK Legend / Rise…): the group names from the wiki, or else the groups of teams that played each other */
+function h2hGroups(ms, rows){
+  var teams = rows.map(function(r){ return r.Team; }), named = rows.some(function(r){ return r.group; });
+  var g = {}; teams.forEach(function(t){ g[t] = t; });
+  function root(t){ while (g[t] !== t) t = g[t] = g[g[t]]; return t; }
+  if (named) rows.forEach(function(r){ g[r.Team] = "§" + (r.group || ""); g["§" + (r.group || "")] = "§" + (r.group || ""); });
+  else ms.forEach(function(m){ if (m.Team1 in g && m.Team2 in g) g[root(m.Team1)] = root(m.Team2); });
+  var by = {}, order = [];
+  teams.forEach(function(t){ var k = root(t); if (!by[k]) { by[k] = []; order.push(k); } by[k].push(t); });
+  var gs = order.map(function(k){ return {name: named ? k.slice(1) : "", teams: by[k]}; });
+  /* only when it really is groups: two or more, each of at least 3 teams, and some matches played */
+  var played = ms.some(function(m){ return m.Winner === "1" || m.Winner === "2"; });
+  return gs.length > 1 && played && gs.every(function(x){ return x.teams.length >= 3; }) ? gs : [{name: "", teams: teams}];
+}
 function h2hHTML(ms, rows, lgK){
-  var teams = rows.map(function(r){ return r.Team; });
-  if (teams.length < 3) return "";
+  var gs = h2hGroups(ms, rows);
+  if (gs.length > 1) return '<section class="cal-h2h"><h2 class="cal-h2">Face-à-face</h2>' + gs.map(function(x){
+    return (x.name ? '<h3 class="cal-h3">' + e(x.name) + '</h3>' : '') + h2hTable(ms, x.teams, lgK); }).join('<div class="h2h-gap"></div>') + '</section>';
+  return rows.length < 3 ? "" : '<section class="cal-h2h"><h2 class="cal-h2">Face-à-face</h2>' + h2hTable(ms, rows.map(function(r){ return r.Team; }), lgK) + '</section>';
+}
+function h2hTable(ms, teams, lgK){
   var idx = {}; teams.forEach(function(t, i){ idx[t] = i; });
   var cell = {}, tot = {};
   teams.forEach(function(t){ tot[t] = [0, 0]; });
@@ -430,7 +448,7 @@ function h2hHTML(ms, rows, lgK){
         rs.reduce(function(s, x){ return s + x[0]; }, 0) + "-" + rs.reduce(function(s, x){ return s + x[1]; }, 0) + '</td>';
     }).join("") + '<td class="tot '+(tot[a][0] > tot[a][1] ? "won" : tot[a][0] < tot[a][1] ? "lost" : "split")+'">'+tot[a][0]+" - "+tot[a][1]+'</td></tr>';
   }).join("");
-  return '<section class="cal-h2h"><h2 class="cal-h2">Face-à-face</h2><div class="h2h-wrap"><table class="h2h">' + head + body + '</table></div></section>';
+  return '<div class="h2h-wrap"><table class="h2h">' + head + body + '</table></div>';
 }
 /* ---- Swiss stage (Worlds…): for each team, the opponent of every round, green when won, red when lost ---- */
 function swissRounds(ms){ var r = []; ms.forEach(function(m){ var x = /^Round (\d+)$/i.exec(m.Tab || ""); if (x && r.indexOf(+x[1]) < 0) r.push(+x[1]); }); return r.sort(function(a, b){ return a - b; }); }
