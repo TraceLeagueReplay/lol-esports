@@ -17,7 +17,7 @@ function allNames(){ return [].concat.apply([], LEAGUES.map(function(l){ return 
 function label(l){ return l.label || l.k; }
 var API = "https://lol.fandom.com/api.php";
 var root = document.createElement("div"); root.className = "cal";
-var st = {lg: lsGet("cal.lg") || "all", tour: (function(){ try { return JSON.parse(sessionStorage.getItem("cal.tour")) || {}; } catch(x){ return {}; } })(), loading: 0, err: ""};
+var st = {lg: lsGet("cal.lg") || "all", sub: (function(){ try { return JSON.parse(sessionStorage.getItem("cal.sub")) || {}; } catch(x){ return {}; } })(), tour: (function(){ try { return JSON.parse(sessionStorage.getItem("cal.tour")) || {}; } catch(x){ return {}; } })(), loading: 0, err: ""};
 var data = {tours: null, matches: {}, standings: {}, teams: {}, upcoming: null};
 
 function lsGet(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } }
@@ -484,14 +484,28 @@ function draw(){
     (segs.length ? '<select class="cal-sel" aria-label="Compétition">' + segs.slice().reverse().map(function(g){ return '<option value="'+e(g.id)+'"'+(S && g.id === S.id ? " selected" : "")+'>'+e(g.name)+'</option>'; }).join("") + '</select>' : "") + '</div>';
   var nt = nextTour(lgs.k); if (nt && (!S || S.stages.indexOf(nt) < 0)) h += '<p class="cal-note">Prochaine compétition : <b>'+e(nt.Name)+'</b>, à partir du '+e(day(nt.DateStart).toLocaleDateString(loc(), {day: "numeric", month: "long", year: "numeric"}))+'.</p>';
   if (!S) { root.innerHTML = h + '<p class="cal-note">Aucune compétition trouvée.</p>'; return; }
-  var many = S.stages.length > 1, out = "", wait = false;
+  /* the page of a segment in small tabs: Classement (standings + head to head) | Matchs | Playoffs (bracket)… */
+  var tabs = [], all = [], wait = false;
   S.stages.forEach(function(T){
     var ms = data.matches[T.OverviewPage], sd = isKnockout(T) ? [] : data.standings[T.OverviewPage];
-    var title = !many ? "" : !isKnockout(T) && lgs.k !== "INTL" ? (en() ? "Regular season" : "Saison régulière") : stageName(T, S);
     if (!ms || !sd) { wait = true; return; }
-    stageParts(T, ms, sd, lgs, title).forEach(function(p){ out += '<section class="cal-stage">' + (p.title ? '<h2 class="cal-stage-h">'+e(p.title)+'</h2>' : "") + p.html + '</section>'; });
+    all = all.concat(ms);
+    stageTabs(T, ms, sd, lgs, S).forEach(function(t){ tabs.push(t); });
   });
-  root.innerHTML = h + out + (wait ? '<p class="cal-note">Chargement…</p>' : "");
+  if (wait) { root.innerHTML = h + '<p class="cal-note">Chargement…</p>'; return; }
+  /* « Matchs » comes after the season (or the main stage), before the playoffs */
+  var at = 0; tabs.forEach(function(t, i){ if (!t.ko) at = i + 1; });
+  tabs.splice(at, 0, {id: "matchs", label: en() ? "Matches" : "Matchs", html: matchesHTML(all)});
+  var want = (st.sub[lgs.k] || {})[S.id], cur = tabs.filter(function(t){ return t.id === want; })[0] || tabs.filter(function(t){ return t.live; })[0] || tabs[0];
+  h += '<div class="tlkind cal-tabs" role="tablist">' + tabs.map(function(t){ return '<button type="button" role="tab" data-cal="sub" data-v="'+e(t.id)+'" aria-selected="'+(t === cur)+'">'+e(t.label)+'</button>'; }).join("") + '</div>';
+  root.innerHTML = h + '<div class="cal-tab">' + cur.html + '</div>';
+}
+function matchesHTML(ms){
+  var now = Date.now(), up = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && utc(m.DateTime_UTC || m["DateTime UTC"]) && utc(m.DateTime_UTC || m["DateTime UTC"]).getTime() > now - 6 * 3600000; }),
+      res = ms.filter(function(m){ return up.indexOf(m) < 0; }).sort(function(a, b){ return String(b.DateTime_UTC || b["DateTime UTC"]).localeCompare(String(a.DateTime_UTC || a["DateTime UTC"])); });
+  up.sort(function(a, b){ return String(a.DateTime_UTC || a["DateTime UTC"]).localeCompare(String(b.DateTime_UTC || b["DateTime UTC"])); });
+  if (!ms.length) return '<p class="cal-note">Pas encore de match annoncé pour cette compétition.</p>';
+  return '<div class="cal-matches">' + (up.length ? '<h2 class="cal-h2">À venir</h2>' + byDay(up, false) : "") + (res.length ? '<h2 class="cal-h2">Résultats</h2>' + byDay(res, false) : "") + '</div>';
 }
 /* one segment of a league = a regular season and what follows it (playoffs, play-in, grand finals…);
    for the international tournaments: all the stages of one event (Worlds 2026 = Play-In + Main Event) */
@@ -531,28 +545,26 @@ function dedupe(sd){
   var best = {}; sd.forEach(function(r){ var n = (+r.WinSeries || 0) + (+r.LossSeries || 0); if (!best[r.Team] || n > best[r.Team].n) best[r.Team] = {r: r, n: n}; });
   return sd.filter(function(r){ return best[r.Team].r === r; });
 }
-function stageParts(T, ms, sd, lgs, title){
-  var ko = isKnockout(T) || /play-in/i.test(T.Name), po = ko ? [] : innerPlayoffs(ms);
-  if (po.length < 2) return [{title: title, html: stageHTML(T, ms, sd, lgs)}];
-  var rest = ms.filter(function(m){ return po.indexOf(m) < 0; });
-  return [{title: title || (en() ? "Regular season" : "Saison régulière"), html: stageHTML(T, rest, sd, lgs)},
-          {title: "Playoffs", html: '<section class="cal-brs">' + bracketHTML(po, lgs.k) + '</section>'}];
-}
-function stageHTML(T, ms, sd, lgs){
-  var h = "", bms = ms.filter(function(m){ return isBracket(m, T); }), ko = isKnockout(T) || /play-in/i.test(T.Name);
-  if (bms.length >= 2) h += '<section class="cal-brs">' + (ko ? "" : '<h2 class="cal-h2">Arbre</h2>') + bracketHTML(bms, lgs.k) + '</section>';
-  if (ko) return bms.length >= 2 ? h : h + (ms.length ? byDay(ms.slice().reverse(), false) : '<p class="cal-note">Pas encore de match annoncé.</p>');
-  sd = dedupe(sd);
-  var srt = sd.slice().sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); });
-  var swiss = swissRounds(ms).length >= 3 && lgs.k === "INTL";
-  var cols = '<div class="cal-cols'+(swiss ? " swiss" : "")+'">', h2h = "";
-  if (swiss) cols += '<section class="cal-sec">' + swissHTML(ms, srt, lgs.k, T) + '</section>';
-  else if (sd.length) { var zs = zonesFor(T, sd); cols += '<section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd, lgs.k, zs) + (zs ? legendHTML(zs) : "") + '</section>'; h2h = h2hHTML(seasonMatches(ms), srt, lgs.k); }
-  var now = Date.now(), up = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && utc(m.DateTime_UTC || m["DateTime UTC"]) && utc(m.DateTime_UTC || m["DateTime UTC"]).getTime() > now - 6 * 3600000; }),
-      res = ms.filter(function(m){ return up.indexOf(m) < 0 && bms.indexOf(m) < 0; }).reverse();
-  cols += '<section class="cal-sec">' + h2h + (up.length ? '<h2 class="cal-h2">À venir</h2>' + byDay(up, false) : "") + (res.length ? '<h2 class="cal-h2">Résultats</h2>' + byDay(res, false) : "") +
-    (!ms.length ? '<p class="cal-note">Pas encore de match annoncé pour cette compétition.</p>' : "") + '</section></div>';
-  return h + cols;
+function stageTabs(T, ms, sd, lgs, S){
+  var many = S.stages.length > 1, name = stageName(T, S), out = [];
+  var live = (function(){ var a = day(T.DateStart), b = day(T.Date), n = Date.now(); return !!(a && a.getTime() <= n && (!b || b.getTime() + 86400000 >= n)); })();
+  var ko = isKnockout(T) || /play-in/i.test(T.Name);
+  var po = ko ? ms.filter(function(m){ return isBracket(m, T); }) : innerPlayoffs(ms);
+  var rest = ko ? [] : ms.filter(function(m){ return po.indexOf(m) < 0; });
+  if (!ko) {
+    sd = dedupe(sd);
+    var srt = sd.slice().sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); });
+    if (swissRounds(rest).length >= 3 && lgs.k === "INTL") out.push({id: T.OverviewPage + "|swiss", label: en() ? "Swiss stage" : "Phase suisse", html: swissHTML(rest, srt, lgs.k, T), live: live});
+    else if (sd.length) {
+      var zs = zonesFor(T, sd);
+      out.push({id: T.OverviewPage + "|cl", label: many && lgs.k === "INTL" ? name : (en() ? "Standings" : "Classement"), live: live,
+        html: '<div class="cal-cols"><section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd, lgs.k, zs) + (zs ? legendHTML(zs) : "") + '</section>' +
+              '<section class="cal-sec">' + h2hHTML(seasonMatches(rest), srt, lgs.k) + '</section></div>'});
+    }
+  }
+  if (po.length >= 2) out.push({id: T.OverviewPage + "|br", ko: true, live: live && ko, label: ko ? (many ? name : T.Name.replace(/^.*\s(Playoffs|Play-In|Grand Finals|Road to MSI|Knight's Road)$/i, "$1")) : "Playoffs",
+    html: '<section class="cal-brs">' + bracketHTML(po, lgs.k) + '</section>'});
+  return out;
 }
 
 function refresh(){
@@ -574,6 +586,12 @@ function refresh(){
 
 root.addEventListener("click", function(ev){
   var b = ev.target.closest("[data-cal]"); if (!b) return;
+  if (b.getAttribute("data-cal") === "sub") {
+    var S = segPick(st.lg); if (!S) return;
+    (st.sub[st.lg] = st.sub[st.lg] || {})[S.id] = b.getAttribute("data-v");
+    try { sessionStorage.setItem("cal.sub", JSON.stringify(st.sub)); } catch(x){}
+    draw(); return;
+  }
   if (b.getAttribute("data-cal") === "lg") { st.lg = b.getAttribute("data-v"); lsSet("cal.lg", st.lg); draw(); refresh(); }
 });
 root.addEventListener("change", function(ev){
