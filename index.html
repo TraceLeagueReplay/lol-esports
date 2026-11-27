@@ -332,6 +332,7 @@ dialog::backdrop{background:rgba(8,11,18,.55)}
 .h2h tr > th:first-child .nm{margin-left:6px}
 .h2h th .cal-lg,.h2h th .cal-site.logo{width:26px;height:26px;vertical-align:middle}.h2h th .cal-site.logo img{max-width:26px;max-height:26px}
 .h2h td{min-width:52px;height:41px;text-align:center;border-radius:4px;font-weight:700;padding:2px 4px;line-height:1.2;box-sizing:border-box}
+.h2h-s,.h2h-g{display:block}.h2h-g{font-size:10px;font-weight:600;opacity:.75;line-height:1.1}
 .h2h td.won{background:var(--lp-win)}
 .h2h td.lost{background:var(--lp-loss)}
 .h2h td.split{background:var(--lp-draw)}
@@ -756,7 +757,7 @@ function duoHTML(L, D){ return '<span class="duo"><img class="lm" src="'+esc(L)+
 /* (then a bit bigger for the logos that looked small: very wide or very tall ones) */
 var LOGO_SCALE = {"LEC/FNC": 1.15, "LCK/HLE": 1.2,
   "LCP/SHG": 1.15, "CBLOL/LOS": 1.15, "LCK/DK": 1.15, "LCP/DCG": 1.15, "LPL/BLG": 1.15, "LCK/T1": 1.15, "LCP/MVK": 1.15,
-  "LFL/TLN": 1.1, "LCK/DNS": 1.1, "LCP/TSW": 1.1, "LEC/MKOI": 1.1, "LPL/JDG": 1.1, "LFL/ZYB": 1.1};
+  "LFL/TLN": 1.1, "LCK/DNS": 0.95, "LCP/TSW": 1.1, "LEC/MKOI": 1.1, "LPL/JDG": 1.1, "LFL/ZYB": 1.1};
 var LOGO_TALL = {"LCK/DNS": 1, "LEC/MKOI": 1};
 function logoHTML(t, cls){
   var L = logoSrc(t), D = darkSrc(t), sc = t && LOGO_SCALE[t.logo];

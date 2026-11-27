@@ -442,16 +442,18 @@ function h2hHTML(ms, rows, lgK){
     return (x.name ? '<h3 class="cal-h3">' + e(x.name) + '</h3>' : '') + h2hTable(ms, x.teams, lgK); }).join('<div class="h2h-gap"></div>') + '</section>';
   return rows.length < 3 ? "" : '<section class="cal-h2h"><h2 class="cal-h2">Face-à-face</h2>' + h2hTable(ms, rows.map(function(r){ return r.Team; }), lgK) + '</section>';
 }
+function sc2(w, l, gw, gl){ return '<span class="h2h-s">' + w + "-" + l + '</span><span class="h2h-g">(' + gw + "-" + gl + ')</span>'; }
 function h2hTable(ms, teams, lgK){
   var idx = {}; teams.forEach(function(t, i){ idx[t] = i; });
   var cell = {}, tot = {};
-  teams.forEach(function(t){ tot[t] = [0, 0]; });
+  teams.forEach(function(t){ tot[t] = [0, 0, 0, 0]; });
   ms.forEach(function(m){
     if (!(m.Winner === "1" || m.Winner === "2") || !(m.Team1 in idx) || !(m.Team2 in idx)) return;
     var a = m.Team1, b = m.Team2, sa = +m.Team1Score || (m.Winner === "1" ? 1 : 0), sb = +m.Team2Score || (m.Winner === "2" ? 1 : 0);
     (cell[a + "|" + b] = cell[a + "|" + b] || []).push([sa, sb, m.Winner === "1"]);
     (cell[b + "|" + a] = cell[b + "|" + a] || []).push([sb, sa, m.Winner === "2"]);
     tot[a][m.Winner === "1" ? 0 : 1]++; tot[b][m.Winner === "2" ? 0 : 1]++;
+    tot[a][2] += sa; tot[a][3] += sb; tot[b][2] += sb; tot[b][3] += sa;
   });
   var head = '<tr><th></th>' + teams.map(function(t){ return '<th title="'+e(t)+'">'+logo(t, lgK)+'</th>'; }).join("") + '<th class="tot">Total</th></tr>';
   var body = teams.map(function(a){
@@ -459,10 +461,10 @@ function h2hTable(ms, teams, lgK){
       if (a === b) return '<td class="self"></td>';
       var rs = cell[a + "|" + b];
       if (!rs) return '<td class="none">·</td>';
-      var w = rs.filter(function(x){ return x[2]; }).length, cls = w === rs.length ? "won" : w === 0 ? "lost" : "split";
-      return '<td class="'+cls+'" title="'+e(short(a)+" – "+short(b)+" : "+rs.map(function(x){ return x[0] + "-" + x[1]; }).join(", "))+'">' +
-        rs.reduce(function(s, x){ return s + x[0]; }, 0) + "-" + rs.reduce(function(s, x){ return s + x[1]; }, 0) + '</td>';
-    }).join("") + '<td class="tot '+(tot[a][0] > tot[a][1] ? "won" : tot[a][0] < tot[a][1] ? "lost" : "split")+'">'+tot[a][0]+" - "+tot[a][1]+'</td></tr>';
+      /* series won - lost, and the games below in small */
+      var w = rs.filter(function(x){ return x[2]; }).length, l = rs.length - w, cls = w > l ? "won" : w < l ? "lost" : "split";
+      return '<td class="'+cls+'" title="'+e(short(a)+" – "+short(b)+" : "+rs.map(function(x){ return x[0] + "-" + x[1]; }).join(", "))+'">' + sc2(w, l, rs.reduce(function(s, x){ return s + x[0]; }, 0), rs.reduce(function(s, x){ return s + x[1]; }, 0)) + '</td>';
+    }).join("") + '<td class="tot '+(tot[a][0] > tot[a][1] ? "won" : tot[a][0] < tot[a][1] ? "lost" : "split")+'">'+sc2(tot[a][0], tot[a][1], tot[a][2], tot[a][3])+'</td></tr>';
   }).join("");
   return '<div class="h2h-wrap"><table class="h2h">' + head + body + '</table></div>';
 }
