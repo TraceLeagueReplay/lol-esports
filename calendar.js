@@ -370,12 +370,15 @@ function refSeason(T){
 }
 /* from the stages that followed: zone of every team of the season (null if those stages are not known yet) */
 function outcome(T){
-  var st2 = nextStages(T); if (!st2.length) return null;
+  var st2 = nextStages(T).map(function(S){ return {name: S.Name, ms: data.matches[S.OverviewPage]}; });
+  /* no stage after it: the playoffs may be on the same wiki page (LCK Cup…) */
+  if (!st2.length) { var inner = innerPlayoffs(data.matches[T.OverviewPage] || []); if (inner.length >= 2) st2 = [{name: "Playoffs", ms: inner}]; }
+  if (!st2.length) return null;
   var z = {}, any = false;
   st2.forEach(function(S){
-    var ms = data.matches[S.OverviewPage]; if (!ms) return;
+    var ms = S.ms; if (!ms) return;
     var known = function(t){ return t && t !== "TBD"; };
-    if (/play-in/i.test(S.Name) && !/playoffs/i.test(S.Name)) { ms.forEach(function(m){ [m.Team1, m.Team2].forEach(function(t){ if (known(t)) { z[t] = "playin"; any = true; } }); }); return; }
+    if (/play-in/i.test(S.name) && !/playoffs/i.test(S.name)) { ms.forEach(function(m){ [m.Team1, m.Team2].forEach(function(t){ if (known(t)) { z[t] = "playin"; any = true; } }); }); return; }
     var L = lanesOf(ms), list = L.list, main = list.filter(function(m){ return !/knight|qualif|play-?in/i.test(m.Tab); }), first = main.length ? main[0].Tab : "";
     var dbl = list.some(function(m, i){ return L.lane(i) === "lower"; });
     list.forEach(function(m, i){ [m.Team1, m.Team2].forEach(function(t){
