@@ -267,7 +267,7 @@ function isBracket(m, T){
   if (/^(Bracket|Upper|Lower|Quarter|Semi|Grand Final|Finals?$|Round of|Knockout|Playoffs?\b)/i.test(tab)) return true;
   return !!(T && /playoffs/i.test(T.Name) && /^(Round \d+|Finals?)$/i.test(tab));
 }
-function brTab(s){ if (en()) return s; return String(s).replace(/^Bracket /, "").replace(/^Round (\d+)$/, "Tour $1").replace(/^Quarterfinals?$/i, "Quarts de finale").replace(/^Semifinals?$/i, "Demi-finales").replace(/^Grand Finals?$/i, "Grande finale").replace(/^Finals?$/i, "Finale").replace(/^Upper /, "").replace(/^Lower /, ""); }
+function brTab(s){ if (en()) return s; return String(s).replace(/^Bracket /, "").replace(/^Round (\d+)$/, "Tour $1").replace(/^Quarterfinals?$/i, "Quarts de finale").replace(/^Semifinals?$/i, "Demi-finales").replace(/^Grand Finals?$/i, "Finale").replace(/^Finals?$/i, "Finale").replace(/^Upper /, "").replace(/^Lower /, ""); }
 /* rounds played before the bracket itself (LPL Knight's Road…): their winners join the bracket, shown apart above it */
 var PRE_TAB = /^(Knight'?s Road|Play-?In|Qualif|Last Chance|Road to)/i;
 /* order the matches of a bracket and tell for each one: pre, upper, lower or final */
@@ -291,6 +291,15 @@ function lanesOf(ms){
   list.forEach(function(m, i){ var k = m.Tab + "|" + i; if (lane[k] !== "?") return;
     var others = list.map(function(x, j){ return x.Tab === m.Tab ? lane[x.Tab + "|" + j] : null; }).filter(function(v){ return v && v !== "?"; });
     lane[k] = others.length && others.every(function(v){ return v === others[0]; }) ? others[0] : "upper"; });
+  /* once played, a match tells its bracket by itself: in the upper bracket the loser plays again, in the lower one he is out
+     (so a gauntlet where 3rd–6th start « below » the 1st-vs-2nd match is drawn right, LFL…); only for double elimination brackets */
+  var done = function(m){ return m.Winner === "1" || m.Winner === "2"; }, loserOf = function(m){ return m.Winner === "1" ? m.Team2 : m.Team1; };
+  var again = function(i){ var t = loserOf(list[i]); return list.slice(i + 1).some(function(x){ return x.Team1 === t || x.Team2 === t; }); };
+  var isDbl = list.some(function(m, i){ return done(m) && lane[m.Tab + "|" + i] !== "pre" && again(i); });
+  if (isDbl) list.forEach(function(m, i){ var k = m.Tab + "|" + i;
+    if (!done(m) || lane[k] === "pre" || lane[k] === "final" || /^(upper|lower)/i.test(m.Tab)) return;
+    if (again(i)) lane[k] = "upper";
+    else if (!list.slice(i + 1).some(function(x){ return !x.Team1 || !x.Team2 || x.Team1 === "TBD" || x.Team2 === "TBD"; })) lane[k] = "lower"; });
   /* the last match, alone in its round, between the unbeaten team of the upper bracket and the survivor of the lower one: a grand final (Worlds play-in…), not a lower bracket match */
   var li = list.length - 1, lm = list[li];
   if (lm && lane[lm.Tab + "|" + li] === "lower" && list.filter(function(m){ return m.Tab === lm.Tab; }).length === 1) {
@@ -338,8 +347,8 @@ function bracketHTML(ms, lgK){
     /* column titles: « Round N » renumbered inside each bracket (the wiki counts upper and lower together), and the last one-match round of a double elimination bracket is its final */
     return tb.map(function(t, c){
       var name = brTab(t);
-      if (laneName === "final") name = dbl ? (en() ? "Grand final" : "Grande finale") : /^Round \d+$/i.test(t) ? (en() ? "Final" : "Finale") : name;
-      else if (/^Round \d+$/i.test(t) && laneName) name = (c === tb.length - 1 && col[c].length === 1 && tb.length > 1) ? (en() ? laneName + " final" : "Finale " + laneName) : (en() ? "Round " : "Tour ") + (c + 1);
+      if (laneName === "final") name = dbl ? (en() ? "Final" : "Finale") : /^Round \d+$/i.test(t) ? (en() ? "Final" : "Finale") : name;
+      else if (/^Round \d+$/i.test(t) && laneName) name = (c === tb.length - 1 && col[c].length === 1 && (tb.length > 1 || laneName === "upper")) ? (en() ? laneName + " final" : "Finale " + laneName) : (en() ? "Round " : "Tour ") + (c + 1);
       return '<div class="br-col"><div class="br-h">'+e(name)+'</div><div class="br-ms">'+col[c].map(card).join("")+'</div></div>'; }).join("");
   }
   var laneName = "";
