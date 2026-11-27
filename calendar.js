@@ -291,6 +291,15 @@ function lanesOf(ms){
   list.forEach(function(m, i){ var k = m.Tab + "|" + i; if (lane[k] !== "?") return;
     var others = list.map(function(x, j){ return x.Tab === m.Tab ? lane[x.Tab + "|" + j] : null; }).filter(function(v){ return v && v !== "?"; });
     lane[k] = others.length && others.every(function(v){ return v === others[0]; }) ? others[0] : "upper"; });
+  /* the last match, alone in its round, between the unbeaten team of the upper bracket and the survivor of the lower one: a grand final (Worlds play-in…), not a lower bracket match */
+  var li = list.length - 1, lm = list[li];
+  if (lm && lane[lm.Tab + "|" + li] === "lower" && list.filter(function(m){ return m.Tab === lm.Tab; }).length === 1) {
+    var lost = {}, seen = {};
+    list.slice(0, li).forEach(function(m, j){ if (lane[m.Tab + "|" + j] === "pre") return; seen[m.Team1] = seen[m.Team2] = 1;
+      if (m.Winner === "1") lost[m.Team2] = 1; if (m.Winner === "2") lost[m.Team1] = 1; });
+    var clean = function(t){ return seen[t] && !lost[t]; };
+    if ((clean(lm.Team1) && lost[lm.Team2]) || (clean(lm.Team2) && lost[lm.Team1])) lane[lm.Tab + "|" + li] = "final";
+  }
   return {list: list, lane: function(i){ return lane[list[i].Tab + "|" + i]; }};
 }
 function bracketHTML(ms, lgK){
@@ -329,7 +338,8 @@ function bracketHTML(ms, lgK){
     /* column titles: « Round N » renumbered inside each bracket (the wiki counts upper and lower together), and the last one-match round of a double elimination bracket is its final */
     return tb.map(function(t, c){
       var name = brTab(t);
-      if (/^Round \d+$/i.test(t) && laneName) name = (c === tb.length - 1 && col[c].length === 1 && tb.length > 1) ? (en() ? laneName + " final" : "Finale " + laneName) : (en() ? "Round " : "Tour ") + (c + 1);
+      if (laneName === "final") name = dbl ? (en() ? "Grand final" : "Grande finale") : /^Round \d+$/i.test(t) ? (en() ? "Final" : "Finale") : name;
+      else if (/^Round \d+$/i.test(t) && laneName) name = (c === tb.length - 1 && col[c].length === 1 && tb.length > 1) ? (en() ? laneName + " final" : "Finale " + laneName) : (en() ? "Round " : "Tour ") + (c + 1);
       return '<div class="br-col"><div class="br-h">'+e(name)+'</div><div class="br-ms">'+col[c].map(card).join("")+'</div></div>'; }).join("");
   }
   var laneName = "";
@@ -339,7 +349,7 @@ function bracketHTML(ms, lgK){
   return pre + '<div class="br">' +
     '<div class="br-lanes">' + (dbl ? '<div class="br-lt">Upper bracket</div>' : "") + '<div class="br-lane">' + (laneName = dbl ? "upper" : "", cols(A.upper)) + '</div>' +
       (dbl ? '<div class="br-lt">Lower bracket</div><div class="br-lane">' + (laneName = "lower", cols(A.lower)) + '</div>' : "") + '</div>' + (laneName = "", "") +
-    (lanes.final.length ? '<div class="br-fin">' + cols(A.final) + '</div>' : "") + '</div>';
+    (lanes.final.length ? '<div class="br-fin">' + (laneName = "final", cols(A.final)) + '</div>' : "") + '</div>';
 }
 
 /* ---- who goes where after the regular season: colours of the standings ---- */
