@@ -300,10 +300,15 @@ function bracketHTML(ms, lgK){
   list.forEach(function(m, i){ lanes[lane[m.Tab + "|" + i]].push(m); });
   function team(m, n){ var t = m["Team" + n], w = m.Winner === String(n), l = m.Winner === String(3 - n), sc = m["Team" + n + "Score"];
     return '<div class="br-t'+(w ? " w" : l ? " l" : "")+'" title="'+e(t)+'">'+(t && t !== "TBD" ? logo(t, lgK) : '<span class="cal-lg"></span>')+'<span class="nm">'+e(t && t !== "TBD" ? short(t) : (en() ? "TBD" : "À définir"))+'</span><b>'+e(sc === "" || sc == null ? "" : sc)+'</b></div>'; }
+  /* each team on the side it comes from: the one whose previous win sits higher in the tree is on top */
+  var pos = new Map(), when = function(m){ return String(m.DateTime_UTC || m["DateTime UTC"] || ""); };
+  function from(m, t){ var best = null; if (!t || t === "TBD") return null;
+    list.forEach(function(x){ if (x !== m && pos.has(x) && winnerOf(x) === t && when(x) <= when(m) && (!best || when(x) > when(best))) best = x; }); return best; }
   function card(m){ var d = utc(m.DateTime_UTC || m["DateTime UTC"]);
-    return '<div class="br-m">'+team(m, 1)+team(m, 2)+'<div class="br-d">'+(d ? e(d.toLocaleDateString(loc(), {day: "numeric", month: "short"}) + " · " + hhmm(d)) : "")+'</div></div>'; }
+    var a = from(m, m.Team1), b = from(m, m.Team2), flip = a && b && pos.get(b) < pos.get(a);
+    return '<div class="br-m">'+(flip ? team(m, 2)+team(m, 1) : team(m, 1)+team(m, 2))+'<div class="br-d">'+(d ? e(d.toLocaleDateString(loc(), {day: "numeric", month: "short"}) + " · " + hhmm(d)) : "")+'</div></div>'; }
   function winnerOf(m){ return m.Winner === "1" ? m.Team1 : m.Winner === "2" ? m.Team2 : ""; }
-  function cols(ms2){
+  function arrange(ms2, at){
     var tb = []; ms2.forEach(function(m){ if (tb.indexOf(m.Tab) < 0) tb.push(m.Tab); });
     var col = tb.map(function(t){ return ms2.filter(function(m){ return m.Tab === t; }); });
     /* put every match next to the one its winner plays next (from the last round back to the first), so the tree reads straight */
@@ -315,6 +320,12 @@ function bracketHTML(ms, lgK){
         return {m: m, k: k};
       }).sort(function(a, b){ return a.k - b.k; }).map(function(x){ return x.m; });
     }
+    /* where each match sits: lane (upper above lower) then its place in its column */
+    col.forEach(function(cm){ cm.forEach(function(m, i){ pos.set(m, at + (i + 0.5) / cm.length); }); });
+    return {tb: tb, col: col};
+  }
+  function cols(A){
+    var tb = A.tb, col = A.col;
     /* column titles: « Round N » renumbered inside each bracket (the wiki counts upper and lower together), and the last one-match round of a double elimination bracket is its final */
     return tb.map(function(t, c){
       var name = brTab(t);
@@ -323,11 +334,12 @@ function bracketHTML(ms, lgK){
   }
   var laneName = "";
   var dbl = lanes.lower.length > 0;
-  var pre = lanes.pre.length ? '<div class="br br-pre"><div class="br-lanes"><div class="br-lt">' + e(brTab(lanes.pre[0].Tab)) + '</div><div class="br-lane">' + cols(lanes.pre) + '</div></div></div>' : "";
+  var A = {pre: arrange(lanes.pre, -1), upper: arrange(lanes.upper, 0), lower: arrange(lanes.lower, 1), final: arrange(lanes.final, 2)};
+  var pre = lanes.pre.length ? '<div class="br br-pre"><div class="br-lanes"><div class="br-lt">' + e(brTab(lanes.pre[0].Tab)) + '</div><div class="br-lane">' + cols(A.pre) + '</div></div></div>' : "";
   return pre + '<div class="br">' +
-    '<div class="br-lanes">' + (dbl ? '<div class="br-lt">Upper bracket</div>' : "") + '<div class="br-lane">' + (laneName = dbl ? "upper" : "", cols(lanes.upper)) + '</div>' +
-      (dbl ? '<div class="br-lt">Lower bracket</div><div class="br-lane">' + (laneName = "lower", cols(lanes.lower)) + '</div>' : "") + '</div>' + (laneName = "", "") +
-    (lanes.final.length ? '<div class="br-fin">' + cols(lanes.final) + '</div>' : "") + '</div>';
+    '<div class="br-lanes">' + (dbl ? '<div class="br-lt">Upper bracket</div>' : "") + '<div class="br-lane">' + (laneName = dbl ? "upper" : "", cols(A.upper)) + '</div>' +
+      (dbl ? '<div class="br-lt">Lower bracket</div><div class="br-lane">' + (laneName = "lower", cols(A.lower)) + '</div>' : "") + '</div>' + (laneName = "", "") +
+    (lanes.final.length ? '<div class="br-fin">' + cols(A.final) + '</div>' : "") + '</div>';
 }
 
 /* ---- who goes where after the regular season: colours of the standings ---- */
