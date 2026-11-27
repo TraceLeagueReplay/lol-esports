@@ -489,7 +489,7 @@ function draw(){
     var ms = data.matches[T.OverviewPage], sd = isKnockout(T) ? [] : data.standings[T.OverviewPage];
     var title = !many ? "" : !isKnockout(T) && lgs.k !== "INTL" ? (en() ? "Regular season" : "Saison régulière") : stageName(T, S);
     if (!ms || !sd) { wait = true; return; }
-    out += '<section class="cal-stage">' + (title ? '<h2 class="cal-stage-h">'+e(title)+'</h2>' : "") + stageHTML(T, ms, sd, lgs) + '</section>';
+    stageParts(T, ms, sd, lgs, title).forEach(function(p){ out += '<section class="cal-stage">' + (p.title ? '<h2 class="cal-stage-h">'+e(p.title)+'</h2>' : "") + p.html + '</section>'; });
   });
   root.innerHTML = h + out + (wait ? '<p class="cal-note">Chargement…</p>' : "");
 }
@@ -514,15 +514,29 @@ function segPick(k, segs){
 }
 function stageName(T, S){ var n = T.Name.indexOf(S.name) === 0 ? T.Name.slice(S.name.length).trim() : T.Name; return n || T.Name; }
 /* the matches of a regular season that are not part of it (tiebreakers, playoffs on the same wiki page): other match length, or a bracket round */
+function majority(list, f){ var n = {}; list.forEach(function(x){ var k = f(x); n[k] = (n[k] || 0) + 1; }); return Object.keys(n).sort(function(a, b){ return n[b] - n[a]; })[0]; }
+var KO_TAB = /^(Bracket|Upper|Lower|Quarter|Semi|Grand Final|Finals?$|Round \d+$|Round of|Knockout|Playoffs?\b)/i;
+/* playoffs written on the same wiki page as the season (other match length, bracket rounds) */
+function innerPlayoffs(ms){ var bo = majority(ms, function(m){ return m.BestOf; }); return ms.filter(function(m){ return m.BestOf !== bo && KO_TAB.test(m.Tab || ""); }); }
+/* the matches of the regular season itself: usual match length, not a bracket round or a tiebreaker,
+   and only its main phase when the page holds two (« Week 1… » and « Day 1… ») */
 function seasonMatches(ms){
-  var n = {}; ms.forEach(function(m){ n[m.BestOf] = (n[m.BestOf] || 0) + 1; });
-  var bo = Object.keys(n).sort(function(a, b){ return n[b] - n[a]; })[0];
-  return ms.filter(function(m){ return m.BestOf === bo && !/^(Bracket|Upper|Lower|Quarter|Semi|Grand Final|Finals?$|Round of|Knockout|Playoffs?\b|Tiebreak)/i.test(m.Tab || ""); });
+  var bo = majority(ms, function(m){ return m.BestOf; });
+  var base = ms.filter(function(m){ return m.BestOf === bo && !KO_TAB.test(m.Tab || "") && !/tiebreak/i.test(m.Tab || ""); });
+  var fam = majority(base, function(m){ return String(m.Tab || "").replace(/\d+/g, "").trim(); });
+  return base.filter(function(m){ return String(m.Tab || "").replace(/\d+/g, "").trim() === fam; });
 }
 /* a team listed twice in the standings of one page (another table on it): keep its main line */
 function dedupe(sd){
   var best = {}; sd.forEach(function(r){ var n = (+r.WinSeries || 0) + (+r.LossSeries || 0); if (!best[r.Team] || n > best[r.Team].n) best[r.Team] = {r: r, n: n}; });
   return sd.filter(function(r){ return best[r.Team].r === r; });
+}
+function stageParts(T, ms, sd, lgs, title){
+  var ko = isKnockout(T) || /play-in/i.test(T.Name), po = ko ? [] : innerPlayoffs(ms);
+  if (po.length < 2) return [{title: title, html: stageHTML(T, ms, sd, lgs)}];
+  var rest = ms.filter(function(m){ return po.indexOf(m) < 0; });
+  return [{title: title || (en() ? "Regular season" : "Saison régulière"), html: stageHTML(T, rest, sd, lgs)},
+          {title: "Playoffs", html: '<section class="cal-brs">' + bracketHTML(po, lgs.k) + '</section>'}];
 }
 function stageHTML(T, ms, sd, lgs){
   var h = "", bms = ms.filter(function(m){ return isBracket(m, T); }), ko = isKnockout(T) || /play-in/i.test(T.Name);
