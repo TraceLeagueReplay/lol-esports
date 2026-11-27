@@ -426,7 +426,8 @@ function h2hHTML(ms, rows, lgK){
       var rs = cell[a + "|" + b];
       if (!rs) return '<td class="none">·</td>';
       var w = rs.filter(function(x){ return x[2]; }).length, cls = w === rs.length ? "won" : w === 0 ? "lost" : "split";
-      return '<td class="'+cls+'" title="'+e(short(a)+" – "+short(b))+'">' + rs.map(function(x){ return x[0] + "-" + x[1]; }).join("<br>") + '</td>';
+      return '<td class="'+cls+'" title="'+e(short(a)+" – "+short(b)+" : "+rs.map(function(x){ return x[0] + "-" + x[1]; }).join(", "))+'">' +
+        rs.reduce(function(s, x){ return s + x[0]; }, 0) + "-" + rs.reduce(function(s, x){ return s + x[1]; }, 0) + '</td>';
     }).join("") + '<td class="tot '+(tot[a][0] > tot[a][1] ? "won" : tot[a][0] < tot[a][1] ? "lost" : "split")+'">'+tot[a][0]+" - "+tot[a][1]+'</td></tr>';
   }).join("");
   return '<section class="cal-h2h"><h2 class="cal-h2">Face-à-face</h2><div class="h2h-wrap"><table class="h2h">' + head + body + '</table></div></section>';
