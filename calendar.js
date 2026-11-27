@@ -559,7 +559,7 @@ function stageTabs(T, ms, sd, lgs, S){
     if (swissRounds(rest).length >= 3 && lgs.k === "INTL") out.push({id: T.OverviewPage + "|swiss", label: en() ? "Swiss stage" : "Phase suisse", html: swissHTML(rest, srt, lgs.k, T), live: live});
     else if (sd.length) {
       var zs = zonesFor(T, sd);
-      out.push({id: T.OverviewPage + "|cl", label: many && lgs.k === "INTL" ? name : (en() ? "Standings" : "Classement"), live: live,
+      out.push({id: T.OverviewPage + "|cl", label: many && lgs.k === "INTL" ? name : (en() ? "Regular season" : "Saison régulière"), live: live,
         html: '<div class="cal-cols"><section class="cal-sec"><h2 class="cal-h2">Classement</h2>' + standingsHTML(sd, lgs.k, zs) + (zs ? legendHTML(zs) : "") + '</section>' +
               '<section class="cal-sec">' + h2hHTML(seasonMatches(rest), srt, lgs.k) + '</section></div>'});
     }
