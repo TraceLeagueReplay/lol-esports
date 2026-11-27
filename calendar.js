@@ -297,8 +297,21 @@ function bracketHTML(ms, lgK){
     return '<div class="br-t'+(w ? " w" : l ? " l" : "")+'" title="'+e(t)+'">'+(t && t !== "TBD" ? logo(t, lgK) : '<span class="cal-lg"></span>')+'<span class="nm">'+e(t && t !== "TBD" ? short(t) : (en() ? "TBD" : "À définir"))+'</span><b>'+e(sc === "" || sc == null ? "" : sc)+'</b></div>'; }
   function card(m){ var d = utc(m.DateTime_UTC || m["DateTime UTC"]);
     return '<div class="br-m">'+team(m, 1)+team(m, 2)+'<div class="br-d">'+(d ? e(d.toLocaleDateString(loc(), {day: "numeric", month: "short"}) + " · " + hhmm(d)) : "")+'</div></div>'; }
-  function cols(ms2){ var tb = []; ms2.forEach(function(m){ if (tb.indexOf(m.Tab) < 0) tb.push(m.Tab); });
-    return tb.map(function(t){ return '<div class="br-col"><div class="br-h">'+e(brTab(t))+'</div><div class="br-ms">'+ms2.filter(function(m){ return m.Tab === t; }).map(card).join("")+'</div></div>'; }).join(""); }
+  function winnerOf(m){ return m.Winner === "1" ? m.Team1 : m.Winner === "2" ? m.Team2 : ""; }
+  function cols(ms2){
+    var tb = []; ms2.forEach(function(m){ if (tb.indexOf(m.Tab) < 0) tb.push(m.Tab); });
+    var col = tb.map(function(t){ return ms2.filter(function(m){ return m.Tab === t; }); });
+    /* put every match next to the one its winner plays next (from the last round back to the first), so the tree reads straight */
+    for (var c = col.length - 2; c >= 0; c--) {
+      var next = col[c + 1];
+      col[c] = col[c].map(function(m, i){
+        var w = winnerOf(m), k = 1e3 + i;
+        next.forEach(function(n, j){ if (w && (n.Team1 === w || n.Team2 === w)) k = j * 2 + (n.Team1 === w ? 0 : 1); });
+        return {m: m, k: k};
+      }).sort(function(a, b){ return a.k - b.k; }).map(function(x){ return x.m; });
+    }
+    return tb.map(function(t, c){ return '<div class="br-col"><div class="br-h">'+e(brTab(t))+'</div><div class="br-ms">'+col[c].map(card).join("")+'</div></div>'; }).join("");
+  }
   var dbl = lanes.lower.length > 0;
   return '<div class="br">' +
     '<div class="br-lanes">' + (dbl ? '<div class="br-lt">Upper bracket</div>' : "") + '<div class="br-lane">' + cols(lanes.upper) + '</div>' +
