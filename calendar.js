@@ -394,11 +394,14 @@ function played(ms){ return ms.filter(function(m){ return m.Winner === "1" || m.
 /* zone of each team of the standings: final when the next stages are known, else worked out from the results so far
    (« sûr » when no result left can change it) */
 function zonesFor(T, rows){
-  if (!T || isKnockout(T) || !rows || !rows.length || rows.some(function(r){ return r.group; })) return null;
+  if (!T || isKnockout(T) || !rows || !rows.length) return null;
   if (!rows.some(function(r){ return +r.WinSeries || +r.LossSeries; })) return null;
   var ms = data.matches[T.OverviewPage] || [], left = ms.filter(function(m){ return !(m.Winner === "1" || m.Winner === "2") && m.Team1 && m.Team2; });
   var fin = outcome(T), res = {};
+  /* season over and what came next is known: everyone's real zone (groups or not) */
   if (fin && !left.length) { rows.forEach(function(r){ res[r.Team] = {z: fin[r.Team] || "out", sure: true}; }); return res; }
+  /* still being played in groups: the places per zone of last time can't be used */
+  if (rows.some(function(r){ return r.group; })) return null;
   var ref = refSeason(T), rz = ref && outcome(ref), rrows = ref && data.standings[ref.OverviewPage];
   if (!rz || !rrows || !rrows.length) return null;
   /* how many places lead to each zone, as last time */
