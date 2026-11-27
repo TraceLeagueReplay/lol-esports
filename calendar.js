@@ -444,6 +444,7 @@ function swissHTML(ms, rows, lgK, T){
     [[m.Team1, m.Team2, "1"], [m.Team2, m.Team1, "2"]].forEach(function(p){ if (!(p[0] in rec)) return;
       at[p[0] + "|" + r] = {op: p[1], res: done ? (m.Winner === p[2] ? "won" : "lost") : "", sc: done ? (p[2] === "1" ? m.Team1Score + "-" + m.Team2Score : m.Team2Score + "-" + m.Team1Score) : ""};
       if (done) rec[p[0]][m.Winner === p[2] ? 0 : 1]++; }); });
+  var pos = teams.slice(); teams.sort(function(a, b){ return rec[b][0] - rec[a][0] || rec[a][1] - rec[b][1] || pos.indexOf(a) - pos.indexOf(b); });
   var head = '<tr><th>'+(en() ? "Team" : "Équipe")+'</th>' + rounds.map(function(r){ return '<th>'+(en() ? "Round " : "Tour ")+r+'</th>'; }).join("") + '<th class="tot">'+(en() ? "Record" : "Bilan")+'</th></tr>';
   var body = teams.map(function(t){
     var q = rec[t][0] >= 3 ? "won" : rec[t][1] >= 3 ? "lost" : "";
@@ -552,12 +553,14 @@ function stageTabs(T, ms, sd, lgs, S){
   var many = S.stages.length > 1, name = stageName(T, S), out = [];
   var live = (function(){ var a = day(T.DateStart), b = day(T.Date), n = Date.now(); return !!(a && a.getTime() <= n && (!b || b.getTime() + 86400000 >= n)); })();
   var ko = isKnockout(T) || /play-in/i.test(T.Name);
-  var po = ko ? ms.filter(function(m){ return isBracket(m, T); }) : innerPlayoffs(ms);
+  /* Swiss stage: its rounds are « Round N » in Bo1 and Bo3 — not playoffs; only the knockout rounds after it are */
+  var swiss = !ko && lgs.k === "INTL" && swissRounds(ms).length >= 3;
+  var po = ko ? ms.filter(function(m){ return isBracket(m, T); }) : swiss ? ms.filter(function(m){ return !/^Round \d+$/i.test(m.Tab || "") && KO_TAB.test(m.Tab || ""); }) : innerPlayoffs(ms);
   var rest = ko ? [] : ms.filter(function(m){ return po.indexOf(m) < 0; });
   if (!ko) {
     sd = dedupe(sd);
     var srt = sd.slice().sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); });
-    if (swissRounds(rest).length >= 3 && lgs.k === "INTL") out.push({id: T.OverviewPage + "|swiss", label: en() ? "Swiss stage" : "Phase suisse", html: swissHTML(rest, srt, lgs.k, T), live: live});
+    if (swiss) out.push({id: T.OverviewPage + "|swiss", label: en() ? "Swiss stage" : "Phase suisse", html: swissHTML(rest, srt, lgs.k, T), live: live});
     else if (sd.length) {
       var zs = zonesFor(T, sd);
       out.push({id: T.OverviewPage + "|cl", label: many && lgs.k === "INTL" ? name : (en() ? "Regular season" : "Saison régulière"), live: live,
