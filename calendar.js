@@ -260,6 +260,8 @@ function standingsHTML(rows, lg, zs){
 /* ---- bracket (« arbre ») of a playoffs stage or of the knockout stage of an international tournament ---- */
 function isBracket(m, T){
   var tab = String(m.Tab || "");
+  /* a play-in (Worlds, MSI…): a small bracket */
+  if (T && /play-in/i.test(T.Name) && /^(Round \d+|Finals?)$/i.test(tab)) return true;
   /* a stage that is all knockout (playoffs, grand finals, road to MSI…): every match is in the bracket */
   if (T && /playoffs|finals|knockout|bracket|road to|regional/i.test(T.Name) && (BY_NAME[T.League] || {}).k !== "INTL") return true;
   if (/^(Bracket|Upper|Lower|Quarter|Semi|Grand Final|Finals?$|Round of|Knockout|Playoffs?\b)/i.test(tab)) return true;
@@ -523,9 +525,9 @@ function dedupe(sd){
   return sd.filter(function(r){ return best[r.Team].r === r; });
 }
 function stageHTML(T, ms, sd, lgs){
-  var h = "", bms = ms.filter(function(m){ return isBracket(m, T); });
-  if (bms.length >= 2) h += '<section class="cal-brs">' + (isKnockout(T) ? "" : '<h2 class="cal-h2">Arbre</h2>') + bracketHTML(bms, lgs.k) + '</section>';
-  if (isKnockout(T)) return bms.length >= 2 ? h : h + (ms.length ? byDay(ms.slice().reverse(), false) : '<p class="cal-note">Pas encore de match annoncé.</p>');
+  var h = "", bms = ms.filter(function(m){ return isBracket(m, T); }), ko = isKnockout(T) || /play-in/i.test(T.Name);
+  if (bms.length >= 2) h += '<section class="cal-brs">' + (ko ? "" : '<h2 class="cal-h2">Arbre</h2>') + bracketHTML(bms, lgs.k) + '</section>';
+  if (ko) return bms.length >= 2 ? h : h + (ms.length ? byDay(ms.slice().reverse(), false) : '<p class="cal-note">Pas encore de match annoncé.</p>');
   sd = dedupe(sd);
   var srt = sd.slice().sort(function(a, b){ return (+a.Place || 99) - (+b.Place || 99); });
   var swiss = swissRounds(ms).length >= 3 && lgs.k === "INTL";
