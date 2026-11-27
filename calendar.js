@@ -268,7 +268,9 @@ function isBracket(m, T){
   return !!(T && /playoffs/i.test(T.Name) && /^(Round \d+|Finals?)$/i.test(tab));
 }
 function brTab(s){ if (en()) return s; return String(s).replace(/^Bracket /, "").replace(/^Round (\d+)$/, "Tour $1").replace(/^Quarterfinals?$/i, "Quarts de finale").replace(/^Semifinals?$/i, "Demi-finales").replace(/^Grand Finals?$/i, "Grande finale").replace(/^Finals?$/i, "Finale").replace(/^Upper /, "").replace(/^Lower /, ""); }
-/* order the matches of a bracket and tell for each one: upper, lower or final */
+/* rounds played before the bracket itself (LPL Knight's Road…): their winners join the bracket, shown apart above it */
+var PRE_TAB = /^(Knight'?s Road|Play-?In|Qualif|Last Chance|Road to)/i;
+/* order the matches of a bracket and tell for each one: pre, upper, lower or final */
 function lanesOf(ms){
   var list = ms.slice().sort(function(a, b){ return String(a.DateTime_UTC || a["DateTime UTC"]).localeCompare(String(b.DateTime_UTC || b["DateTime UTC"])) || (+a.N_MatchInTab || +a["N MatchInTab"] || 0) - (+b.N_MatchInTab || +b["N MatchInTab"] || 0); });
   var tabs = []; list.forEach(function(m){ if (tabs.indexOf(m.Tab) < 0) tabs.push(m.Tab); });
@@ -276,7 +278,8 @@ function lanesOf(ms){
   /* upper or lower bracket: a team that already lost in this bracket, or already played in the lower one (some teams start there), plays in the lower one */
   list.forEach(function(m){
     var t1 = m.Team1, t2 = m.Team2, known = function(t){ return t && t !== "TBD"; };
-    if (/final/i.test(m.Tab) && m.Tab === lastTab) lane[m.Tab + "|" + list.indexOf(m)] = "final";
+    if (PRE_TAB.test(m.Tab || "")) lane[m.Tab + "|" + list.indexOf(m)] = "pre";
+    else if (/final/i.test(m.Tab) && m.Tab === lastTab) lane[m.Tab + "|" + list.indexOf(m)] = "final";
     else if (/^lower/i.test(m.Tab)) lane[m.Tab + "|" + list.indexOf(m)] = "lower";
     else if (/^upper/i.test(m.Tab)) lane[m.Tab + "|" + list.indexOf(m)] = "upper";
     else lane[m.Tab + "|" + list.indexOf(m)] = (known(t1) && loss[t1]) || (known(t2) && loss[t2]) ? "lower" : (known(t1) || known(t2)) ? "upper" : "?";
@@ -293,7 +296,7 @@ function lanesOf(ms){
 function bracketHTML(ms, lgK){
   var L = lanesOf(ms), list = L.list, lane = {};
   list.forEach(function(m, i){ lane[m.Tab + "|" + i] = L.lane(i); });
-  var lanes = {upper: [], lower: [], final: []};
+  var lanes = {pre: [], upper: [], lower: [], final: []};
   list.forEach(function(m, i){ lanes[lane[m.Tab + "|" + i]].push(m); });
   function team(m, n){ var t = m["Team" + n], w = m.Winner === String(n), l = m.Winner === String(3 - n), sc = m["Team" + n + "Score"];
     return '<div class="br-t'+(w ? " w" : l ? " l" : "")+'" title="'+e(t)+'">'+(t && t !== "TBD" ? logo(t, lgK) : '<span class="cal-lg"></span>')+'<span class="nm">'+e(t && t !== "TBD" ? short(t) : (en() ? "TBD" : "À définir"))+'</span><b>'+e(sc === "" || sc == null ? "" : sc)+'</b></div>'; }
@@ -320,7 +323,8 @@ function bracketHTML(ms, lgK){
   }
   var laneName = "";
   var dbl = lanes.lower.length > 0;
-  return '<div class="br">' +
+  var pre = lanes.pre.length ? '<div class="br br-pre"><div class="br-lanes"><div class="br-lt">' + e(brTab(lanes.pre[0].Tab)) + '</div><div class="br-lane">' + cols(lanes.pre) + '</div></div></div>' : "";
+  return pre + '<div class="br">' +
     '<div class="br-lanes">' + (dbl ? '<div class="br-lt">Upper bracket</div>' : "") + '<div class="br-lane">' + (laneName = dbl ? "upper" : "", cols(lanes.upper)) + '</div>' +
       (dbl ? '<div class="br-lt">Lower bracket</div><div class="br-lane">' + (laneName = "lower", cols(lanes.lower)) + '</div>' : "") + '</div>' + (laneName = "", "") +
     (lanes.final.length ? '<div class="br-fin">' + cols(lanes.final) + '</div>' : "") + '</div>';
